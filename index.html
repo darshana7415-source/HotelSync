@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STFFSYNC</title>
+  <meta name="theme-color" content="#0d6b72">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="STFFSYNC">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-auth="out" data-role="manager">
+  <section class="login-overlay" id="login-screen" aria-label="Demo login">
+    <div class="login-card">
+      <div class="brand login-brand">
+        <span class="brand-mark">S</span>
+        <div>
+          <strong>STFFSYNC</strong>
+          <small>Hotel workforce cloud</small>
+        </div>
+      </div>
+      <p class="eyebrow">Access</p>
+      <h1>Sign in</h1>
+      <div class="simple-login">
+        <label>
+          Login as
+          <select id="login-role">
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+          </select>
+        </label>
+        <div class="login-fields" id="staff-credentials">
+          <label>
+            Employee code
+            <input id="staff-login-code" type="text" inputmode="numeric" autocomplete="username" placeholder="Example: 01">
+          </label>
+          <label>
+            Password
+            <input id="staff-login-password" type="password" autocomplete="current-password" placeholder="First login: enter any password to save">
+          </label>
+          <small class="staff-login-status" id="staff-login-status">Enter employee code and password.</small>
+        </div>
+        <div class="login-fields" id="admin-credentials" hidden>
+          <label>
+            Email
+            <input id="cloud-email" type="email" autocomplete="email" placeholder="admin@test.com">
+          </label>
+          <label>
+            Password
+            <input id="cloud-password" type="password" autocomplete="current-password" placeholder="Admin password">
+          </label>
+          <small id="cloud-status">Enter cloud email and password. For demo, leave blank and sign in.</small>
+        </div>
+        <button id="login-submit" type="button">Sign in</button>
+        <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
+        <small class="login-note">Staff use employee code and password only. Admin and manager use email and password.</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">S</span>
+        <div>
+          <strong>STFFSYNC</strong>
+          <small>Hotel workforce cloud</small>
+        </div>
+      </div>
+      <nav aria-label="Main navigation">
+        <a href="#dashboard" data-page-link="dashboard" class="active">Dashboard</a>
+        <a href="#staff" data-page-link="staff">Staff</a>
+        <a href="#shifts" data-page-link="shifts">Shifts</a>
+        <a href="#leave" data-page-link="leave">Leave</a>
+        <a href="#location" data-page-link="location">Location</a>
+        <a href="#reports" data-page-link="reports">Reports</a>
+      </nav>
+      <div class="hotel-card">
+        <span>Today</span>
+        <strong id="today-label">Morning shift</strong>
+        <small id="session-label">Not signed in</small>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Hotel staff operations</p>
+          <h1>Staff leave, shifts, and attendance.</h1>
+        </div>
+        <div class="top-actions">
+          <select id="role-select" aria-label="Choose demo role">
+            <option value="admin">Admin view</option>
+            <option value="manager">Manager view</option>
+            <option value="staff">Staff view</option>
+          </select>
+          <button class="ghost" id="export-report">Export report</button>
+          <button class="ghost" id="reset-demo">Reset demo</button>
+          <button class="ghost" id="logout-demo">Logout</button>
+          <button id="open-leave">New leave request</button>
+        </div>
+      </header>
+
+      <section class="role-grid" id="role-demo">
+        <div class="panel staff-portal">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Staff self-service</p>
+              <h2>My shift today</h2>
+            </div>
+            <select id="staff-switcher" aria-label="Choose staff profile"></select>
+          </div>
+          <div id="staff-card"></div>
+        </div>
+
+        <div class="panel manager-portal">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Manager view</p>
+              <h2>Operations watch</h2>
+            </div>
+            <span class="pill red" id="manager-alert-count">0 alerts</span>
+          </div>
+          <div class="manager-grid">
+            <article class="attention-panel">
+              <strong>Needs attention</strong>
+              <div id="manager-alerts" class="mini-list"></div>
+            </article>
+            <article>
+              <strong>Quick approvals</strong>
+              <div id="manager-approvals" class="mini-list"></div>
+            </article>
+            <article>
+              <strong>Shift changes</strong>
+              <div id="manager-shift-changes" class="mini-list"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-grid admin-row" id="admin">
+        <div class="panel">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Admin setup</p>
+              <h2>Add staff member</h2>
+            </div>
+          </div>
+          <form id="staff-form" class="form">
+            <div class="form-row">
+              <label>
+                Employee code
+                <input id="new-staff-code" type="text" inputmode="numeric" placeholder="Example: 01" required>
+              </label>
+              <label>
+                Full name
+                <input id="new-staff-name" type="text" placeholder="Example: Kamal Perera" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Department
+                <select id="new-staff-department">
+                  <option>Front Office</option>
+                  <option>Housekeeping</option>
+                  <option>F&B</option>
+                  <option>Kitchen</option>
+                  <option>Restaurant</option>
+                  <option>Security</option>
+                  <option>Maintenance</option>
+                  <option>General</option>
+                </select>
+              </label>
+              <label>
+                Role
+                <input id="new-staff-role" type="text" placeholder="Job role" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Shift
+                <select id="new-staff-shift">
+                  <option>Morning</option>
+                  <option>Evening</option>
+                  <option>Night</option>
+                  <option>Split</option>
+                </select>
+              </label>
+              <label>
+                Leave balance
+                <input id="new-staff-leave" type="number" min="0" value="12" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Phone WiFi MAC address
+                <input id="new-staff-phone" type="text" placeholder="Example: 12:56:00:02:52:7F">
+              </label>
+            </div>
+            <button type="submit">Add staff</button>
+          </form>
+          <div class="directory-list" id="staff-directory"></div>
+        </div>
+
+        <div class="panel" id="edit-staff">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Edit tab</p>
+              <h2>Edit staff details</h2>
+            </div>
+            <span class="pill blue">Cloud ready</span>
+          </div>
+          <form id="edit-staff-form" class="form">
+            <label>
+              Staff member
+              <select id="edit-staff-select"></select>
+            </label>
+            <div class="form-row">
+              <label>
+                Employee code
+                <input id="edit-staff-code" type="text" inputmode="numeric" placeholder="Example: 01" required>
+              </label>
+              <label>
+                Full name
+                <input id="edit-staff-name" type="text" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Department
+                <select id="edit-staff-department" required>
+                  <option>Kitchen</option>
+                  <option>Front Office</option>
+                  <option>Restaurant</option>
+                  <option>Housekeeping</option>
+                  <option>Maintenance</option>
+                  <option>General</option>
+                  <option>Security</option>
+                  <option>F&B</option>
+                </select>
+              </label>
+              <label>
+                Job title
+                <input id="edit-staff-role" type="text" placeholder="Example: Head Chef" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Leave balance
+                <input id="edit-staff-leave" type="number" min="0" step="0.5" required>
+              </label>
+              <label>
+                Shift
+                <input id="edit-staff-shift" type="text" list="shift-options" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Phone WiFi MAC address
+                <input id="edit-staff-phone" type="text" placeholder="Example: 12:56:00:02:52:7F">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Staff login password
+                <input id="edit-staff-password" type="password" placeholder="Leave blank to keep current password">
+              </label>
+              <label class="check-row password-reset-row">
+                <input id="clear-staff-password" type="checkbox">
+                Reset password on next staff login
+              </label>
+            </div>
+            <button type="submit">Save staff changes</button>
+            <small class="form-note" id="edit-staff-note">Choose a staff member to edit department, job title, leave, and shift.</small>
+          </form>
+          <form id="staff-import-form" class="form import-form">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Quick import</p>
+                <h3>Paste staff list</h3>
+              </div>
+            </div>
+            <label>
+              Staff rows
+              <textarea id="staff-import-text" rows="6" placeholder="000001, PRIYANTHA S H, Kitchen, Head Chef, 6, Varied 10h"></textarea>
+            </label>
+            <button type="submit">Import staff rows</button>
+            <small class="form-note">Format: employee code, full name, department, job title, leave balance, shift. One staff member per line.</small>
+          </form>
+          <datalist id="department-options">
+            <option value="Kitchen"></option>
+            <option value="Front Office"></option>
+            <option value="Restaurant"></option>
+            <option value="Housekeeping"></option>
+            <option value="Security"></option>
+            <option value="Maintenance"></option>
+            <option value="General"></option>
+          </datalist>
+          <datalist id="shift-options">
+            <option value="Morning"></option>
+            <option value="Evening"></option>
+            <option value="Night"></option>
+            <option value="Split"></option>
+            <option value="Varied 10h"></option>
+            <option value="Weekly off"></option>
+          </datalist>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Hotel rules</p>
+              <h2>Shift location policy</h2>
+            </div>
+            <span class="pill green">Consent based</span>
+          </div>
+          <form id="policy-form" class="form">
+            <label>
+              Hotel geofence radius
+              <select id="policy-radius">
+                <option value="100">100 meters</option>
+                <option value="250" selected>250 meters</option>
+                <option value="500">500 meters</option>
+              </select>
+            </label>
+            <label>
+              Location ping interval
+              <select id="policy-interval">
+                <option value="2">Every 2 minutes</option>
+                <option value="5" selected>Every 5 minutes</option>
+                <option value="10">Every 10 minutes</option>
+              </select>
+            </label>
+            <label class="check-row">
+              <input id="policy-consent" type="checkbox" checked>
+              Staff must see active tracking notice after clock-in
+            </label>
+            <button type="submit">Save policy</button>
+          </form>
+          <div class="policy-summary" id="policy-summary"></div>
+        </div>
+      </section>
+
+      <section id="dashboard" class="metric-grid" aria-label="Dashboard summary">
+        <article class="metric">
+          <span>On duty</span>
+          <strong id="on-duty-count">0</strong>
+          <small>Currently clocked in</small>
+        </article>
+        <article class="metric">
+          <span>Late arrivals</span>
+          <strong id="late-count">0</strong>
+          <small>After scheduled start</small>
+        </article>
+        <article class="metric">
+          <span>Pending leave</span>
+          <strong id="pending-leave-count">0</strong>
+          <small>Awaiting approval</small>
+        </article>
+        <article class="metric">
+          <span>Outside property</span>
+          <strong id="outside-count">0</strong>
+          <small>During active shifts</small>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel span-2" id="attendance">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Live attendance</p>
+              <h2>Staff on shift</h2>
+            </div>
+            <select id="department-filter" aria-label="Filter by department">
+              <option value="All">All departments</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Staff</th>
+                  <th>Department</th>
+                  <th>Shift</th>
+                  <th>Clock</th>
+                  <th>Status</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody id="staff-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel" id="location">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Shift location</p>
+              <h2>Property map</h2>
+            </div>
+            <span class="pill green">Tracking only on shift</span>
+          </div>
+          <div class="map-tools">
+            <label>
+              Upload rough hotel map
+              <input id="hotel-map-upload" type="file" accept="image/*">
+            </label>
+            <label>
+              Floor view
+              <select id="map-floor-select">
+                <option value="GF">GF</option>
+                <option value="1F">1F</option>
+                <option value="2F">2F</option>
+                <option value="3F">3F</option>
+              </select>
+            </label>
+            <button class="ghost" id="clear-hotel-map" type="button">Clear map</button>
+          </div>
+          <small class="form-note">The map shows both buildings by wing and storey. Live pins show New Wing or Old Wing plus GF, 1F, 2F, or 3F.</small>
+          <div class="wing-guide">
+            <span><b>Left side:</b> New Wing</span>
+            <span><b>Right side:</b> Old Wing</span>
+          </div>
+          <div class="map" id="map" aria-label="Hotel property map">
+            <span class="zone lobby">New Wing</span>
+            <span class="zone rooms">Old Wing</span>
+            <span class="zone kitchen">GF / 1F / 2F / 3F</span>
+          </div>
+          <div class="legend">
+            <span><i class="dot green"></i> Inside</span>
+            <span><i class="dot amber"></i> No recent ping</span>
+            <span><i class="dot red"></i> Outside</span>
+            <span><i class="dot blue"></i> Break</span>
+          </div>
+          <div class="live-check">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Live check</p>
+                <h3>Verify staff location ping</h3>
+              </div>
+            </div>
+            <div class="inline-form live-check-controls">
+              <label>
+                Staff member
+                <select id="live-check-staff"></select>
+              </label>
+              <label>
+                Date
+                <input id="location-history-date" type="date">
+              </label>
+              <button id="live-check-button" type="button">Live check selected staff</button>
+              <button class="ghost" id="clear-location-history" type="button">Delete location history</button>
+            </div>
+            <div class="policy-summary" id="live-check-result">No live check yet.</div>
+            <div class="movement-list" id="movement-list"></div>
+          </div>
+          <div class="live-check wifi-check">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">EnGenius WiFi</p>
+                <h3>Indoor AP location</h3>
+              </div>
+            </div>
+            <form id="wifi-location-form" class="form">
+              <div class="form-row">
+                <label>
+                  Staff member
+                  <select id="wifi-staff"></select>
+                </label>
+                <label>
+                  Device MAC
+                  <input id="wifi-mac" type="text" placeholder="12:56:00:02:52:7F">
+                </label>
+              </div>
+              <label>
+                Last Associated AP
+                <input id="wifi-ap" type="text" placeholder="1_St-Floor_Loby">
+              </label>
+              <div class="form-row">
+                <label>
+                  RSSI
+                  <input id="wifi-rssi" type="text" placeholder="-89 dBm">
+                </label>
+                <label>
+                  Last seen
+                  <input id="wifi-last-seen" type="text" placeholder="4 hours ago">
+                </label>
+              </div>
+              <button type="submit">Save WiFi location</button>
+              <button class="ghost" id="engenius-sync" type="button">Sync EnGenius clients</button>
+              <div class="policy-summary" id="engenius-sync-status">API sync is ready for the private bridge setup.</div>
+              <small class="form-note">Use EnGenius client details. AP name is mapped to wing and floor for indoor location.</small>
+            </form>
+            <div class="wifi-admin-grid">
+              <form id="staff-device-form" class="form">
+                <div class="panel-header compact">
+                  <div>
+                    <p class="eyebrow">Device register</p>
+                    <h3>Link staff phone</h3>
+                  </div>
+                </div>
+                <label>
+                  Staff member
+                  <select id="device-staff"></select>
+                </label>
+                <label>
+                  Phone/device name
+                  <input id="device-name" type="text" placeholder="OPPO-F9">
+                </label>
+                <label>
+                  MAC address
+                  <input id="device-mac" type="text" placeholder="12:56:00:02:52:7F">
+                </label>
+                <button type="submit">Save device</button>
+                <div class="mini-list" id="staff-device-list"></div>
+              </form>
+              <form id="ap-map-form" class="form">
+                <div class="panel-header compact">
+                  <div>
+                    <p class="eyebrow">AP map</p>
+                    <h3>Map AP to location</h3>
+                  </div>
+                </div>
+                <label>
+                  AP name
+                  <input id="ap-map-name" type="text" placeholder="1_St-Floor_Loby">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Floor
+                    <select id="ap-map-floor">
+                      <option value="GF">GF</option>
+                      <option value="1F">1F</option>
+                      <option value="2F">2F</option>
+                      <option value="3F">3F</option>
+                    </select>
+                  </label>
+                  <label>
+                    Wing
+                    <input id="ap-map-zone" type="text" list="wifi-zone-options" placeholder="New Wing">
+                  </label>
+                </div>
+                <button type="submit">Save AP map</button>
+                <div class="mini-list" id="ap-map-list"></div>
+              </form>
+            </div>
+            <datalist id="wifi-zone-options">
+              <option value="New Wing"></option>
+              <option value="Old Wing"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="panel" id="leave">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Monthly leave</p>
+              <h2>Leave quota and history</h2>
+            </div>
+          </div>
+          <form id="leave-form" class="form">
+            <div class="policy-summary compact-policy">
+              <strong>Leave policy:</strong>
+              Requests need 2 days prior approval. If the leave starts within 2 days, a reason is required.
+            </div>
+            <label class="leave-staff-field">
+              Staff member
+              <select id="leave-staff"></select>
+            </label>
+            <label>
+              Leave type
+              <select id="leave-type">
+                <option>Sick leave</option>
+                <option>Casual leave</option>
+                <option>Emergency leave</option>
+                <option>Unpaid leave</option>
+              </select>
+            </label>
+            <label>
+              Duration
+              <select id="leave-duration">
+                <option value="full">Full day</option>
+                <option value="half">Half day</option>
+                <option value="short">Short leave - 2.5 hours</option>
+              </select>
+            </label>
+            <div class="form-row">
+              <label>
+                From
+                <input id="leave-from" type="date" required>
+              </label>
+              <label>
+                To
+                <input id="leave-to" type="date" required>
+              </label>
+            </div>
+            <label>
+              Reason
+              <input id="leave-reason" type="text" placeholder="Short reason">
+            </label>
+            <small class="form-note" id="leave-policy-note">Reason is only required for leave starting within 2 days.</small>
+            <button type="submit">Submit request</button>
+          </form>
+          <div class="request-list" id="leave-list"></div>
+        </div>
+
+        <div class="panel span-2" id="schedule">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Edit shifts</p>
+              <h2>Shift editor</h2>
+            </div>
+          </div>
+          <form id="shift-form" class="form shift-planner-form">
+            <input id="shift-plan-id" type="hidden">
+            <label>
+              Staff member
+              <select id="shift-staff"></select>
+            </label>
+            <div class="form-row">
+              <label>
+                Shift name
+                <select id="shift-value" required>
+                  <option>Morning</option>
+                  <option>Evening</option>
+                  <option>Night</option>
+                  <option>Weekly off</option>
+                </select>
+              </label>
+              <label>
+                Effective from
+                <input id="shift-effective-date" type="date" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                In time
+                <input id="shift-in-time" type="time" required>
+              </label>
+              <label>
+                Out time
+                <input id="shift-out-time" type="time" required>
+              </label>
+            </div>
+            <details class="split-shift-fields">
+              <summary>Add extra shift for the same day</summary>
+              <div class="form-row">
+                <label>
+                  Second shift name
+                  <input id="shift-value-2" type="text" list="shift-options" placeholder="Evening / Extra">
+                </label>
+                <label>
+                  Second in
+                  <input id="shift-in-time-2" type="time">
+                </label>
+                <label>
+                  Second out
+                  <input id="shift-out-time-2" type="time">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Third shift name
+                  <input id="shift-value-3" type="text" list="shift-options" placeholder="Night / Extra">
+                </label>
+                <label>
+                  Third in
+                  <input id="shift-in-time-3" type="time">
+                </label>
+                <label>
+                  Third out
+                  <input id="shift-out-time-3" type="time">
+                </label>
+              </div>
+            </details>
+            <fieldset class="repeat-days">
+              <legend>Repeat on days</legend>
+              <label><input type="checkbox" name="shift-repeat-day" value="Mon" checked> Mon</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Tue" checked> Tue</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Wed" checked> Wed</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Thu" checked> Thu</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Fri" checked> Fri</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Sat"> Sat</label>
+              <label><input type="checkbox" name="shift-repeat-day" value="Sun"> Sun</label>
+            </fieldset>
+            <div class="form-actions">
+              <button type="submit">Save shift plan</button>
+            </div>
+            <small class="form-note">Choose the date boxes below, then save. The shift is sent to the staff dashboard and shift-change thread.</small>
+          </form>
+          <div class="shift-list" id="shift-list"></div>
+          <div class="daily-roster-editor">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Day by day</p>
+                <h3>Daily roster editor</h3>
+              </div>
+              <div class="report-controls roster-controls">
+                <label>
+                  Date
+                  <input id="daily-roster-date" type="date">
+                </label>
+                <label>
+                  Copy today for
+                  <input id="roster-copy-days" type="number" min="1" max="31" value="1">
+                </label>
+              </div>
+            </div>
+            <div class="form-actions roster-actions">
+              <button id="save-daily-roster" type="button">Save daily roster</button>
+              <button class="ghost" id="copy-today-roster" type="button">Extend today to next days</button>
+              <button class="ghost danger" id="clear-daily-roster" type="button">Clear this date</button>
+            </div>
+            <div class="table-wrap roster-table-wrap">
+              <table class="roster-table">
+                <thead>
+                  <tr>
+                    <th>Staff</th>
+                    <th>Department</th>
+                    <th>Shift</th>
+                    <th>In</th>
+                    <th>Out</th>
+                    <th>Day status</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-roster-body"></tbody>
+              </table>
+            </div>
+            <small class="form-note">Use this for exact day-by-day changes. If no change is needed, extend today's roster to tomorrow or more days.</small>
+          </div>
+        </div>
+
+        <div class="panel span-2" id="leave-organizer">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Leave organizer</p>
+              <h2>All employee leave calendar</h2>
+            </div>
+            <span class="pill blue">Visible to admin and staff</span>
+          </div>
+          <div class="department-chart" id="leave-department-chart"></div>
+          <div class="organizer-grid" id="leave-calendar"></div>
+        </div>
+
+        <div class="panel span-2" id="shift-dashboard">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Shift dashboard</p>
+              <h2>All employee shifts</h2>
+            </div>
+            <span class="pill green">Visible to admin and staff</span>
+          </div>
+          <div class="department-chart" id="shift-department-chart"></div>
+          <div class="shift-calendar-tools">
+            <label>
+              Calendar from
+              <input id="shift-calendar-start" type="date">
+            </label>
+            <button class="ghost" id="shift-calendar-today" type="button">This week</button>
+          </div>
+          <div class="shift-calendar" id="shift-calendar"></div>
+        </div>
+
+        <div class="panel span-2" id="reports">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Reports</p>
+              <h2>Management notes</h2>
+            </div>
+            <span class="pill">MVP draft</span>
+          </div>
+          <div class="notes-grid">
+            <article>
+              <h3>Location privacy rule</h3>
+              <p>Location starts only after clock-in and stops automatically after clock-out. Staff can see that monitoring is active.</p>
+            </article>
+            <article>
+              <h3>Hotel geofence</h3>
+              <p>Clock-in can require staff to be inside the approved hotel property radius, with alerts if someone leaves during duty.</p>
+            </article>
+            <article>
+              <h3>Next build step</h3>
+              <p>Add login roles for Admin, HR, Department Head, and Staff, then connect data to a cloud database.</p>
+            </article>
+          </div>
+          <div class="leave-coverage">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Leave coverage</p>
+                <h3>Approved and requested by department</h3>
+              </div>
+              <label class="date-picker">
+                Date
+                <input id="coverage-date" type="date">
+              </label>
+            </div>
+            <div class="coverage-grid" id="coverage-grid"></div>
+          </div>
+          <div class="leave-coverage" id="leave-pressure">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Leave pressure</p>
+                <h3>Department adjustment alerts</h3>
+              </div>
+              <div class="report-controls pressure-controls">
+                <label>
+                  Date
+                  <input id="leave-pressure-date" type="date">
+                </label>
+                <label>
+                  Alert at
+                  <input id="leave-pressure-threshold" type="number" min="1" max="20" value="2">
+                </label>
+              </div>
+            </div>
+            <div class="pressure-list" id="leave-pressure-list"></div>
+          </div>
+          <div class="leave-coverage">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Daily board</p>
+                <h3>Department staffing picture</h3>
+              </div>
+              <label class="date-picker">
+                Date
+                <input id="manager-board-date" type="date">
+              </label>
+            </div>
+            <div class="manager-board" id="manager-board"></div>
+          </div>
+          <div class="leave-coverage">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Timing report</p>
+                <h3>Daily, weekly, and monthly hours worked</h3>
+              </div>
+              <div class="report-controls">
+                <label>
+                  Period
+                  <select id="attendance-report-period">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+                <label>
+                  Date
+                  <input id="attendance-report-date" type="date">
+                </label>
+              </div>
+            </div>
+            <div class="report-export-row">
+              <button class="ghost" id="export-attendance-report" type="button">Download hours report</button>
+              <button class="ghost" id="export-leave-report" type="button">Download leave report</button>
+              <button class="ghost" id="export-shift-report" type="button">Download shift report</button>
+            </div>
+            <div class="coverage-grid" id="attendance-summary-grid"></div>
+            <div class="attendance-report-list" id="attendance-report-list"></div>
+          </div>
+          <div class="log-grid">
+            <article>
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Notifications</p>
+                  <h3>Active alerts</h3>
+                </div>
+              </div>
+              <div class="mini-list" id="notification-list"></div>
+            </article>
+            <article>
+              <div class="panel-header compact">
+                <div>
+                  <p class="eyebrow">Audit trail</p>
+                  <h3>Recent activity</h3>
+                </div>
+                <button class="ghost" id="clear-log">Clear log</button>
+              </div>
+              <div class="activity-list" id="activity-list"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="env.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <script src="staffsync-data-service.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

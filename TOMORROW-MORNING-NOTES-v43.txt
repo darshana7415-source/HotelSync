@@ -1,0 +1,14 @@
+StaffSync v43 - tomorrow morning package
+
+1. Staff demo login now asks for a staff password.
+2. First staff password entered is saved for that employee.
+3. Later staff logins must use the saved password.
+4. Admin can change a staff password in Staff > Edit staff.
+5. Admin can clear a staff password so the employee can set a new one.
+6. Staff leave page shows only that employee's own leave requests.
+7. Staff leave form automatically uses the logged-in staff member.
+8. Annual leave is removed from the app choices.
+9. Leave requests cannot exceed remaining leave balance.
+10. Approved leave automatically reduces remaining leave balance; changing away from Approved restores it.
+
+Upload this folder/zip to Netlify, publish, then refresh the site.

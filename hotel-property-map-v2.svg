@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#f7fbfc"/>
+  <rect x="36" y="36" width="1528" height="928" rx="22" fill="#ffffff" stroke="#bed4d8" stroke-width="4"/>
+  <text x="80" y="96" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#12323a">Beach &amp; Bills Hotel - Wing / Floor Location Map</text>
+  <text x="80" y="132" font-family="Arial, sans-serif" font-size="22" fill="#52646b">Location is shown only as Wing + Storey. Left: New Wing. Right: Old Wing.</text>
+
+  <g font-family="Arial, sans-serif">
+    <rect x="90" y="180" width="660" height="680" rx="22" fill="#eef7f8" stroke="#78b5bd" stroke-width="5"/>
+    <rect x="850" y="180" width="660" height="680" rx="22" fill="#f8f5ee" stroke="#c9b86e" stroke-width="5"/>
+
+    <text x="130" y="238" font-size="42" font-weight="700" fill="#0d6b72">NEW WING</text>
+    <text x="890" y="238" font-size="42" font-weight="700" fill="#76621f">OLD WING</text>
+
+    <g font-size="34" font-weight="700" fill="#12323a">
+      <rect x="130" y="280" width="580" height="118" rx="16" fill="#dff2f4" stroke="#84bfc6" stroke-width="3"/>
+      <text x="166" y="352">3F</text>
+      <text x="285" y="352" font-size="28" font-weight="500" fill="#52646b">New Wing third floor</text>
+
+      <rect x="130" y="420" width="580" height="118" rx="16" fill="#dff2f4" stroke="#84bfc6" stroke-width="3"/>
+      <text x="166" y="492">2F</text>
+      <text x="285" y="492" font-size="28" font-weight="500" fill="#52646b">New Wing second floor</text>
+
+      <rect x="130" y="560" width="580" height="118" rx="16" fill="#dff2f4" stroke="#84bfc6" stroke-width="3"/>
+      <text x="166" y="632">1F</text>
+      <text x="285" y="632" font-size="28" font-weight="500" fill="#52646b">New Wing first floor</text>
+
+      <rect x="130" y="700" width="580" height="118" rx="16" fill="#dff2f4" stroke="#84bfc6" stroke-width="3"/>
+      <text x="166" y="772">GF</text>
+      <text x="285" y="772" font-size="28" font-weight="500" fill="#52646b">New Wing ground floor</text>
+    </g>
+
+    <g font-size="34" font-weight="700" fill="#12323a">
+      <rect x="890" y="280" width="580" height="118" rx="16" fill="#fff4d5" stroke="#d1bd65" stroke-width="3"/>
+      <text x="926" y="352">3F</text>
+      <text x="1045" y="352" font-size="28" font-weight="500" fill="#52646b">Old Wing third floor</text>
+
+      <rect x="890" y="420" width="580" height="118" rx="16" fill="#fff4d5" stroke="#d1bd65" stroke-width="3"/>
+      <text x="926" y="492">2F</text>
+      <text x="1045" y="492" font-size="28" font-weight="500" fill="#52646b">Old Wing second floor</text>
+
+      <rect x="890" y="560" width="580" height="118" rx="16" fill="#fff4d5" stroke="#d1bd65" stroke-width="3"/>
+      <text x="926" y="632">1F</text>
+      <text x="1045" y="632" font-size="28" font-weight="500" fill="#52646b">Old Wing first floor</text>
+
+      <rect x="890" y="700" width="580" height="118" rx="16" fill="#fff4d5" stroke="#d1bd65" stroke-width="3"/>
+      <text x="926" y="772">GF</text>
+      <text x="1045" y="772" font-size="28" font-weight="500" fill="#52646b">Old Wing ground floor</text>
+    </g>
+
+    <line x1="800" y1="210" x2="800" y2="850" stroke="#bfd2d6" stroke-width="5" stroke-dasharray="18 16"/>
+    <text x="718" y="895" font-size="24" font-weight="700" fill="#52646b">Wing connection</text>
+
+    <g>
+      <circle cx="92" cy="938" r="10" fill="#1c9a64"/><text x="112" y="946" font-size="20" fill="#52646b">Inside</text>
+      <circle cx="222" cy="938" r="10" fill="#d98a12"/><text x="242" y="946" font-size="20" fill="#52646b">No recent ping</text>
+      <circle cx="422" cy="938" r="10" fill="#c44d4d"/><text x="442" y="946" font-size="20" fill="#52646b">Outside</text>
+      <circle cx="552" cy="938" r="10" fill="#2d6fba"/><text x="572" y="946" font-size="20" fill="#52646b">Break</text>
+    </g>
+  </g>
+</svg>

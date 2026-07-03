@@ -1,0 +1,18 @@
+StaffSync v50 notes
+
+Upload this whole zip to Netlify.
+
+For staff passwords to work from any phone:
+1. Open Supabase.
+2. Open SQL Editor.
+3. Run this file once:
+   hotelstaff-staff-login-cloud-upgrade.sql
+   Run it again after this update if staff leave requests do not reach admin.
+
+After that:
+- Staff login uses employee code + password.
+- First staff login saves that staff password.
+- Admin can reset a staff password from Staff > Edit staff.
+- Admin dashboard refreshes cloud data every 30 seconds.
+- Phone view has a bottom menu for easier use.
+- On the last day of each month, leave requests and leave answer messages clear from admin and staff dashboards.
