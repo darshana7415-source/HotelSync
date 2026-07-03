@@ -1,0 +1,8 @@
+{
+  "name": "hotelsync",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "ssh2": "^1.14.0"
+  }
+}
