@@ -1,0 +1,22 @@
+EnGenius API setup for StaffSync
+
+Do not paste the EnGenius API key into env.js or any browser file.
+
+In Netlify, add these Environment Variables:
+
+ENGENIUS_API_KEY = your regenerated EnGenius API key
+ENGENIUS_CLIENTS_URL = the EnGenius API endpoint that returns connected clients
+
+The app calls:
+
+/.netlify/functions/engenius-clients
+
+The Netlify function keeps the API key private and returns a normalized client list to StaffSync.
+
+Still needed from EnGenius:
+
+- exact connected-clients endpoint URL
+- required auth header format, if different from x-api-key or Bearer token
+- whether the account must be PRO
+- whether Allowed IP Address must be set
+

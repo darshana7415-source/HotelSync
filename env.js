@@ -1,3 +1,6 @@
+// Copy this file to env.js and fill in your Supabase project details.
+// In production, use Netlify environment variables or a build step instead.
+
 window.STAFFSYNC_ENV = {
   SUPABASE_URL: "https://msqkvbbedtypdohwkqxa.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zcWt2YmJlZHR5cGRvaHdrcXhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTQ4NjQsImV4cCI6MjA5NzYzMDg2NH0.CBivthSBlI49Tbn15lOn3ikdQh4ogZY1PZemwAKQruc",
