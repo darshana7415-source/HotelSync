@@ -5078,6 +5078,17 @@ async function checkStaffPassword(person, password, newPassword = "") {
     try {
       const record = await window.staffSyncDb.getStaffLoginPassword(person.cloudId);
       const passwordHash = await hashStaffPassword(person, password);
+      if (password === firstStaffPassword && newPassword) {
+        const setup = validateFirstStaffPasswordSetup(password, newPassword);
+        if (!setup.ok) return setup;
+        await window.staffSyncDb.setStaffLoginPassword({
+          staffProfileId: person.cloudId,
+          passwordHash: await hashStaffPassword(person, newPassword),
+          resetRequired: false
+        });
+        saveStaffPassword(person, newPassword);
+        return { ok: true, hadCloudPassword: Boolean(record?.password_hash), changedPassword: true };
+      }
       if (!record?.password_hash || record.reset_required) {
         const setup = validateFirstStaffPasswordSetup(password, newPassword);
         if (!setup.ok) return setup;
@@ -5110,6 +5121,12 @@ async function checkStaffPassword(person, password, newPassword = "") {
   if (!key) return { ok: false, hadCloudPassword: false };
   const savedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
   const saved = savedKey ? staffPasswords[savedKey] : "";
+  if (password === firstStaffPassword && newPassword) {
+    const setup = validateFirstStaffPasswordSetup(password, newPassword);
+    if (!setup.ok) return setup;
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
+  }
   if (!saved) {
     const setup = validateFirstStaffPasswordSetup(password, newPassword);
     if (!setup.ok) return setup;

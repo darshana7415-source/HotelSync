@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v120
-Changes: admin demo password set to House6684$RDAA, manager demo password set to House6684$$$, staff first login requires 12345 and a new password, app renamed for Beach & Bliss Mirissa, staff list sorted by employee code.
+StaffSync Beach & Bliss Mirissa build v121
+Changes: staff password reset now accepts 12345 plus a new password even when old cloud password records already exist, admin demo password set to House6684$RDAA, manager demo password set to House6684$$$.
