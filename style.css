@@ -314,6 +314,17 @@ h3 {
   min-width: 170px;
 }
 
+.build-badge {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: #e8f7f4;
+  color: #075f5d;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .metric-grid,
 .content-grid,
 .notes-grid,

@@ -27,6 +27,7 @@ const monthlyLeaveQuota = 6;
 let adminLeaveDrafts = {};
 let installPromptEvent = null;
 removeDemoRecordsFromLocalState();
+staff = sortStaffByEmployeeCode(staff);
 staffMessages = staffMessages.filter((message) => !isSilentShiftUpdate(message));
 
 const tableBody = document.querySelector("#staff-table");
@@ -99,8 +100,6 @@ const staffDirectory = document.querySelector("#staff-directory");
 const editStaffForm = document.querySelector("#edit-staff-form");
 const editStaffSelect = document.querySelector("#edit-staff-select");
 const editStaffNote = document.querySelector("#edit-staff-note");
-const staffImportForm = document.querySelector("#staff-import-form");
-const staffImportText = document.querySelector("#staff-import-text");
 const shiftForm = document.querySelector("#shift-form");
 const shiftStaff = document.querySelector("#shift-staff");
 const shiftPlanId = document.querySelector("#shift-plan-id");
@@ -258,40 +257,42 @@ function normalizeWingFloorLocations() {
 
 function populateFilters() {
   const departments = ["All", ...new Set(staff.map((person) => person.department))];
+  const sortedStaff = sortStaffByEmployeeCode(staff);
   departmentFilter.innerHTML = departments
     .map((department) => `<option value="${department}">${department === "All" ? "All departments" : department}</option>`)
     .join("");
 
-  leaveStaff.innerHTML = staff
+  leaveStaff.innerHTML = sortedStaff
     .map((person) => `<option value="${person.id}">${person.name} - ${person.department}</option>`)
     .join("");
 
-  staffSwitcher.innerHTML = staff
+  staffSwitcher.innerHTML = sortedStaff
     .map((person) => `<option value="${person.id}">${person.name} - ${person.department}</option>`)
     .join("");
 
-  shiftStaff.innerHTML = staff
+  shiftStaff.innerHTML = sortedStaff
     .map((person) => `<option value="${person.id}">${person.name} - ${person.department}</option>`)
     .join("");
 
-  editStaffSelect.innerHTML = staff
+  editStaffSelect.innerHTML = sortedStaff
     .map((person) => `<option value="${person.id}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</option>`)
     .join("");
+  editStaffSelect.insertAdjacentHTML("afterbegin", `<option value="">Choose staff member</option>`);
 
   if (wifiStaff) {
-    wifiStaff.innerHTML = staff
+    wifiStaff.innerHTML = sortedStaff
       .map((person) => `<option value="${person.id}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name} - ${person.department}</option>`)
       .join("");
   }
 
   if (deviceStaff) {
-    deviceStaff.innerHTML = staff
+    deviceStaff.innerHTML = sortedStaff
       .map((person) => `<option value="${person.id}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name} - ${person.department}</option>`)
       .join("");
   }
 
   if (liveCheckStaff) {
-    liveCheckStaff.innerHTML = staff
+    liveCheckStaff.innerHTML = sortedStaff
       .map((person) => `<option value="${person.id}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name} - ${person.department}</option>`)
       .join("");
   }
@@ -305,11 +306,11 @@ function populateFilters() {
   }
   rememberActiveStaff();
   staffSwitcher.value = String(activeStaffId);
-  editStaffSelect.value = String(activeStaffId);
+  editStaffSelect.value = "";
   if (liveCheckStaff) liveCheckStaff.value = String(activeStaffId);
   if (wifiStaff) wifiStaff.value = String(activeStaffId);
   if (deviceStaff) deviceStaff.value = String(activeStaffId);
-  fillEditStaffForm();
+  clearEditStaffForm();
   updateStaffLoginPasswordHint();
 }
 
@@ -376,7 +377,7 @@ function renderMetrics() {
 
 function renderStaffTable() {
   const department = departmentFilter.value || "All";
-  const visibleStaff = department === "All" ? staff : staff.filter((person) => person.department === department);
+  const visibleStaff = sortStaffByEmployeeCode(department === "All" ? staff : staff.filter((person) => person.department === department));
 
   tableBody.innerHTML = visibleStaff.map((person) => {
     const locationClass = locationClassFor(person.locationStatus);
@@ -524,7 +525,7 @@ function renderLeaveRequests() {
 function renderAdminMonthlyLeaveView() {
   const monthKey = monthKeyForDate();
   const monthName = monthLabel(monthKey);
-  const rows = staff.map((person) => {
+  const rows = sortStaffByEmployeeCode(staff).map((person) => {
     const approved = approvedLeaveUsedInMonth(person, monthKey);
     const available = monthlyLeaveBalance(person, `${monthKey}-01`);
     const rejected = leaveRequests.filter((request) =>
@@ -756,9 +757,9 @@ function renderManagerBoard() {
   const selectedDate = managerBoardDate.value;
   const dayName = shortDayName(selectedDate);
   managerBoard.innerHTML = leaveDepartments.map((department) => {
-    const departmentStaff = staff.filter((person) =>
+    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
       normalizeDepartment(person.department) === normalizeDepartment(department)
-    );
+    ));
     const scheduledStaff = departmentStaff.filter((person) => isScheduledForDate(person, selectedDate, dayName));
     const onDuty = scheduledStaff.filter((person) => isOnShift(person));
     const missing = scheduledStaff.filter((person) =>
@@ -892,7 +893,7 @@ function renderDailyRoster() {
   }
 
   const dateValue = dailyRosterDate.value;
-  dailyRosterBody.innerHTML = staff.map((person) => {
+  dailyRosterBody.innerHTML = sortStaffByEmployeeCode(staff).map((person) => {
     const entry = dailyRosterEntryFor(person, dateValue);
     return `
       <tr data-roster-staff="${person.id}">
@@ -950,7 +951,7 @@ function renderShiftCalendar() {
     ? [activeStaffForCalendar.department]
     : leaveDepartments;
   const sections = calendarDepartments.map((department) => {
-    const departmentStaff = staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department));
+    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department)));
     if (!departmentStaff.length) return "";
 
     return `
@@ -1013,7 +1014,7 @@ function renderShiftDepartmentChart() {
   }));
 
   const rows = leaveDepartments.map((department) => {
-    const departmentStaff = staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department));
+    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department)));
     const departmentPlans = plans.filter((plan) =>
       departmentStaff.some((person) => sameId(person.id, plan.staffId) || sameId(person.cloudId, plan.staffId))
     );
@@ -1062,7 +1063,7 @@ function departmentChartMarkup({ title, rows, emptyText, detailLabel }) {
 }
 
 function renderStaffDirectory() {
-  staffDirectory.innerHTML = staff.map((person) => `
+  staffDirectory.innerHTML = sortStaffByEmployeeCode(staff).map((person) => `
     <article class="directory-card">
       <div>
         <strong>${person.name}</strong>
@@ -1082,8 +1083,11 @@ function renderStaffDirectory() {
 function fillEditStaffForm() {
   if (!editStaffSelect || !staff.length) return;
 
-  const person = staff.find((item) => sameId(item.id, editStaffSelect.value)) || staff[0];
-  if (!person) return;
+  const person = staff.find((item) => sameId(item.id, editStaffSelect.value));
+  if (!person) {
+    clearEditStaffForm();
+    return;
+  }
 
   ensureSelectOption(document.querySelector("#edit-staff-department"), person.department || "General");
   document.querySelector("#edit-staff-code").value = person.employeeCode || "";
@@ -1098,6 +1102,19 @@ function fillEditStaffForm() {
   editStaffNote.textContent = person.cloudId
     ? `This staff profile is linked to Supabase. Staff app password: ${hasStaffPassword(person) ? "set" : "not set"}.`
     : `This staff profile is demo-only in this browser. Staff app password: ${hasStaffPassword(person) ? "set" : "not set"}.`;
+}
+
+function clearEditStaffForm() {
+  if (!editStaffForm) return;
+  ["#edit-staff-code", "#edit-staff-name", "#edit-staff-role", "#edit-staff-leave", "#edit-staff-shift", "#edit-staff-phone", "#edit-staff-password"].forEach((selector) => {
+    const field = document.querySelector(selector);
+    if (field) field.value = "";
+  });
+  const department = document.querySelector("#edit-staff-department");
+  if (department) department.value = "";
+  const resetPassword = document.querySelector("#clear-staff-password");
+  if (resetPassword) resetPassword.checked = false;
+  if (editStaffNote) editStaffNote.textContent = "Choose a staff member to edit department, job title, leave, and shift.";
 }
 
 function renderNotifications() {
@@ -1378,7 +1395,7 @@ function renderSession() {
 
 function renderAdminDashboardCard() {
   const selectedDate = adminDashboardDate || new Date().toISOString().slice(0, 10);
-  const onDuty = staff.filter((person) => isOnShift(person));
+  const onDuty = sortStaffByEmployeeCode(staff.filter((person) => isOnShift(person)));
   const leaveForDate = leaveRequests.filter((request) =>
     ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
     selectedDate >= request.from &&
@@ -2050,13 +2067,17 @@ function bindEvents() {
     }
     activeStaffId = staffSwitcher.value;
     rememberActiveStaff();
-    editStaffSelect.value = staffSwitcher.value;
+    editStaffSelect.value = "";
     if (liveCheckStaff) liveCheckStaff.value = staffSwitcher.value;
-    fillEditStaffForm();
+    clearEditStaffForm();
     renderRoleDemo();
   });
 
   editStaffSelect.addEventListener("change", () => {
+    if (!editStaffSelect.value) {
+      clearEditStaffForm();
+      return;
+    }
     activeStaffId = editStaffSelect.value;
     rememberActiveStaff();
     staffSwitcher.value = editStaffSelect.value;
@@ -2401,13 +2422,13 @@ function bindEvents() {
       leaveBalance
     };
 
-    staff = [...staff, newStaff];
+    staff = sortStaffByEmployeeCode([...staff, newStaff]);
     upsertStaffWifiDevice(newStaff, phoneWifiMac);
     activeStaffId = newStaff.id;
     rememberActiveStaff();
     addActivity("Staff", `${newStaff.name} added to ${newStaff.department}`);
     staffForm.reset();
-    document.querySelector("#new-staff-leave").value = "12";
+    document.querySelector("#new-staff-leave").value = "6";
     document.querySelector("#new-staff-phone").value = "";
     document.querySelector("#new-staff-code").value = nextEmployeeCode();
     populateFilters();
@@ -2451,7 +2472,7 @@ function bindEvents() {
         });
       }
       clearStaffPassword(person);
-      staff = staff.filter((item) => !sameId(item.id, staffId));
+      staff = sortStaffByEmployeeCode(staff.filter((item) => !sameId(item.id, staffId)));
       leaveRequests = leaveRequests.filter((request) => !sameId(request.staffId, staffId));
       activeStaffId = staff[0]?.id || "";
       rememberActiveStaff();
@@ -2536,6 +2557,7 @@ function bindEvents() {
       }
 
       addActivity("Staff", `${person.name} details updated`);
+      staff = sortStaffByEmployeeCode(staff);
       saveState();
       populateFilters();
       renderAll();
@@ -2546,26 +2568,6 @@ function bindEvents() {
     } catch (error) {
       editStaffNote.textContent = error.message || "Could not save staff changes.";
       showToast("Staff edit could not be saved.");
-    }
-  });
-
-  staffImportForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const result = await importStaffRows(staffImportText.value);
-      if (!result.added) {
-        showToast(result.skipped ? `No staff imported. ${result.skipped} row${result.skipped === 1 ? "" : "s"} skipped.` : "Paste staff rows first.");
-        return;
-      }
-
-      staffImportText.value = "";
-      populateFilters();
-      saveState();
-      renderAll();
-      addActivity("Staff", `${result.added} staff imported from pasted list`);
-      showToast(`${result.added} staff imported${result.cloudAdded ? `, ${result.cloudAdded} saved to cloud` : ""}. ${result.skipped} skipped.`);
-    } catch (error) {
-      showToast(error.message || "Staff import could not be completed.");
     }
   });
 
@@ -4304,6 +4306,20 @@ function nextEmployeeCode() {
   return String(maxCode + 1).padStart(2, "0");
 }
 
+function sortStaffByEmployeeCode(list) {
+  return [...(list || [])].sort((left, right) => {
+    const leftCode = employeeCodeSortValue(left.employeeCode || left.id);
+    const rightCode = employeeCodeSortValue(right.employeeCode || right.id);
+    if (leftCode !== rightCode) return leftCode - rightCode;
+    return String(left.employeeCode || left.id || "").localeCompare(String(right.employeeCode || right.id || ""), undefined, { numeric: true });
+  });
+}
+
+function employeeCodeSortValue(value) {
+  const match = String(value || "").match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+}
+
 function csvCell(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
@@ -5487,8 +5503,9 @@ async function loadCloudStaffProfiles() {
   }
 
   staff = profiles
-    .filter((profile) => profile.app_users?.status !== "inactive")
+    .filter((profile) => profile.app_users?.status !== "inactive" && !isRemovedStaffProfile(profile))
     .map(mapCloudStaffProfile);
+  staff = sortStaffByEmployeeCode(staff);
   staff.forEach((person) => upsertStaffWifiDevice(person, person.wifiMac));
   leaveRequests = [];
   populateFilters();
@@ -6087,6 +6104,10 @@ function mapCloudStaffProfile(profile, index) {
     y: 24 + ((index * 19) % 54),
     leaveBalance: Number(profile.leave_balance || 0)
   };
+}
+
+function isRemovedStaffProfile(profile) {
+  return String(profile?.employee_code || "").toLowerCase().includes("-removed-");
 }
 
 function mapCloudAttendanceRecord(record) {

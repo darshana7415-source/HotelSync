@@ -90,6 +90,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
+          <p class="build-badge">Build v118 - staff code sort + clean edit screen</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -175,7 +176,7 @@
                 </select>
               </label>
               <label>
-                Role
+                Job title
                 <input id="new-staff-role" type="text" placeholder="Job role" required>
               </label>
             </div>
@@ -191,7 +192,7 @@
               </label>
               <label>
                 Leave balance
-                <input id="new-staff-leave" type="number" min="0" value="12" required>
+                <input id="new-staff-leave" type="number" min="0" value="6" required>
               </label>
             </div>
             <div class="form-row">
@@ -232,6 +233,7 @@
               <label>
                 Department
                 <select id="edit-staff-department" required>
+                  <option value=""></option>
                   <option>Kitchen</option>
                   <option>Front Office</option>
                   <option>Restaurant</option>
@@ -275,20 +277,6 @@
             </div>
             <button type="submit">Save staff changes</button>
             <small class="form-note" id="edit-staff-note">Choose a staff member to edit department, job title, leave, and shift.</small>
-          </form>
-          <form id="staff-import-form" class="form import-form">
-            <div class="panel-header compact">
-              <div>
-                <p class="eyebrow">Quick import</p>
-                <h3>Paste staff list</h3>
-              </div>
-            </div>
-            <label>
-              Staff rows
-              <textarea id="staff-import-text" rows="6" placeholder="000001, PRIYANTHA S H, Kitchen, Head Chef, 6, Varied 10h"></textarea>
-            </label>
-            <button type="submit">Import staff rows</button>
-            <small class="form-note">Format: employee code, full name, department, job title, leave balance, shift. One staff member per line.</small>
           </form>
           <datalist id="department-options">
             <option value="Kitchen"></option>

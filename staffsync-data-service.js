@@ -44,7 +44,7 @@ const staffSyncDb = {
           phone
         )
       `)
-      .order("full_name");
+      .order("employee_code");
 
     if (error) throw error;
     return data;
@@ -77,6 +77,7 @@ const staffSyncDb = {
     if (error) throw error;
     return (data || []).find((profile) => {
       if (profile.app_users?.status === "inactive") return false;
+      if (String(profile.employee_code || "").toLowerCase().includes("-removed-")) return false;
       const code = String(Number(String(profile.employee_code || "").replace(/\D/g, "")));
       return code === normalized;
     }) || null;
