@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v122
-Changes: old staff passwords are blocked by a new v122 password format. Staff must use 12345 plus a new password once, then only the new password works.
+StaffSync Beach & Bliss Mirissa build v123
+Changes: cloud staff login no longer falls back to old browser-saved passwords when Supabase password check fails. Login screen shows running build v123.

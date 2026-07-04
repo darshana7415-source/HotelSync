@@ -5113,8 +5113,12 @@ async function checkStaffPassword(person, password, newPassword = "") {
         saveStaffPassword(person, password);
       }
       return { ok, hadCloudPassword: true };
-    } catch {
-      // Fall back to this browser if the cloud password table is not installed yet.
+    } catch (error) {
+      return {
+        ok: false,
+        hadCloudPassword: false,
+        message: error.message || "Cloud password check failed. Ask admin to run the staff password SQL."
+      };
     }
   }
 
