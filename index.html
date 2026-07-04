@@ -39,9 +39,13 @@
           </label>
           <label>
             Password
-            <input id="staff-login-password" type="password" autocomplete="current-password" placeholder="First login: enter any password to save">
+            <input id="staff-login-password" type="password" autocomplete="current-password" placeholder="First login password: 12345">
           </label>
-          <small class="staff-login-status" id="staff-login-status">Enter employee code and password.</small>
+          <label>
+            New password
+            <input id="staff-new-password" type="password" autocomplete="new-password" placeholder="First login: choose new password">
+          </label>
+          <small class="staff-login-status" id="staff-login-status">First login: enter 12345, then choose a new password.</small>
         </div>
         <div class="login-fields" id="admin-credentials" hidden>
           <label>
@@ -52,11 +56,11 @@
             Password
             <input id="cloud-password" type="password" autocomplete="current-password" placeholder="Admin password">
           </label>
-          <small id="cloud-status">Enter cloud email and password. For demo, leave blank and sign in.</small>
+          <small id="cloud-status">Admin password: House6684$RDAA. Manager password: House6684$$$.</small>
         </div>
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
-        <small class="login-note">Staff use employee code and password only. Admin and manager use email and password.</small>
+        <small class="login-note">Staff first login uses 12345, then they choose a new password.</small>
       </div>
     </div>
   </section>
@@ -90,7 +94,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa · Build v119</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa · Build v120</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">

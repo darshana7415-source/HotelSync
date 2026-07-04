@@ -19,11 +19,17 @@ let shiftPlans = loadData("staffsync.shiftPlans", []);
 let dailyRosters = loadData("staffsync.dailyRosters", {});
 let staffDevices = loadData("staffsync.staffDevices", []);
 let staffPasswords = loadData("staffsync.staffPasswords", {});
+resetStaffPasswordsForFirstLogin("staff-password-reset-v120");
 let apLocationMap = loadData("staffsync.apLocationMap", [
   { id: "ap-1st-lobby", apName: "1_St-Floor_Loby", floor: "1F", zone: "New Wing" }
 ]);
 let hiddenLocationPingIds = loadData("staffsync.hiddenLocationPingIds", []);
 const monthlyLeaveQuota = 6;
+const firstStaffPassword = "12345";
+const demoRolePasswords = {
+  admin: "House6684$RDAA",
+  manager: "House6684$$$"
+};
 let adminLeaveDrafts = {};
 let installPromptEvent = null;
 removeDemoRecordsFromLocalState();
@@ -121,6 +127,7 @@ const staffCredentials = document.querySelector("#staff-credentials");
 const adminCredentials = document.querySelector("#admin-credentials");
 const staffLoginCode = document.querySelector("#staff-login-code");
 const staffLoginPassword = document.querySelector("#staff-login-password");
+const staffNewPassword = document.querySelector("#staff-new-password");
 const staffLoginStatus = document.querySelector("#staff-login-status");
 const cloudEmail = document.querySelector("#cloud-email");
 const cloudPassword = document.querySelector("#cloud-password");
@@ -1542,23 +1549,30 @@ function updateStaffLoginPasswordHint() {
   if (!staffLoginPassword || !staffLoginCode) return;
   const person = findStaffByLoginCode(staffLoginCode.value);
   if (!staffLoginCode.value.trim()) {
-    staffLoginPassword.placeholder = "Enter password";
-    setStaffLoginStatus("Enter employee code and password, then click Staff.", "");
+    staffLoginPassword.placeholder = "First login password: 12345";
+    if (staffNewPassword) staffNewPassword.placeholder = "First login: choose new password";
+    setStaffLoginStatus("Enter employee code. First login uses 12345, then choose a new password.", "");
     return;
   }
   if (!person) {
     staffLoginPassword.placeholder = "Enter password";
+    if (staffNewPassword) staffNewPassword.placeholder = "New password";
     setStaffLoginStatus("No employee found for this code.", "red");
     return;
   }
   const passwordIsSet = person && hasStaffPassword(person);
   staffLoginPassword.placeholder = passwordIsSet
     ? "Enter saved staff password"
-    : "First login: enter any password to save";
+    : "First login password: 12345";
+  if (staffNewPassword) {
+    staffNewPassword.placeholder = passwordIsSet
+      ? "Optional: enter new password to change"
+      : "Required: choose new password";
+  }
   setStaffLoginStatus(
     passwordIsSet
-      ? `${person.name}: password already set.`
-      : `${person.name}: no password yet. Enter any password, then click Staff.`,
+      ? `${person.name}: enter saved password. To change it, also enter a new password.`
+      : `${person.name}: first login uses 12345. Enter a new password too.`,
     passwordIsSet ? "blue" : "green"
   );
 }
@@ -4749,6 +4763,17 @@ function resetLocalDataForRealTesting(version) {
   }
 }
 
+function resetStaffPasswordsForFirstLogin(version) {
+  try {
+    if (localStorage.getItem("staffsync.staffPasswordResetVersion") === version) return;
+    staffPasswords = {};
+    localStorage.removeItem("staffsync.staffPasswords");
+    localStorage.setItem("staffsync.staffPasswordResetVersion", version);
+  } catch {
+    // If storage is unavailable, first-login password rules still apply to cloud records.
+  }
+}
+
 function saveState() {
   localStorage.setItem("staffsync.staff", JSON.stringify(staff));
   localStorage.setItem("staffsync.leaveRequests", JSON.stringify(leaveRequests));
@@ -4896,9 +4921,9 @@ function updateLoginMode() {
   if (isStaff) {
     updateStaffLoginPasswordHint();
   } else {
-    updateCloudStatus(isCloudReady()
-      ? "Enter cloud email and password. For demo, leave blank and sign in."
-      : "Cloud is not connected here. Leave email and password blank to open demo view.");
+    updateCloudStatus(role === "admin"
+      ? "Admin password: House6684$RDAA. Enter email only for Supabase cloud login."
+      : "Manager password: House6684$$$. Enter email only for Supabase cloud login.");
   }
 }
 
@@ -4916,8 +4941,16 @@ async function handleUnifiedLogin() {
     return;
   }
 
-  if (cloudEmail?.value.trim() || cloudPassword?.value) {
+  const email = cloudEmail?.value.trim() || "";
+  const password = cloudPassword?.value || "";
+  if (email) {
     await signInWithSupabase();
+    return;
+  }
+
+  if (password !== demoRolePasswords[role]) {
+    updateCloudStatus(`${titleCase(role)} password is incorrect.`);
+    showToast(`${titleCase(role)} password is incorrect.`);
     return;
   }
 
@@ -4978,6 +5011,7 @@ async function prepareStaffDemoLogin() {
     selectedStaff = await findOrLoadStaffByLoginCode(staffLoginCode?.value || "");
   }
   const password = staffLoginPassword?.value.trim() || "";
+  const newPassword = staffNewPassword?.value.trim() || "";
 
   if (!selectedStaff) {
     setStaffLoginStatus("No employee found for this code. Try 01, 02, or full code like 000001.", "red");
@@ -4999,15 +5033,20 @@ async function prepareStaffDemoLogin() {
   }
 
   const hadPassword = hasStaffPassword(selectedStaff);
-  const passwordResult = await checkStaffPassword(selectedStaff, password);
+  const passwordResult = await checkStaffPassword(selectedStaff, password, newPassword);
   if (!passwordResult.ok) {
-    setStaffLoginStatus("Wrong staff password. Admin can clear it from Staff > Edit staff.", "red");
-    showToast("Wrong staff password.");
+    setStaffLoginStatus(passwordResult.message || "Wrong staff password. Admin can clear it from Staff > Edit staff.", "red");
+    showToast(passwordResult.message || "Wrong staff password.");
     return false;
   }
 
   if (staffLoginPassword) staffLoginPassword.value = "";
-  setStaffLoginStatus(hadPassword || passwordResult.hadCloudPassword ? "Password accepted. Opening staff view." : "New staff password saved. Opening staff view.", "green");
+  if (staffNewPassword) staffNewPassword.value = "";
+  setStaffLoginStatus(passwordResult.changedPassword
+    ? "New password saved. Opening staff view."
+    : hadPassword || passwordResult.hadCloudPassword
+      ? "Password accepted. Opening staff view."
+      : "New staff password saved. Opening staff view.", "green");
   return true;
 }
 
@@ -5034,22 +5073,33 @@ function saveStaffPassword(person, password) {
   staffPasswords[key] = btoa(unescape(encodeURIComponent(password)));
 }
 
-async function checkStaffPassword(person, password) {
+async function checkStaffPassword(person, password, newPassword = "") {
   if (person?.cloudId && isCloudReady()) {
     try {
       const record = await window.staffSyncDb.getStaffLoginPassword(person.cloudId);
       const passwordHash = await hashStaffPassword(person, password);
       if (!record?.password_hash || record.reset_required) {
+        const setup = validateFirstStaffPasswordSetup(password, newPassword);
+        if (!setup.ok) return setup;
         await window.staffSyncDb.setStaffLoginPassword({
           staffProfileId: person.cloudId,
-          passwordHash,
+          passwordHash: await hashStaffPassword(person, newPassword),
           resetRequired: false
         });
-        saveStaffPassword(person, password);
-        return { ok: true, hadCloudPassword: false };
+        saveStaffPassword(person, newPassword);
+        return { ok: true, hadCloudPassword: false, changedPassword: true };
       }
       const ok = record.password_hash === passwordHash;
-      if (ok) saveStaffPassword(person, password);
+      if (ok) {
+        if (newPassword) {
+          const change = validateNewStaffPassword(newPassword);
+          if (!change.ok) return change;
+          await saveCloudStaffPassword(person, newPassword);
+          saveStaffPassword(person, newPassword);
+          return { ok: true, hadCloudPassword: true, changedPassword: true };
+        }
+        saveStaffPassword(person, password);
+      }
       return { ok, hadCloudPassword: true };
     } catch {
       // Fall back to this browser if the cloud password table is not installed yet.
@@ -5061,15 +5111,43 @@ async function checkStaffPassword(person, password) {
   const savedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
   const saved = savedKey ? staffPasswords[savedKey] : "";
   if (!saved) {
-    saveStaffPassword(person, password);
-    return { ok: true, hadCloudPassword: false };
+    const setup = validateFirstStaffPasswordSetup(password, newPassword);
+    if (!setup.ok) return setup;
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
   }
   const isMatch = saved === btoa(unescape(encodeURIComponent(password)));
   if (isMatch && savedKey !== key) {
     staffPasswords[key] = saved;
     delete staffPasswords[savedKey];
   }
+  if (isMatch && newPassword) {
+    const change = validateNewStaffPassword(newPassword);
+    if (!change.ok) return change;
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
+  }
   return { ok: isMatch, hadCloudPassword: false };
+}
+
+function validateFirstStaffPasswordSetup(password, newPassword) {
+  if (password !== firstStaffPassword) {
+    return { ok: false, message: "First login password is 12345." };
+  }
+  return validateNewStaffPassword(newPassword);
+}
+
+function validateNewStaffPassword(newPassword) {
+  if (!newPassword) {
+    return { ok: false, message: "Enter a new password for this staff login." };
+  }
+  if (newPassword === firstStaffPassword) {
+    return { ok: false, message: "New password cannot be 12345. Choose a private password." };
+  }
+  if (newPassword.length < 4) {
+    return { ok: false, message: "New password must be at least 4 characters." };
+  }
+  return { ok: true };
 }
 
 function clearStaffPassword(person) {

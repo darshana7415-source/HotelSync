@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v119
-Changes: app renamed for Beach & Bliss Mirissa, staff list sorted by employee code, add-staff label changed to Job title, default leave balance 6, edit form blank until a staff member is selected, Quick import removed.
+StaffSync Beach & Bliss Mirissa build v120
+Changes: admin demo password set to House6684$RDAA, manager demo password set to House6684$$$, staff first login requires 12345 and a new password, app renamed for Beach & Bliss Mirissa, staff list sorted by employee code.

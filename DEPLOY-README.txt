@@ -8,5 +8,5 @@ Use publish directory: outputs/hotelstaff
 Build command: leave blank
 
 After deploy, test:
-/VERSION.txt should show StaffSync Beach & Bliss Mirissa build v119.
-/index.html?v=119 should open the app.
+/VERSION.txt should show StaffSync Beach & Bliss Mirissa build v120.
+/index.html?v=120 should open the app.
