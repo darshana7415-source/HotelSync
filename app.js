@@ -6254,37 +6254,3 @@ function showToast(message) {
 }
 
 init();
-https://6a4805c85ee1aff638ebe23d--effulgent-dragon-95f83e.netlify.app/#staff// ============================================================================
-// ROLE-BASED ACCESS CONTROL
-// ============================================================================
-
-
-  const role = await checkUserRole();
-
-  // Hide admin sections from staff
-  if (role === "staff") {
-    // Hide admin panel
-    const adminPanel = document.querySelector("#admin-panel");
-    if (adminPanel) adminPanel.style.display = "none";
-
-    // Hide manager panel
-    const managerPanel = document.querySelector("#manager-panel");
-    if (managerPanel) managerPanel.style.display = "none";
-
-    // Hide admin navigation
-    const adminNav = document.querySelectorAll(".admin-nav, .manager-nav");
-    adminNav.forEach(el => el.style.display = "none");
-  }
-
-  // Hide staff-only features from admins
-  if (role === "admin" || role === "manager") {
-    const staffOnlyPanel = document.querySelector("#staff-only-panel");
-    if (staffOnlyPanel) staffOnlyPanel.style.display = "none";
-  }
-}function generateStaffPassword(employeeCode, fullName) {
-  const codeStr = String(employeeCode || '').trim();
-  const lastTwoDigits = codeStr.slice(-2).padStart(2, '0');
-  const firstName = (fullName || '').trim().split(' ')[0];
-  const namePrefix = firstName.slice(0, 2).toLowerCase();
-  return lastTwoDigits + namePrefix;
-}
