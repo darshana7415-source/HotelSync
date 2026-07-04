@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v125
-Changes: login screen no longer displays admin, manager, or staff temporary password values before sign-in.
+StaffSync Beach & Bliss Mirissa build v126
+Changes: admin Download backup now exports staff, leave, shift, attendance, communications, settings, and report CSV data in one dated JSON backup file.

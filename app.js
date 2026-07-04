@@ -2758,10 +2758,10 @@ function bindEvents() {
   });
 
   document.querySelector("#export-report").addEventListener("click", () => {
-    const report = buildCsvReport();
-    navigator.clipboard?.writeText(report);
-    downloadTextFile("staffsync-daily-report.csv", report);
-    showToast("CSV report downloaded and copied.");
+    const today = new Date().toISOString().slice(0, 10);
+    const backup = buildStaffSyncBackup();
+    downloadTextFile(`staffsync-backup-${today}.json`, JSON.stringify(backup, null, 2), "application/json");
+    showToast("StaffSync backup downloaded.");
   });
 
   exportAttendanceReport?.addEventListener("click", () => {
@@ -3768,6 +3768,67 @@ function buildCsvReport() {
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
+function buildStaffSyncBackup() {
+  const generatedAt = new Date().toISOString();
+  const monthKey = monthKeyForDate();
+  return {
+    app: "StaffSync Beach & Bliss Mirissa",
+    build: "v126",
+    generatedAt,
+    month: monthKey,
+    hotelId: (window.STAFFSYNC_ENV || {}).HOTEL_ID || "",
+    staff: sortStaffByEmployeeCode(staff).map((person) => ({
+      id: person.id || "",
+      cloudId: person.cloudId || "",
+      appUserId: person.appUserId || "",
+      employeeCode: person.employeeCode || "",
+      name: person.name || "",
+      department: person.department || "",
+      jobTitle: person.role || "",
+      email: person.email || "",
+      wifiMac: person.wifiMac || person.phone || "",
+      shift: person.shift || "",
+      shiftTime: person.shiftTime || "",
+      leaveBalance: person.leaveBalance || 0,
+      status: person.status || "",
+      clockIn: person.clockIn || "",
+      clockOut: person.clockOut || "",
+      locationStatus: person.locationStatus || "",
+      location: person.location || ""
+    })),
+    leaveRequests: leaveRequests.map((request) => ({ ...request })),
+    shiftPlans: shiftPlans.map((plan) => ({ ...plan })),
+    dailyRosters: structuredClone(dailyRosters || {}),
+    attendance: {
+      loadedReportRecords: attendanceReportRecords.map((record) => ({ ...record })),
+      currentStaffClockState: staff.map((person) => ({
+        employeeCode: person.employeeCode || "",
+        name: person.name || "",
+        department: person.department || "",
+        status: person.status || "",
+        clockIn: person.clockIn || "",
+        clockOut: person.clockOut || "",
+        hoursWorked: person.hoursWorked || 0
+      }))
+    },
+    communications: {
+      leaveAndShiftMessages: staffMessages.map((message) => ({ ...message })),
+      activityLog: activityLog.map((log) => ({ ...log }))
+    },
+    settings: {
+      policy: structuredClone(policy || {}),
+      apLocationMap: structuredClone(apLocationMap || []),
+      hiddenLocationPingIds: structuredClone(hiddenLocationPingIds || [])
+    },
+    reports: {
+      dailyStaffCsv: buildCsvReport(),
+      attendanceCsv: buildAttendanceCsvReport(),
+      leaveCsv: buildLeaveCsvReport(),
+      shiftCsv: buildShiftCsvReport()
+    }
+  };
+}
+
 function buildAttendanceCsvReport() {
   const records = attendanceReportRecords.length
     ? attendanceReportRecords
@@ -4340,8 +4401,8 @@ function csvCell(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
 
-function downloadTextFile(filename, text) {
-  const blob = new Blob([text], { type: "text/csv" });
+function downloadTextFile(filename, text, type = "text/csv") {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
