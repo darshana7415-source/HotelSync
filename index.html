@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v125</small>
+        <small class="login-note">Running build v128</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa · Build v126</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v128</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -125,18 +125,18 @@
         <div class="panel manager-portal">
           <div class="panel-header compact">
             <div>
-              <p class="eyebrow">Manager view</p>
-              <h2>Operations watch</h2>
+              <p class="eyebrow">Admin view</p>
+              <h2>Today at a glance</h2>
             </div>
-            <span class="pill red" id="manager-alert-count">0 alerts</span>
+            <span class="pill green" id="manager-alert-count">0 on duty</span>
           </div>
           <div class="manager-grid">
             <article class="attention-panel">
-              <strong>Needs attention</strong>
+              <strong>Clocked out today</strong>
               <div id="manager-alerts" class="mini-list"></div>
             </article>
             <article>
-              <strong>Quick approvals</strong>
+              <strong>Pending leave</strong>
               <div id="manager-approvals" class="mini-list"></div>
             </article>
             <article>
@@ -344,9 +344,9 @@
           <small>Currently clocked in</small>
         </article>
         <article class="metric">
-          <span>Late arrivals</span>
+          <span>On break</span>
           <strong id="late-count">0</strong>
-          <small>After scheduled start</small>
+          <small>Currently on break</small>
         </article>
         <article class="metric">
           <span>Pending leave</span>
@@ -354,9 +354,9 @@
           <small>Awaiting approval</small>
         </article>
         <article class="metric">
-          <span>Outside property</span>
+          <span>Leave today</span>
           <strong id="outside-count">0</strong>
-          <small>During active shifts</small>
+          <small>Approved or pending</small>
         </article>
       </section>
 

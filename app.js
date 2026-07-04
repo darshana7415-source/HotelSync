@@ -378,10 +378,15 @@ function lockStaffOnlyView() {
 }
 
 function renderMetrics() {
+  const today = new Date().toISOString().slice(0, 10);
   document.querySelector("#on-duty-count").textContent = staff.filter((person) => isOnShift(person)).length;
-  document.querySelector("#late-count").textContent = staff.filter((person) => person.status === "Late").length;
+  document.querySelector("#late-count").textContent = staff.filter((person) => person.status === "On break").length;
   document.querySelector("#pending-leave-count").textContent = leaveRequests.filter((request) => request.status === "Pending").length;
-  document.querySelector("#outside-count").textContent = staff.filter((person) => person.locationStatus === "Outside" && isOnShift(person)).length;
+  document.querySelector("#outside-count").textContent = leaveRequests.filter((request) =>
+    ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
+    today >= request.from &&
+    today <= request.to
+  ).length;
 }
 
 function renderStaffTable() {
@@ -947,7 +952,8 @@ function renderShiftCalendar() {
     shiftCalendarStart.value = todayLocalKey();
   }
 
-  const dates = nextDateKeys(shiftCalendarStart.value, 7);
+  const selectedDate = shiftCalendarStart.value;
+  const dates = nextDateKeys(selectedDate, 7);
   const header = `
     <div class="shift-calendar-row shift-calendar-header">
       <span>Department / Staff</span>
@@ -959,6 +965,7 @@ function renderShiftCalendar() {
   const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
     ? [activeStaffForCalendar.department]
     : leaveDepartments;
+  const timeline = renderShiftTimeline(selectedDate, calendarDepartments);
   const sections = calendarDepartments.map((department) => {
     const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department)));
     if (!departmentStaff.length) return "";
@@ -979,7 +986,99 @@ function renderShiftCalendar() {
     `;
   }).join("");
 
-  shiftCalendar.innerHTML = header + (sections || `<div class="mini-empty">No staff found for the shift calendar.</div>`);
+  shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No staff found for the shift calendar.</div>`);
+}
+
+function renderShiftTimeline(dateValue, calendarDepartments) {
+  const departments = calendarDepartments
+    .map((department) => {
+      const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
+        normalizeDepartment(person.department) === normalizeDepartment(department)
+      ));
+      const rows = departmentStaff.map((person) => shiftTimelineRow(person, dateValue)).filter(Boolean);
+      if (!rows.length) return "";
+      return `
+        <section class="shift-timeline-department ${departmentColorClass(department)}">
+          <h3>${department}</h3>
+          ${rows.join("")}
+        </section>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="shift-timeline-card">
+      <div class="box-title-row">
+        <div>
+          <strong>Shift time chart - ${formatDate(dateValue)}</strong>
+          <small>Colored bars show who works at what time on the selected date.</small>
+        </div>
+      </div>
+      <div class="shift-time-axis">
+        ${["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"].map((label) => `<span>${label}</span>`).join("")}
+      </div>
+      ${departments || `<div class="mini-empty">No shifts found for this date.</div>`}
+    </div>
+  `;
+}
+
+function shiftTimelineRow(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue);
+  const segments = shiftSegmentsForEntry(entry);
+  const isLeave = entry.status === "Leave";
+  if (!segments.length && !isLeave) return "";
+
+  return `
+    <div class="shift-timeline-row">
+      <div class="shift-timeline-person">
+        <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+        <small>${person.role || "Staff"}</small>
+      </div>
+      <div class="shift-timeline-track">
+        ${segments.map((segment) => `
+          <span class="shift-bar ${segment.className}" style="left:${segment.left}%;width:${segment.width}%;">
+            ${segment.label}
+          </span>
+        `).join("")}
+        ${isLeave ? `<span class="shift-bar leave-bar" style="left:0%;width:100%;">Leave</span>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function shiftSegmentsForEntry(entry) {
+  if (!["Working", "Extra shift"].includes(entry.status)) return [];
+  const possible = [
+    { label: normalizeShiftLabel(entry.shift) || "Shift", inTime: entry.inTime, outTime: entry.outTime, className: "primary-bar" },
+    { label: normalizeShiftLabel(entry.shift2) || "Second", inTime: entry.inTime2, outTime: entry.outTime2, className: "second-bar" },
+    { label: normalizeShiftLabel(entry.shift3) || "Third", inTime: entry.inTime3, outTime: entry.outTime3, className: "third-bar" }
+  ];
+
+  return possible
+    .filter((segment) => segment.inTime && segment.outTime)
+    .map((segment) => {
+      const start = minutesFromTime(segment.inTime);
+      let end = minutesFromTime(segment.outTime);
+      if (end <= start) end += 24 * 60;
+      const visibleStart = Math.max(0, Math.min(start, 24 * 60));
+      const visibleEnd = Math.max(0, Math.min(end, 24 * 60));
+      const widthMinutes = Math.max(20, visibleEnd - visibleStart);
+      return {
+        ...segment,
+        left: roundPercent((visibleStart / (24 * 60)) * 100),
+        width: roundPercent((widthMinutes / (24 * 60)) * 100),
+        label: `${segment.label} ${normalizeTime24(segment.inTime)}-${normalizeTime24(segment.outTime)}`
+      };
+    });
+}
+
+function minutesFromTime(value) {
+  const [hour = 0, minute = 0] = normalizeTime24(value).split(":").map(Number);
+  return (Number(hour) * 60) + Number(minute);
+}
+
+function roundPercent(value) {
+  return Math.round(value * 100) / 100;
 }
 
 function renderDepartmentCharts() {
@@ -1405,6 +1504,10 @@ function renderSession() {
 function renderAdminDashboardCard() {
   const selectedDate = adminDashboardDate || new Date().toISOString().slice(0, 10);
   const onDuty = sortStaffByEmployeeCode(staff.filter((person) => isOnShift(person)));
+  const onBreak = sortStaffByEmployeeCode(staff.filter((person) => person.status === "On break"));
+  const clockedOut = sortStaffByEmployeeCode(staff.filter((person) => person.clockOut && !isOnShift(person)));
+  const pendingLeave = leaveRequests.filter((request) => request.status === "Pending");
+  const pendingShiftChanges = pendingShiftChangeThreads();
   const leaveForDate = leaveRequests.filter((request) =>
     ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
     selectedDate >= request.from &&
@@ -1428,8 +1531,11 @@ function renderAdminDashboardCard() {
       </div>
       <div class="self-stats compact-self-stats">
         <span><b>${onDuty.length}</b><small>on duty now</small></span>
-        <span><b>${staff.filter((person) => person.status === "On break").length}</b><small>on break</small></span>
+        <span><b>${onBreak.length}</b><small>on break</small></span>
+        <span><b>${clockedOut.length}</b><small>clocked out</small></span>
         <span><b>${leaveForDate.length}</b><small>leave on date</small></span>
+        <span><b>${pendingLeave.length}</b><small>pending leave</small></span>
+        <span><b>${pendingShiftChanges.length}</b><small>shift changes</small></span>
       </div>
       <div class="staff-message-box">
         <strong>Staff on duty now</strong>
@@ -1439,6 +1545,15 @@ function renderAdminDashboardCard() {
             <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
           </div>
         `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
+      </div>
+      <div class="staff-message-box">
+        <strong>On break now</strong>
+        ${onBreak.length ? onBreak.map((person) => `
+          <div class="mini-item">
+            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - Break after ${person.clockIn || "--:--"}</small></span>
+            <span class="pill blue">Break</span>
+          </div>
+        `).join("") : `<div class="mini-empty">No one is on break now.</div>`}
       </div>
       <div class="staff-message-box">
         <strong>Leave on ${formatDate(selectedDate)}</strong>
@@ -1467,17 +1582,15 @@ function renderAdminDashboardCard() {
     </div>
   `;
 
-  const alerts = staff.filter((person) => person.status === "Late" || (person.locationStatus === "Outside" && isOnShift(person)));
-  managerAlertCount.textContent = `${alerts.length} alert${alerts.length === 1 ? "" : "s"}`;
-  managerAlerts.innerHTML = alerts.length ? alerts.map((person) => `
+  managerAlertCount.textContent = `${onDuty.length} on duty`;
+  managerAlerts.innerHTML = clockedOut.length ? clockedOut.map((person) => `
     <div class="mini-item">
-      <span><strong>${person.name}</strong><small>${person.status === "Late" ? "Late arrival" : "Outside property"} - ${person.department}</small></span>
-      <span class="pill ${person.status === "Late" ? "amber" : "red"}">${person.status === "Late" ? "Late" : "Location"}</span>
+      <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn || "--:--"} to ${person.clockOut}</small></span>
+      <span class="pill green">Done</span>
     </div>
-  `).join("") : `<div class="mini-empty">No alerts right now.</div>`;
+  `).join("") : `<div class="mini-empty">No one has clocked out today yet.</div>`;
 
-  const pending = leaveRequests.filter((request) => request.status === "Pending");
-  managerApprovals.innerHTML = pending.length ? pending.map((request) => {
+  managerApprovals.innerHTML = pendingLeave.length ? pendingLeave.map((request) => {
     const requestMessages = leaveMessagesForRequest(request);
     const threadMessages = decisionMessagesForRequest(request, requestMessages);
     const adminDraft = adminLeaveDrafts[leaveDraftKey(request)] || "";
@@ -1499,24 +1612,34 @@ function renderAdminDashboardCard() {
     </div>
   `;
   }).join("") : `<div class="mini-empty">No pending leave requests.</div>`;
-  renderManagerShiftChanges();
+  renderManagerShiftChanges(pendingShiftChanges);
 
   document.body.dataset.role = currentRole || roleSelect.value;
 }
 
-function renderManagerShiftChanges() {
+function renderManagerShiftChanges(preparedThreads) {
   if (!managerShiftChanges) return;
 
-  const shiftThreads = chatThreadsForAdmin()
+  const shiftThreads = preparedThreads || pendingShiftChangeThreads();
+  managerShiftChanges.innerHTML = shiftThreads.length
+    ? shiftThreads.map(shiftChangeThreadMarkup).join("")
+    : `<div class="mini-empty">No shift change requests.</div>`;
+}
+
+function pendingShiftChangeThreads() {
+  return chatThreadsForAdmin()
     .filter((thread) => thread.isShiftThread)
     .map((thread) => ({
       ...thread,
       messages: thread.messages.filter((message) => !isSilentShiftUpdate(message))
     }))
-    .filter((thread) => thread.messages.length);
-  managerShiftChanges.innerHTML = shiftThreads.length
-    ? shiftThreads.map(shiftChangeThreadMarkup).join("")
-    : `<div class="mini-empty">No shift change requests.</div>`;
+    .filter((thread) => thread.messages.length && !isShiftThreadConfirmed(thread));
+}
+
+function isShiftThreadConfirmed(thread) {
+  const latest = thread.messages.at(-1);
+  const latestText = `${latest?.label || ""} ${latest?.message || ""}`.toLowerCase();
+  return latestText.includes("shift confirmed") || latestText.includes("shift change confirmed");
 }
 
 function shiftChangeThreadMarkup(thread) {

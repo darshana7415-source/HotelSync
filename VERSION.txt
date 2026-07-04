@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v126
-Changes: admin Download backup now exports staff, leave, shift, attendance, communications, settings, and report CSV data in one dated JSON backup file.
+StaffSync Beach & Bliss Mirissa build v128
+Changes: added an easy visual shift time chart with 24-hour timeline bars above the weekly shift calendar.
