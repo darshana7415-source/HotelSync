@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v124
-Changes: staff password reset simplified. 12345 plus a new password saves locally even if cloud save fails, and old local password values no longer match the v124 format.
+StaffSync Beach & Bliss Mirissa build v125
+Changes: login screen no longer displays admin, manager, or staff temporary password values before sign-in.

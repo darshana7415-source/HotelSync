@@ -1551,9 +1551,9 @@ function updateStaffLoginPasswordHint() {
   if (!staffLoginPassword || !staffLoginCode) return;
   const person = findStaffByLoginCode(staffLoginCode.value);
   if (!staffLoginCode.value.trim()) {
-    staffLoginPassword.placeholder = "First login password: 12345";
+    staffLoginPassword.placeholder = "Enter password";
     if (staffNewPassword) staffNewPassword.placeholder = "First login: choose new password";
-    setStaffLoginStatus("Enter employee code. First login uses 12345, then choose a new password.", "");
+    setStaffLoginStatus("Enter employee code. First login uses the temporary password, then choose a new password.", "");
     return;
   }
   if (!person) {
@@ -1565,7 +1565,7 @@ function updateStaffLoginPasswordHint() {
   const passwordIsSet = person && hasStaffPassword(person);
   staffLoginPassword.placeholder = passwordIsSet
     ? "Enter saved staff password"
-    : "First login password: 12345";
+    : "Enter temporary password";
   if (staffNewPassword) {
     staffNewPassword.placeholder = passwordIsSet
       ? "Optional: enter new password to change"
@@ -1574,7 +1574,7 @@ function updateStaffLoginPasswordHint() {
   setStaffLoginStatus(
     passwordIsSet
       ? `${person.name}: enter saved password. To change it, also enter a new password.`
-      : `${person.name}: first login uses 12345. Enter a new password too.`,
+      : `${person.name}: first login uses the temporary password. Enter a new password too.`,
     passwordIsSet ? "blue" : "green"
   );
 }
@@ -4924,8 +4924,8 @@ function updateLoginMode() {
     updateStaffLoginPasswordHint();
   } else {
     updateCloudStatus(role === "admin"
-      ? "Admin password: House6684$RDAA. Enter email only for Supabase cloud login."
-      : "Manager password: House6684$$$. Enter email only for Supabase cloud login.");
+      ? "Enter admin password. Enter email only for Supabase cloud login."
+      : "Enter manager password. Enter email only for Supabase cloud login.");
   }
 }
 
@@ -5162,7 +5162,7 @@ async function checkStaffPassword(person, password, newPassword = "") {
 
 function validateFirstStaffPasswordSetup(password, newPassword) {
   if (password !== firstStaffPassword) {
-    return { ok: false, message: "First login password is 12345." };
+    return { ok: false, message: "First login password is incorrect." };
   }
   return validateNewStaffPassword(newPassword);
 }
@@ -5176,7 +5176,7 @@ function validateNewStaffPassword(newPassword) {
     return { ok: false, message: "Enter a new password for this staff login." };
   }
   if (newPassword === firstStaffPassword) {
-    return { ok: false, message: "New password cannot be 12345. Choose a private password." };
+    return { ok: false, message: "New password cannot be the temporary password. Choose a private password." };
   }
   if (newPassword.length < 4) {
     return { ok: false, message: "New password must be at least 4 characters." };
