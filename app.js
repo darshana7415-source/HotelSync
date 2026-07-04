@@ -6258,32 +6258,7 @@ https://6a4805c85ee1aff638ebe23d--effulgent-dragon-95f83e.netlify.app/#staff// =
 // ROLE-BASED ACCESS CONTROL
 // ============================================================================
 
-async function checkUserRole() {
-  try {
-    const user = await staffSyncDb.getCurrentUser();
-    if (!user) return null;
 
-    // Get user's role from app_users table
-    const { data, error } = await window.staffSyncSupabase
-      .from("app_users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error checking role:", error);
-      return null;
-    }
-
-    return data?.role || "staff"; // Default to staff if not found
-  } catch (error) {
-    console.error("Role check error:", error);
-    return null;
-  }
-}
-
-// Hide/Show pages based on role
-async function enforceRoleBasedAccess() {
   const role = await checkUserRole();
 
   // Hide admin sections from staff
@@ -6308,7 +6283,3 @@ async function enforceRoleBasedAccess() {
   }
 }
 
-// Run on page load
-document.addEventListener("DOMContentLoaded", () => {
-  enforceRoleBasedAccess();
-});
