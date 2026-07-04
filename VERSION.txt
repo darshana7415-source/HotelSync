@@ -1,2 +1,2 @@
-StaffSync build v118
-Changes: staff list sorted by employee code, add-staff label changed to Job title, default leave balance 6, edit form blank until a staff member is selected, Quick import removed.
+StaffSync Beach & Bliss Mirissa build v119
+Changes: app renamed for Beach & Bliss Mirissa, staff list sorted by employee code, add-staff label changed to Job title, default leave balance 6, edit form blank until a staff member is selected, Quick import removed.

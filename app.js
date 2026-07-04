@@ -5451,12 +5451,12 @@ async function applyCloudUser(user, showMessage) {
 
   if (error) throw error;
   if (!data) {
-    throw new Error("Login worked, but this Supabase user is not linked to StaffSync. Run the link-auth SQL again with this user's UID.");
+    throw new Error("Login worked, but this Supabase user is not linked to StaffSync Beach & Bliss Mirissa. Run the link-auth SQL again with this user's UID.");
   }
   const role = String(data.role || "").toLowerCase();
   const isAdminLogin = ["admin", "manager"].includes(role);
   if (data.status !== "active" && !isAdminLogin) {
-    throw new Error("This login is not active in StaffSync.");
+    throw new Error("This login is not active in StaffSync Beach & Bliss Mirissa.");
   }
 
   currentRole = data.role;
