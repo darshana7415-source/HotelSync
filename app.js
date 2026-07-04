@@ -19,13 +19,14 @@ let shiftPlans = loadData("staffsync.shiftPlans", []);
 let dailyRosters = loadData("staffsync.dailyRosters", {});
 let staffDevices = loadData("staffsync.staffDevices", []);
 let staffPasswords = loadData("staffsync.staffPasswords", {});
-resetStaffPasswordsForFirstLogin("staff-password-reset-v120");
+resetStaffPasswordsForFirstLogin("staff-password-reset-v122");
 let apLocationMap = loadData("staffsync.apLocationMap", [
   { id: "ap-1st-lobby", apName: "1_St-Floor_Loby", floor: "1F", zone: "New Wing" }
 ]);
 let hiddenLocationPingIds = loadData("staffsync.hiddenLocationPingIds", []);
 const monthlyLeaveQuota = 6;
 const firstStaffPassword = "12345";
+const staffPasswordHashVersion = "v122";
 const demoRolePasswords = {
   admin: "House6684$RDAA",
   manager: "House6684$$$"
@@ -5070,7 +5071,7 @@ function hasStaffPassword(person) {
 function saveStaffPassword(person, password) {
   const key = staffPasswordKey(person);
   if (!key || !password) return;
-  staffPasswords[key] = btoa(unescape(encodeURIComponent(password)));
+  staffPasswords[key] = localStaffPasswordValue(password);
 }
 
 async function checkStaffPassword(person, password, newPassword = "") {
@@ -5133,7 +5134,7 @@ async function checkStaffPassword(person, password, newPassword = "") {
     saveStaffPassword(person, newPassword);
     return { ok: true, hadCloudPassword: false, changedPassword: true };
   }
-  const isMatch = saved === btoa(unescape(encodeURIComponent(password)));
+  const isMatch = saved === localStaffPasswordValue(password);
   if (isMatch && savedKey !== key) {
     staffPasswords[key] = saved;
     delete staffPasswords[savedKey];
@@ -5152,6 +5153,10 @@ function validateFirstStaffPasswordSetup(password, newPassword) {
     return { ok: false, message: "First login password is 12345." };
   }
   return validateNewStaffPassword(newPassword);
+}
+
+function localStaffPasswordValue(password) {
+  return `${staffPasswordHashVersion}:${btoa(unescape(encodeURIComponent(password)))}`;
 }
 
 function validateNewStaffPassword(newPassword) {
@@ -5182,7 +5187,7 @@ async function saveCloudStaffPassword(person, password) {
 
 async function hashStaffPassword(person, password) {
   const code = normalizeEmployeeCode(person?.employeeCode) || String(person?.cloudId || person?.id || "");
-  const source = `staffsync:${code}:${password}`;
+  const source = `staffsync:${staffPasswordHashVersion}:${code}:${password}`;
   if (window.crypto?.subtle) {
     const bytes = new TextEncoder().encode(source);
     const digest = await window.crypto.subtle.digest("SHA-256", bytes);

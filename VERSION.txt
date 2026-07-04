@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v121
-Changes: staff password reset now accepts 12345 plus a new password even when old cloud password records already exist, admin demo password set to House6684$RDAA, manager demo password set to House6684$$$.
+StaffSync Beach & Bliss Mirissa build v122
+Changes: old staff passwords are blocked by a new v122 password format. Staff must use 12345 plus a new password once, then only the new password works.
