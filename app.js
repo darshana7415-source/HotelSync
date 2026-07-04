@@ -26,7 +26,8 @@ let apLocationMap = loadData("staffsync.apLocationMap", [
 let hiddenLocationPingIds = loadData("staffsync.hiddenLocationPingIds", []);
 const monthlyLeaveQuota = 6;
 const firstStaffPassword = "12345";
-const staffPasswordHashVersion = "v122";
+const staffPasswordHashVersion = "v124";
+const staffPasswordResetEpoch = "force-reset-v124";
 const demoRolePasswords = {
   admin: "House6684$RDAA",
   manager: "House6684$$$"
@@ -5068,36 +5069,51 @@ function hasStaffPassword(person) {
   return staffPasswordKeys(person).some((key) => Boolean(staffPasswords[key]));
 }
 
+function staffPasswordResetDoneKey(person) {
+  return `${staffPasswordResetEpoch}:${staffPasswordKey(person)}`;
+}
+
+function hasCompletedCurrentStaffPasswordReset(person) {
+  return Boolean(staffPasswords[staffPasswordResetDoneKey(person)]);
+}
+
 function saveStaffPassword(person, password) {
   const key = staffPasswordKey(person);
   if (!key || !password) return;
   staffPasswords[key] = localStaffPasswordValue(password);
+  staffPasswords[staffPasswordResetDoneKey(person)] = "done";
 }
 
 async function checkStaffPassword(person, password, newPassword = "") {
+  const localSavedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
+  const localSaved = localSavedKey ? staffPasswords[localSavedKey] : "";
+  if (localSaved && localSaved === localStaffPasswordValue(password)) {
+    if (newPassword) {
+      const change = validateNewStaffPassword(newPassword);
+      if (!change.ok) return change;
+      await trySaveCloudStaffPassword(person, newPassword);
+      saveStaffPassword(person, newPassword);
+      return { ok: true, hadCloudPassword: false, changedPassword: true };
+    }
+    return { ok: true, hadCloudPassword: false };
+  }
+
+  if (password === firstStaffPassword && newPassword) {
+    const setup = validateFirstStaffPasswordSetup(password, newPassword);
+    if (!setup.ok) return setup;
+    await trySaveCloudStaffPassword(person, newPassword);
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
+  }
+
   if (person?.cloudId && isCloudReady()) {
     try {
       const record = await window.staffSyncDb.getStaffLoginPassword(person.cloudId);
       const passwordHash = await hashStaffPassword(person, password);
-      if (password === firstStaffPassword && newPassword) {
-        const setup = validateFirstStaffPasswordSetup(password, newPassword);
-        if (!setup.ok) return setup;
-        await window.staffSyncDb.setStaffLoginPassword({
-          staffProfileId: person.cloudId,
-          passwordHash: await hashStaffPassword(person, newPassword),
-          resetRequired: false
-        });
-        saveStaffPassword(person, newPassword);
-        return { ok: true, hadCloudPassword: Boolean(record?.password_hash), changedPassword: true };
-      }
       if (!record?.password_hash || record.reset_required) {
         const setup = validateFirstStaffPasswordSetup(password, newPassword);
         if (!setup.ok) return setup;
-        await window.staffSyncDb.setStaffLoginPassword({
-          staffProfileId: person.cloudId,
-          passwordHash: await hashStaffPassword(person, newPassword),
-          resetRequired: false
-        });
+        await trySaveCloudStaffPassword(person, newPassword);
         saveStaffPassword(person, newPassword);
         return { ok: true, hadCloudPassword: false, changedPassword: true };
       }
@@ -5106,7 +5122,7 @@ async function checkStaffPassword(person, password, newPassword = "") {
         if (newPassword) {
           const change = validateNewStaffPassword(newPassword);
           if (!change.ok) return change;
-          await saveCloudStaffPassword(person, newPassword);
+          await trySaveCloudStaffPassword(person, newPassword);
           saveStaffPassword(person, newPassword);
           return { ok: true, hadCloudPassword: true, changedPassword: true };
         }
@@ -5124,24 +5140,16 @@ async function checkStaffPassword(person, password, newPassword = "") {
 
   const key = staffPasswordKey(person);
   if (!key) return { ok: false, hadCloudPassword: false };
-  const savedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
-  const saved = savedKey ? staffPasswords[savedKey] : "";
-  if (password === firstStaffPassword && newPassword) {
+  if (!localSaved) {
     const setup = validateFirstStaffPasswordSetup(password, newPassword);
     if (!setup.ok) return setup;
     saveStaffPassword(person, newPassword);
     return { ok: true, hadCloudPassword: false, changedPassword: true };
   }
-  if (!saved) {
-    const setup = validateFirstStaffPasswordSetup(password, newPassword);
-    if (!setup.ok) return setup;
-    saveStaffPassword(person, newPassword);
-    return { ok: true, hadCloudPassword: false, changedPassword: true };
-  }
-  const isMatch = saved === localStaffPasswordValue(password);
-  if (isMatch && savedKey !== key) {
-    staffPasswords[key] = saved;
-    delete staffPasswords[savedKey];
+  const isMatch = localSaved === localStaffPasswordValue(password);
+  if (isMatch && localSavedKey !== key) {
+    staffPasswords[key] = localSaved;
+    delete staffPasswords[localSavedKey];
   }
   if (isMatch && newPassword) {
     const change = validateNewStaffPassword(newPassword);
@@ -5187,6 +5195,15 @@ async function saveCloudStaffPassword(person, password) {
     passwordHash: await hashStaffPassword(person, password),
     resetRequired: false
   });
+}
+
+async function trySaveCloudStaffPassword(person, password) {
+  try {
+    await saveCloudStaffPassword(person, password);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function hashStaffPassword(person, password) {
