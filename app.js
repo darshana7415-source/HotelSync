@@ -28,6 +28,9 @@ const monthlyLeaveQuota = 6;
 const firstStaffPassword = "12345";
 const staffPasswordHashVersion = "v124";
 const staffPasswordResetEpoch = "force-reset-v124";
+const defaultShiftName = "10 hours";
+const defaultShiftStart = "07:00";
+const defaultShiftEnd = "17:00";
 const demoRolePasswords = {
   admin: "House6684$RDAA",
   manager: "House6684$$$"
@@ -1015,7 +1018,7 @@ function renderShiftTimeline(dateValue, calendarDepartments) {
         </div>
       </div>
       <div class="shift-time-axis">
-        ${["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"].map((label) => `<span>${label}</span>`).join("")}
+        ${["07:00", "10:00", "13:00", "16:00", "19:00", "22:00", "24:00"].map((label) => `<span>${label}</span>`).join("")}
       </div>
       ${departments || `<div class="mini-empty">No shifts found for this date.</div>`}
     </div>
@@ -1040,7 +1043,7 @@ function shiftTimelineRow(person, dateValue) {
             ${segment.label}
           </span>
         `).join("")}
-        ${isLeave ? `<span class="shift-bar leave-bar" style="left:0%;width:100%;">Leave</span>` : ""}
+        ${isLeave ? `<span class="shift-bar leave-bar" style="left:0%;width:100%;">Full day leave</span>` : ""}
       </div>
     </div>
   `;
@@ -1060,16 +1063,28 @@ function shiftSegmentsForEntry(entry) {
       const start = minutesFromTime(segment.inTime);
       let end = minutesFromTime(segment.outTime);
       if (end <= start) end += 24 * 60;
-      const visibleStart = Math.max(0, Math.min(start, 24 * 60));
-      const visibleEnd = Math.max(0, Math.min(end, 24 * 60));
+      const visibleStart = Math.max(shiftChartStartMinute(), Math.min(start, shiftChartEndMinute()));
+      const visibleEnd = Math.max(shiftChartStartMinute(), Math.min(end, shiftChartEndMinute()));
       const widthMinutes = Math.max(20, visibleEnd - visibleStart);
       return {
         ...segment,
-        left: roundPercent((visibleStart / (24 * 60)) * 100),
-        width: roundPercent((widthMinutes / (24 * 60)) * 100),
-        label: `${segment.label} ${normalizeTime24(segment.inTime)}-${normalizeTime24(segment.outTime)}`
+        left: roundPercent(((visibleStart - shiftChartStartMinute()) / shiftChartVisibleMinutes()) * 100),
+        width: roundPercent((widthMinutes / shiftChartVisibleMinutes()) * 100),
+        label: `${segment.label} ${normalizeTime24(segment.inTime)}-${normalizeTime24(segment.outTime)}${entry.leaveLabel ? ` (${entry.leaveLabel})` : ""}`
       };
     });
+}
+
+function shiftChartStartMinute() {
+  return 7 * 60;
+}
+
+function shiftChartEndMinute() {
+  return 24 * 60;
+}
+
+function shiftChartVisibleMinutes() {
+  return shiftChartEndMinute() - shiftChartStartMinute();
 }
 
 function minutesFromTime(value) {
@@ -1203,7 +1218,7 @@ function fillEditStaffForm() {
   document.querySelector("#edit-staff-department").value = person.department || "";
   document.querySelector("#edit-staff-role").value = person.role || "";
   document.querySelector("#edit-staff-leave").value = Number(person.leaveBalance || 0);
-  document.querySelector("#edit-staff-shift").value = person.shift || "Morning";
+  document.querySelector("#edit-staff-shift").value = displayShiftName(person.shift || defaultShiftName);
   document.querySelector("#edit-staff-phone").value = person.wifiMac || person.phone || "";
   document.querySelector("#edit-staff-password").value = "";
   document.querySelector("#clear-staff-password").checked = false;
@@ -4037,15 +4052,24 @@ function activeShiftPlanFor(person, dateValue = "") {
 
 function dailyRosterEntryFor(person, dateValue) {
   const saved = dailyRosters[dateValue]?.[person.id];
-  if (saved) return saved;
+  const approvedLeave = approvedLeaveForStaffDate(person, dateValue);
+  if (saved) return applyLeaveToRosterEntry(saved, approvedLeave);
 
   const plan = activeShiftPlanFor(person, dateValue);
-  const hasLeave = staffHasApprovedLeave(person, dateValue);
+  const leaveDuration = leaveDurationValue(approvedLeave);
+  const hasFullLeave = approvedLeave && leaveDuration === "full";
+  const baseInTime = plan?.inTime || shiftStartFromTimeRange(person.shiftTime);
+  const baseOutTime = plan?.outTime || shiftEndFromTimeRange(person.shiftTime);
+  const adjustedOutTime = approvedLeave && !hasFullLeave
+    ? adjustedShiftOutTime(baseInTime, baseOutTime, leaveDuration)
+    : baseOutTime;
   return {
-    shift: hasLeave ? "Leave" : (plan?.shift || person.shift || "Varied 10h"),
-    inTime: hasLeave ? "00:00" : (plan?.inTime || shiftStartFromTimeRange(person.shiftTime)),
-    outTime: hasLeave ? "00:00" : (plan?.outTime || shiftEndFromTimeRange(person.shiftTime)),
-    status: hasLeave ? "Leave" : ((plan?.shift || person.shift) === "Weekly off" ? "Weekly off" : "Working"),
+    shift: hasFullLeave ? "Leave" : displayShiftName(plan?.shift || person.shift || defaultShiftName),
+    inTime: hasFullLeave ? "00:00" : baseInTime,
+    outTime: hasFullLeave ? "00:00" : adjustedOutTime,
+    status: hasFullLeave ? "Leave" : ((plan?.shift || person.shift) === "Weekly off" ? "Weekly off" : "Working"),
+    leaveDuration: approvedLeave ? leaveDuration : "",
+    leaveLabel: approvedLeave ? leaveDurationLabel(leaveDuration) : "",
     shift2: plan?.shift2 || "",
     inTime2: plan?.inTime2 || "",
     outTime2: plan?.outTime2 || "",
@@ -4054,6 +4078,29 @@ function dailyRosterEntryFor(person, dateValue) {
     inTime3: plan?.inTime3 || "",
     outTime3: plan?.outTime3 || "",
     status3: plan?.shift3 ? "Working" : ""
+  };
+}
+
+function applyLeaveToRosterEntry(entry, approvedLeave) {
+  if (!approvedLeave) return entry;
+  const leaveDuration = leaveDurationValue(approvedLeave);
+  if (leaveDuration === "full") {
+    return {
+      ...entry,
+      shift: "Leave",
+      inTime: "00:00",
+      outTime: "00:00",
+      status: "Leave",
+      leaveDuration,
+      leaveLabel: leaveDurationLabel(leaveDuration)
+    };
+  }
+
+  return {
+    ...entry,
+    outTime: adjustedShiftOutTime(entry.inTime || "00:00", entry.outTime || "00:00", leaveDuration),
+    leaveDuration,
+    leaveLabel: leaveDurationLabel(leaveDuration)
   };
 }
 
@@ -4067,7 +4114,7 @@ function dailyRosterEntryFromMessages(person, dateValue) {
 
   if (!message) return null;
   return {
-    shift: message.rosterEntry.shift || "Varied 10h",
+    shift: displayShiftName(message.rosterEntry.shift || defaultShiftName),
     inTime: message.rosterEntry.inTime || "00:00",
     outTime: message.rosterEntry.outTime || "00:00",
     status: message.rosterEntry.status || "Working",
@@ -4089,7 +4136,7 @@ function saveDailyRosterFromTable(dateValue) {
   dailyRosterBody.querySelectorAll("tr[data-roster-staff]").forEach((row) => {
     const staffId = row.dataset.rosterStaff;
     entries[staffId] = {
-      shift: row.querySelector("[data-roster-field='shift']")?.value.trim() || "Varied 10h",
+      shift: displayShiftName(row.querySelector("[data-roster-field='shift']")?.value.trim() || defaultShiftName),
       inTime: row.querySelector("[data-roster-field='inTime']")?.value || "00:00",
       outTime: row.querySelector("[data-roster-field='outTime']")?.value || "00:00",
       status: row.querySelector("[data-roster-field='status']")?.value || "Working",
@@ -4131,9 +4178,9 @@ function applyShiftPlanToDailyRosters(person, plan) {
   (plan.repeatDates || []).forEach((dateValue) => {
     dailyRosters[dateValue] = dailyRosters[dateValue] || buildRosterEntriesForDate(dateValue);
     dailyRosters[dateValue][person.id] = {
-      shift: plan.shift || "Morning",
-      inTime: plan.inTime || "07:00",
-      outTime: plan.outTime || "15:00",
+      shift: displayShiftName(plan.shift || defaultShiftName),
+      inTime: plan.inTime || defaultShiftStart,
+      outTime: plan.outTime || defaultShiftEnd,
       status: plan.shift === "Weekly off" ? "Weekly off" : "Working",
       shift2: plan.shift2 || "",
       inTime2: plan.inTime2 || "",
@@ -4228,11 +4275,11 @@ function shiftDateFromThreadKey(key) {
 
 function encodeRosterShift(entry) {
   if (!entry.shift2 && !entry.inTime2 && !entry.outTime2 && !entry.status2 && !entry.shift3 && !entry.inTime3 && !entry.outTime3 && !entry.status3) {
-    return entry.shift || "Varied 10h";
+    return displayShiftName(entry.shift || defaultShiftName);
   }
 
   return `json:${JSON.stringify({
-    shift: entry.shift || "Varied 10h",
+    shift: displayShiftName(entry.shift || defaultShiftName),
     shift2: entry.shift2 || "",
     inTime2: entry.inTime2 || "",
     outTime2: entry.outTime2 || "",
@@ -4246,18 +4293,25 @@ function encodeRosterShift(entry) {
 
 function decodeRosterShift(value) {
   const text = String(value || "");
-  if (!text.startsWith("json:")) return { shift: text || "Varied 10h" };
+  if (!text.startsWith("json:")) return { shift: displayShiftName(text || defaultShiftName) };
 
   try {
     return JSON.parse(text.slice(5));
   } catch (error) {
-    return { shift: text || "Varied 10h" };
+    return { shift: displayShiftName(text || defaultShiftName) };
   }
 }
 
 function normalizeShiftLabel(shift) {
   const value = String(shift || "").trim();
-  return value.toLowerCase() === "varied 10h" || value.toLowerCase() === "varied" ? "" : value;
+  return displayShiftName(value);
+}
+
+function displayShiftName(shift) {
+  const value = String(shift || "").trim();
+  const lowered = value.toLowerCase();
+  if (!value || lowered === "varied 10h" || lowered === "varied" || lowered === "10h") return defaultShiftName;
+  return value;
 }
 
 function departmentColorClass(department) {
@@ -4311,7 +4365,7 @@ async function notifyDailyRosterSaved(dateValue) {
         shift_date: dateValue,
         message_topic: "Shift",
         roster_entry: {
-          shift: notice.entry.shift || "Varied 10h",
+          shift: displayShiftName(notice.entry.shift || defaultShiftName),
           inTime: notice.entry.inTime || "00:00",
           outTime: notice.entry.outTime || "00:00",
           status: notice.entry.status || "Working",
@@ -4343,9 +4397,9 @@ async function notifyShiftPlanSaved(person, dateValue, entry) {
       shift_date: dateValue,
       message_topic: "Shift",
       roster_entry: {
-        shift: entry.shift || "Morning",
-        inTime: entry.inTime || "07:00",
-        outTime: entry.outTime || "15:00",
+        shift: displayShiftName(entry.shift || defaultShiftName),
+        inTime: entry.inTime || defaultShiftStart,
+        outTime: entry.outTime || defaultShiftEnd,
         status: entry.status || "Working",
         shift2: entry.shift2 || "",
         inTime2: entry.inTime2 || "",
@@ -4437,7 +4491,7 @@ async function importStaffRows(text) {
     const department = columns[2] || "General";
     const role = columns[3] || "Staff";
     const leaveBalance = Number(columns[4] || 6);
-    const shift = columns[5] || "Varied 10h";
+    const shift = displayShiftName(columns[5] || defaultShiftName);
 
     if (!name || employeeCodeExists(employeeCode)) {
       skipped += 1;
@@ -4537,28 +4591,29 @@ function downloadTextFile(filename, text, type = "text/csv") {
 }
 
 function shiftTimeFor(shift) {
-  if (shift === "Morning") return "07:00 - 15:00";
-  if (shift === "Evening") return "15:00 - 23:00";
-  if (shift === "Night") return "23:00 - 07:00";
-  if (shift === "Varied 10h") return "10 hours - start varies";
-  if (shift === "Weekly off") return "00:00 - 00:00";
+  const shiftName = displayShiftName(shift);
+  if (shiftName === defaultShiftName) return `${defaultShiftStart} - ${defaultShiftEnd}`;
+  if (shiftName === "Morning") return "07:00 - 15:00";
+  if (shiftName === "Evening") return "15:00 - 23:00";
+  if (shiftName === "Night") return "23:00 - 07:00";
+  if (shiftName === "Weekly off") return "00:00 - 00:00";
   return "10:00 - 14:00 / 18:00 - 22:00";
 }
 
 function shiftStartFromTimeRange(value) {
-  return String(value || "07:00 - 15:00").split(" - ")[0] || "07:00";
+  return String(value || `${defaultShiftStart} - ${defaultShiftEnd}`).split(" - ")[0] || defaultShiftStart;
 }
 
 function shiftEndFromTimeRange(value) {
-  return String(value || "07:00 - 15:00").split(" - ")[1] || "15:00";
+  return String(value || `${defaultShiftStart} - ${defaultShiftEnd}`).split(" - ")[1] || defaultShiftEnd;
 }
 
 function setDefaultShiftPlannerValues() {
   if (!shiftEffectiveDate) return;
   shiftEffectiveDate.value = todayLocalKey();
-  shiftValue.value = "Morning";
-  shiftInTime.value = "07:00";
-  shiftOutTime.value = "15:00";
+  shiftValue.value = defaultShiftName;
+  shiftInTime.value = defaultShiftStart;
+  shiftOutTime.value = defaultShiftEnd;
   setOptionalShiftField("shift-value-2", "Evening");
   setOptionalShiftField("shift-in-time-2", "");
   setOptionalShiftField("shift-out-time-2", "");
@@ -4865,6 +4920,34 @@ function staffHasApprovedLeave(person, dateValue) {
     request.status === "Approved" &&
     requestCoversDate(request, dateValue)
   );
+}
+
+function approvedLeaveForStaffDate(person, dateValue) {
+  return leaveRequests.find((request) =>
+    (sameId(request.staffId, person.id) || sameId(request.staffId, person.cloudId)) &&
+    request.status === "Approved" &&
+    requestCoversDate(request, dateValue)
+  ) || null;
+}
+
+function adjustedShiftOutTime(inTime, outTime, leaveDuration) {
+  const start = minutesFromTime(inTime);
+  let end = minutesFromTime(outTime);
+  if (end <= start) end += 24 * 60;
+  const shiftMinutes = Math.max(0, end - start);
+  const reduction = leaveDuration === "half"
+    ? Math.round(shiftMinutes / 2)
+    : leaveDuration === "short"
+      ? 150
+      : 0;
+  return timeFromMinutes(Math.max(start, end - reduction));
+}
+
+function timeFromMinutes(value) {
+  const minutes = ((value % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function isScheduledForDate(person, dateValue, dayName = shortDayName(dateValue)) {
@@ -6382,7 +6465,7 @@ async function saveStaffLocationPing(person, position) {
 function mapCloudStaffProfile(profile, index) {
   const departmentName = profile.departments?.name || "Unassigned";
   const role = profile.job_title || titleCase(profile.app_users?.role || "staff");
-  const shift = profile.default_shift_type || "Morning";
+  const shift = displayShiftName(profile.default_shift_type || defaultShiftName);
   const isActive = profile.app_users?.status === "active";
 
   return {
@@ -6437,7 +6520,7 @@ function mapCloudDailyRosters(rows) {
     groups[row.roster_date] = groups[row.roster_date] || {};
     const decodedShift = decodeRosterShift(row.shift_name);
     groups[row.roster_date][person.id] = {
-      shift: decodedShift.shift || row.shift_name || "Varied 10h",
+      shift: displayShiftName(decodedShift.shift || row.shift_name || defaultShiftName),
       inTime: String(row.in_time || "00:00").slice(0, 5),
       outTime: String(row.out_time || "00:00").slice(0, 5),
       status: row.day_status || "Working",

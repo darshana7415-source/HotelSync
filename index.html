@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v128</small>
+        <small class="login-note">Running build v130</small>
       </div>
     </div>
   </section>
@@ -85,7 +85,7 @@
       </nav>
       <div class="hotel-card">
         <span>Today</span>
-        <strong id="today-label">Morning shift</strong>
+        <strong id="today-label">10 hours shift</strong>
         <small id="session-label">Not signed in</small>
       </div>
     </aside>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v128</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v130</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -189,6 +189,7 @@
               <label>
                 Shift
                 <select id="new-staff-shift">
+                  <option selected>10 hours</option>
                   <option>Morning</option>
                   <option>Evening</option>
                   <option>Night</option>
@@ -293,11 +294,11 @@
             <option value="General"></option>
           </datalist>
           <datalist id="shift-options">
+            <option value="10 hours"></option>
             <option value="Morning"></option>
             <option value="Evening"></option>
             <option value="Night"></option>
             <option value="Split"></option>
-            <option value="Varied 10h"></option>
             <option value="Weekly off"></option>
           </datalist>
         </div>
@@ -617,6 +618,7 @@
               <label>
                 Shift name
                 <select id="shift-value" required>
+                  <option>10 hours</option>
                   <option>Morning</option>
                   <option>Evening</option>
                   <option>Night</option>

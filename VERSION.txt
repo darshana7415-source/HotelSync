@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v128
-Changes: added an easy visual shift time chart with 24-hour timeline bars above the weekly shift calendar.
+StaffSync Beach & Bliss Mirissa build v130
+Changes: default shift now displays as 10 hours across staff setup, edit screens, shift planner, rosters, cloud profiles, and shift charts.
