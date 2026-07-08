@@ -119,6 +119,10 @@ const shiftEffectiveDate = document.querySelector("#shift-effective-date");
 const shiftInTime = document.querySelector("#shift-in-time");
 const shiftOutTime = document.querySelector("#shift-out-time");
 const shiftClearForm = document.querySelector("#shift-clear-form");
+const shiftImportFile = document.querySelector("#shift-import-file");
+const shiftImportText = document.querySelector("#shift-import-text");
+const importShiftRowsButton = document.querySelector("#import-shift-rows");
+const shiftImportResult = document.querySelector("#shift-import-result");
 const dailyRosterDate = document.querySelector("#daily-roster-date");
 const rosterCopyDays = document.querySelector("#roster-copy-days");
 const dailyRosterBody = document.querySelector("#daily-roster-body");
@@ -2813,6 +2817,37 @@ function bindEvents() {
     renderShiftCalendar();
   });
 
+  shiftImportFile?.addEventListener("change", async () => {
+    const file = shiftImportFile.files?.[0];
+    if (!file) return;
+    shiftImportText.value = await file.text();
+    if (shiftImportResult) shiftImportResult.textContent = `${file.name} loaded. Click Import shift rows to update the roster.`;
+  });
+
+  importShiftRowsButton?.addEventListener("click", async () => {
+    const text = shiftImportText?.value || "";
+    if (!text.trim()) {
+      showToast("Paste shift rows or upload a file first.");
+      return;
+    }
+
+    importShiftRowsButton.classList.add("action-success");
+    importShiftRowsButton.disabled = true;
+    try {
+      const result = await importShiftRows(text);
+      saveState();
+      renderAll();
+      const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported. ${result.skipped} skipped.`;
+      if (shiftImportResult) shiftImportResult.textContent = message;
+      showToast(message);
+    } catch (error) {
+      showToast(error.message || "Shift rows could not be imported.");
+    } finally {
+      importShiftRowsButton.classList.remove("action-success");
+      importShiftRowsButton.disabled = false;
+    }
+  });
+
   saveDailyRoster?.addEventListener("click", async () => {
     const saved = saveDailyRosterFromTable(dailyRosterDate.value);
     try {
@@ -4209,6 +4244,80 @@ function saveDailyRosterFromTable(dateValue) {
 
   dailyRosters[dateValue] = entries;
   return Object.keys(entries).length;
+}
+
+async function importShiftRows(text) {
+  const rows = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const touchedDates = new Set();
+  let updated = 0;
+  let skipped = 0;
+
+  for (const line of rows) {
+    const columns = parseImportColumns(line);
+    if (isShiftImportHeader(columns)) {
+      skipped += 1;
+      continue;
+    }
+
+    const employeeCode = normalizeEmployeeCode(columns[0]);
+    const dateValue = parseShiftImportDate(columns[1] || dailyRosterDate?.value || todayLocalKey());
+    const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
+    if (!person || !dateValue) {
+      skipped += 1;
+      continue;
+    }
+
+    const shift = displayShiftName(columns[2] || defaultShiftName);
+    const inTime = normalizeImportTime(columns[3] || defaultShiftStart);
+    const outTime = normalizeImportTime(columns[4] || defaultShiftEnd);
+    const status = columns[5] || (shift === "Weekly off" ? "Weekly off" : "Working");
+    dailyRosters[dateValue] = dailyRosters[dateValue] || buildRosterEntriesForDate(dateValue);
+    dailyRosters[dateValue][person.id] = {
+      ...(dailyRosters[dateValue][person.id] || {}),
+      shift,
+      inTime,
+      outTime,
+      status
+    };
+    touchedDates.add(dateValue);
+    updated += 1;
+  }
+
+  if (isCloudReady()) {
+    for (const dateValue of touchedDates) {
+      await saveDailyRosterToCloud(dateValue);
+      await notifyDailyRosterSaved(dateValue);
+    }
+    await syncCloudDashboard();
+  }
+
+  return { updated, skipped, dates: Array.from(touchedDates) };
+}
+
+function isShiftImportHeader(columns) {
+  const first = String(columns[0] || "").toLowerCase();
+  const second = String(columns[1] || "").toLowerCase();
+  return first.includes("employee") || first === "code" || second.includes("date");
+}
+
+function parseShiftImportDate(value) {
+  const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const slash = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (slash) {
+    return `${slash[3]}-${slash[2].padStart(2, "0")}-${slash[1].padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function normalizeImportTime(value) {
+  const text = String(value || "").trim();
+  const compact = text.match(/^(\d{1,2})(\d{2})$/);
+  if (compact) return `${compact[1].padStart(2, "0")}:${compact[2]}`;
+  return normalizeTime24(text);
 }
 
 function copyTodayRosterForward(days) {

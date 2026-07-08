@@ -1,4 +1,4 @@
-const CACHE_NAME = "staffsync-beach-bliss-v131";
+const CACHE_NAME = "staffsync-beach-bliss-v132";
 const APP_FILES = [
   "./",
   "./index.html",

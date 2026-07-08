@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v131</small>
+        <small class="login-note">Running build v132</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v131</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v132</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -686,6 +686,26 @@
             </div>
             <small class="form-note">Choose the date boxes below, then save. The shift is sent to the staff dashboard and shift-change thread.</small>
           </form>
+          <div class="shift-import-box import-form">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Bulk shift upload</p>
+                <h3>Update shifts from text file</h3>
+              </div>
+            </div>
+            <label>
+              Upload shift text/CSV file
+              <input id="shift-import-file" type="file" accept=".txt,.csv,text/plain,text/csv">
+            </label>
+            <label>
+              Or paste shift rows
+              <textarea id="shift-import-text" placeholder="01, 2026-07-09, 10 hours, 07:00, 17:00&#10;02, 2026-07-09, Evening, 15:00, 23:00"></textarea>
+            </label>
+            <div class="form-actions">
+              <button id="import-shift-rows" type="button">Import shift rows</button>
+            </div>
+            <small class="form-note" id="shift-import-result">Format: employee code, date, shift, in time, out time. Status is optional.</small>
+          </div>
           <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
             <div class="panel-header compact">

@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v131
-Changes: staff can cancel their own pending leave requests and modify/resend pending leave requests from the leave page.
+StaffSync Beach & Bliss Mirissa build v132
+Changes: added bulk shift upload/paste import so employee shifts can be updated automatically from text or CSV rows.
