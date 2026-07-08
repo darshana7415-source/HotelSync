@@ -4298,8 +4298,10 @@ async function importShiftRows(text) {
 }
 
 function isShiftImportHeader(columns) {
-  const first = String(columns[0] || "").toLowerCase();
-  const second = String(columns[1] || "").toLowerCase();
+  const cleaned = columns.map((value) => String(value || "").trim());
+  if (cleaned.length && cleaned.every((value) => /^-+$/.test(value))) return true;
+  const first = cleaned[0].toLowerCase();
+  const second = cleaned[1].toLowerCase();
   return first.includes("employee") || first === "code" || second.includes("date");
 }
 
@@ -4715,8 +4717,9 @@ async function importStaffRows(text) {
 }
 
 function parseImportColumns(line) {
+  const separator = line.includes("|") ? "|" : line.includes("\t") ? "\t" : ",";
   return line
-    .split(line.includes("\t") ? "\t" : ",")
+    .split(separator)
     .map((value) => value.trim())
     .filter((value) => value.length);
 }
