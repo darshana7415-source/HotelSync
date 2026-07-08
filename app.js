@@ -505,10 +505,13 @@ function renderLeaveRequests() {
       ` : ""}
       ${currentRole === "staff" && ["Pending", "Change the Request", "Adjustment requested"].includes(request.status) ? `
         ${leaveChatBoxMarkup(request, "staff")}
+        <div class="request-actions">
+          <button class="ghost" type="button" data-staff-cancel-leave="${request.id}">Cancel request</button>
+        </div>
       ` : ""}
-      ${currentRole === "staff" && ["Change the Request", "Adjustment requested"].includes(request.status) ? `
+      ${currentRole === "staff" && ["Pending", "Change the Request", "Adjustment requested"].includes(request.status) ? `
         <form class="change-request-form" data-change-request="${request.id}">
-          <strong>Change this request and send again</strong>
+          <strong>${request.status === "Pending" ? "Modify this request" : "Change this request and send again"}</strong>
           <div class="form-row">
             <label>
               From
@@ -531,7 +534,7 @@ function renderLeaveRequests() {
             Reason / reply
             <input name="reason" type="text" value="${escapeAttribute(request.reason || "")}" placeholder="Add reason or reply to admin" required>
           </label>
-          <button type="submit">Send changed request</button>
+          <button type="submit">${request.status === "Pending" ? "Save modified request" : "Send changed request"}</button>
         </form>
       ` : ""}
     </article>
@@ -1419,6 +1422,10 @@ function renderRoleDemo() {
                   </label>
                   <button class="chat-send-button" type="submit">Send chat message</button>
                 </form>
+                <div class="request-actions">
+                  <button class="ghost small-button" type="button" data-staff-cancel-leave="${request.id}">Cancel request</button>
+                  <a class="ghost-link" href="#leave">Open leave page to modify</a>
+                </div>
               </details>
             ` : ""}
           `).join("") : ""}
@@ -2341,6 +2348,7 @@ function bindEvents() {
   });
 
   staffCard.addEventListener("click", handleChatHistoryClick);
+  staffCard.addEventListener("click", handleStaffLeaveCancelClick);
   staffCard.addEventListener("change", (event) => {
     const adminDate = event.target.closest("input[data-admin-dashboard-date]");
     if (adminDate) {
@@ -2459,6 +2467,7 @@ function bindEvents() {
   });
 
   leaveList.addEventListener("click", handleApprovalClick);
+  leaveList.addEventListener("click", handleStaffLeaveCancelClick);
   leaveList.addEventListener("click", handleChatHistoryClick);
   leaveList.addEventListener("submit", handleLeaveChangeSubmit);
   leaveList.addEventListener("submit", handleLeaveChatSubmit);
@@ -3011,6 +3020,57 @@ async function handleApprovalClick(event) {
     button.classList.remove("action-success");
     button.disabled = false;
     showToast(error.message || "Leave decision could not be saved.");
+  }
+}
+
+async function handleStaffLeaveCancelClick(event) {
+  const button = event.target.closest("button[data-staff-cancel-leave]");
+  if (!button) return;
+  if (currentRole !== "staff") return;
+
+  const request = leaveRequests.find((item) => sameId(item.id, button.dataset.staffCancelLeave));
+  const activeStaff = staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+  if (!request || !activeStaff || !leaveRequestBelongsToStaff(request, activeStaff)) {
+    showToast("This request cannot be cancelled from this login.");
+    return;
+  }
+
+  if (!["Pending", "Change the Request", "Adjustment requested"].includes(request.status)) {
+    showToast("Only pending leave requests can be cancelled by staff.");
+    return;
+  }
+
+  const previousStatus = request.status;
+  button.classList.add("action-success");
+  button.disabled = true;
+
+  try {
+    if (request.cloudId && isCloudReady()) {
+      await window.staffSyncDb.updateLeaveStatus({
+        leaveRequestId: request.cloudId,
+        status: "cancelled",
+        approvedBy: null
+      });
+    }
+
+    request.status = "Cancelled";
+    await applyLeaveBalanceDecision(request, previousStatus, request.status);
+    await addLeaveThreadMessage(request, `Request cancelled by staff: ${leaveRequestTitle(request)} for ${leaveDateRangeLabel(request)}.`, "Cancelled", "blue", activeStaff);
+    addActivity("Leave", `${request.name} cancelled a leave request`);
+    saveState();
+    setStaffActionNotice(`${leaveRequestTitle(request)} request cancelled.`);
+    if (isCloudReady()) {
+      await refreshLiveLeaveOnly(true);
+      syncCloudDashboard();
+    }
+    renderAll();
+    showToast("Leave request cancelled.");
+  } catch (error) {
+    button.classList.remove("action-success");
+    button.disabled = false;
+    showToast(error.message || "Leave request could not be cancelled.");
   }
 }
 

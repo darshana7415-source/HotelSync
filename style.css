@@ -1530,7 +1530,46 @@ body[data-role="staff"] .role-grid {
 }
 
 .third-bar {
-  background: linear-gradient(90deg, #7c3aed, #a277f2);
+  background: linear-gradient(90deg, #4b5563, #718093);
+}
+
+.shift-timeline-department.dept-kitchen .primary-bar,
+.shift-timeline-department.dept-kitchen .second-bar,
+.shift-timeline-department.dept-kitchen .third-bar {
+  background: linear-gradient(90deg, #d97706, #f59e0b);
+}
+
+.shift-timeline-department.dept-front-office .primary-bar,
+.shift-timeline-department.dept-front-office .second-bar,
+.shift-timeline-department.dept-front-office .third-bar {
+  background: linear-gradient(90deg, #2563eb, #4595f5);
+}
+
+.shift-timeline-department.dept-restaurant .primary-bar,
+.shift-timeline-department.dept-restaurant .second-bar,
+.shift-timeline-department.dept-restaurant .third-bar,
+.shift-timeline-department.dept-fandb .primary-bar,
+.shift-timeline-department.dept-fandb .second-bar,
+.shift-timeline-department.dept-fandb .third-bar {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+
+.shift-timeline-department.dept-housekeeping .primary-bar,
+.shift-timeline-department.dept-housekeeping .second-bar,
+.shift-timeline-department.dept-housekeeping .third-bar {
+  background: linear-gradient(90deg, #0891b2, #38bdf8);
+}
+
+.shift-timeline-department.dept-maintenance .primary-bar,
+.shift-timeline-department.dept-maintenance .second-bar,
+.shift-timeline-department.dept-maintenance .third-bar {
+  background: linear-gradient(90deg, #475569, #94a3b8);
+}
+
+.shift-timeline-department.dept-general .primary-bar,
+.shift-timeline-department.dept-general .second-bar,
+.shift-timeline-department.dept-general .third-bar {
+  background: linear-gradient(90deg, #0f766e, #2dd4bf);
 }
 
 .leave-bar {
@@ -1768,6 +1807,18 @@ body[data-role="staff"] .role-grid {
 .request-actions button {
   padding: 0.45rem 0.6rem;
   font-size: 0.8rem;
+}
+
+.ghost-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: #eef5f7;
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .request-actions .reject {

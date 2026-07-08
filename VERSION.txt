@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v130
-Changes: default shift now displays as 10 hours across staff setup, edit screens, shift planner, rosters, cloud profiles, and shift charts.
+StaffSync Beach & Bliss Mirissa build v131
+Changes: staff can cancel their own pending leave requests and modify/resend pending leave requests from the leave page.
