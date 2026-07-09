@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v133</small>
+        <small class="login-note">Running build v134</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v133</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v134</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -690,21 +690,19 @@
             <div class="panel-header compact">
               <div>
                 <p class="eyebrow">Bulk shift upload</p>
-                <h3>Update shifts from text file</h3>
+                <h3>Upload Excel shift sheet</h3>
               </div>
+              <a class="ghost button-link" href="staffsync-shift-upload-template.csv" download>Download template</a>
             </div>
             <label>
-              Upload shift text/CSV file
-              <input id="shift-import-file" type="file" accept=".txt,.csv,text/plain,text/csv">
+              Upload completed CSV file
+              <input id="shift-import-file" type="file" accept=".csv,text/csv">
             </label>
-            <label>
-              Or paste shift rows
-              <textarea id="shift-import-text" placeholder="01, 2026-07-09, 10 hours, 07:00, 17:00&#10;02, 2026-07-09, Evening, 15:00, 23:00"></textarea>
-            </label>
+            <textarea id="shift-import-text" hidden></textarea>
             <div class="form-actions">
-              <button id="import-shift-rows" type="button">Import shift rows</button>
+              <button id="import-shift-rows" type="button">Import uploaded shifts</button>
             </div>
-            <small class="form-note" id="shift-import-result">Format: employee code, date, shift, in time, out time. Status is optional.</small>
+            <small class="form-note" id="shift-import-result">Step 1: download template. Step 2: edit in Excel. Step 3: save as CSV and upload here.</small>
           </div>
           <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
@@ -756,7 +754,6 @@
             </div>
             <span class="pill blue">Visible to admin and staff</span>
           </div>
-          <div class="department-chart" id="leave-department-chart"></div>
           <div class="organizer-grid" id="leave-calendar"></div>
         </div>
 

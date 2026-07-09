@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v133
-Changes: added aligned TXT shift upload template and importer support for pipe-aligned columns.
+StaffSync Beach & Bliss Mirissa build v134
+Changes: simplified bulk shift upload with an Excel CSV template, removed unnecessary leave chart/admin self-service card, and clarified live GPS map links.

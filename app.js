@@ -424,7 +424,7 @@ function renderStaffTable() {
           <span class="pill ${locationClass}">${person.locationStatus}</span><br>
           <small>${person.location} - ${person.ping}</small>
           ${person.wifiAp ? `<br><small>WiFi: ${wifiLocationLabel(person)} via ${person.wifiAp}${person.wifiRssi ? ` (${person.wifiRssi})` : ""}</small>` : ""}
-          ${person.lastLatitude && person.lastLongitude ? `<br><a class="map-link" href="${googleMapsUrl(person.lastLatitude, person.lastLongitude)}" target="_blank" rel="noreferrer">Open in Google Maps</a>` : ""}
+          ${person.lastLatitude && person.lastLongitude ? `<br><a class="map-link" href="${googleMapsUrl(person.lastLatitude, person.lastLongitude)}" target="_blank" rel="noreferrer">Open live GPS in Google Maps</a>` : ""}
         </td>
       </tr>
     `;
@@ -1786,7 +1786,7 @@ async function performLiveCheck() {
     }
 
     person.locationStatus = statusFromLocationPing(ping.location_status);
-    person.location = "Latest GPS ping";
+    person.location = `Live GPS - ${staffLocationLabel(person)}`;
     person.ping = `${Math.round(Number(ping.accuracy_meters || 0))}m accuracy`;
     person.lastLatitude = Number(ping.latitude);
     person.lastLongitude = Number(ping.longitude);
@@ -6586,10 +6586,10 @@ async function applyRecentLocationPings() {
     person.locationStatus = statusFromLocationPing(ping.location_status);
     person.floor = ping.floor_label || person.floor || "GF";
     person.zone = ping.zone_label || person.zone || "New Wing";
-    person.location = `${staffLocationLabel(person)} - ${accuracy && accuracy > targetGpsAccuracyMeters ? "GPS captured low accuracy" : "GPS captured"}`;
+    person.location = `Live GPS - ${staffLocationLabel(person)}`;
     person.ping = accuracy
       ? `${Math.round(accuracy)}m accuracy${accuracy > targetGpsAccuracyMeters ? " - above 5m target" : ""}`
-      : "GPS captured";
+      : "latest GPS";
     person.lastLatitude = Number(ping.latitude);
     person.lastLongitude = Number(ping.longitude);
     person.gpsAccuracy = accuracy || null;
@@ -6622,7 +6622,7 @@ async function saveStaffLocationPing(person, position) {
 
     person.locationStatus = "Inside";
     const lowAccuracy = Number(position.accuracy || 0) > targetGpsAccuracyMeters;
-    person.location = `${staffLocationLabel(person)} - ${lowAccuracy ? "GPS captured low accuracy" : "GPS captured"}`;
+    person.location = `Live GPS - ${staffLocationLabel(person)}`;
     person.ping = `${Math.round(position.accuracy || 0)}m accuracy${lowAccuracy ? " - above 5m target" : ""}`;
     person.lastLatitude = position.latitude;
     person.lastLongitude = position.longitude;

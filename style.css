@@ -1132,6 +1132,10 @@ body[data-role="staff"] .manager-portal {
   display: none;
 }
 
+body:not([data-role="staff"]) .staff-portal {
+  display: none;
+}
+
 body[data-role="staff"] #role-select,
 body[data-role="staff"] #staff-switcher,
 body[data-role="staff"] #export-report,
