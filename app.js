@@ -179,7 +179,7 @@ const hotelZones = ["New Wing", "Old Wing"];
 const pageSections = {
   dashboard: ["role-demo", "dashboard", "attendance"],
   staff: ["admin"],
-  shifts: ["schedule", "shift-dashboard"],
+  shifts: ["schedule"],
   leave: ["leave", "leave-organizer"],
   location: ["location"],
   reports: ["reports"]
@@ -190,7 +190,6 @@ const pageAliases = {
   admin: "staff",
   "edit-staff": "staff",
   schedule: "shifts",
-  "shift-dashboard": "shifts",
   "leave-organizer": "leave",
   "leave-pressure": "reports"
 };
@@ -1609,12 +1608,12 @@ function renderAdminDashboardCard() {
   `;
 
   managerAlertCount.textContent = `${onDuty.length} on duty`;
-  managerAlerts.innerHTML = clockedOut.length ? clockedOut.map((person) => `
+  managerAlerts.innerHTML = onDuty.length ? onDuty.map((person) => `
     <div class="mini-item">
-      <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn || "--:--"} to ${person.clockOut}</small></span>
-      <span class="pill green">Done</span>
+      <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - In ${person.clockIn || "--:--"}${person.status === "On break" ? " - On break" : ""}</small></span>
+      <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
     </div>
-  `).join("") : `<div class="mini-empty">No one has clocked out today yet.</div>`;
+  `).join("") : `<div class="mini-empty">No one is on duty now.</div>`;
 
   managerApprovals.innerHTML = pendingLeave.length ? pendingLeave.map((request) => {
     const requestMessages = leaveMessagesForRequest(request);

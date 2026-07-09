@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v134
-Changes: simplified bulk shift upload with an Excel CSV template, removed unnecessary leave chart/admin self-service card, and clarified live GPS map links.
+StaffSync Beach & Bliss Mirissa build v135
+Changes: removed the separate all-employee shift chart page and added clear active-duty staff names to the admin dashboard.

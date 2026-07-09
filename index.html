@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v134</small>
+        <small class="login-note">Running build v135</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v134</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v135</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose demo role">
@@ -114,8 +114,8 @@
         <div class="panel staff-portal">
           <div class="panel-header compact">
             <div>
-              <p class="eyebrow">Staff self-service</p>
-              <h2>My shift today</h2>
+              <p class="eyebrow">Live dashboard</p>
+              <h2>Duty status</h2>
             </div>
             <select id="staff-switcher" aria-label="Choose staff profile"></select>
           </div>
@@ -132,7 +132,7 @@
           </div>
           <div class="manager-grid">
             <article class="attention-panel">
-              <strong>Clocked out today</strong>
+              <strong>On duty now</strong>
               <div id="manager-alerts" class="mini-list"></div>
             </article>
             <article>
@@ -755,25 +755,6 @@
             <span class="pill blue">Visible to admin and staff</span>
           </div>
           <div class="organizer-grid" id="leave-calendar"></div>
-        </div>
-
-        <div class="panel span-2" id="shift-dashboard">
-          <div class="panel-header compact">
-            <div>
-              <p class="eyebrow">Shift dashboard</p>
-              <h2>All employee shifts</h2>
-            </div>
-            <span class="pill green">Visible to admin and staff</span>
-          </div>
-          <div class="department-chart" id="shift-department-chart"></div>
-          <div class="shift-calendar-tools">
-            <label>
-              Calendar from
-              <input id="shift-calendar-start" type="date">
-            </label>
-            <button class="ghost" id="shift-calendar-today" type="button">This week</button>
-          </div>
-          <div class="shift-calendar" id="shift-calendar"></div>
         </div>
 
         <div class="panel span-2" id="reports">

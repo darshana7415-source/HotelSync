@@ -242,10 +242,6 @@ nav a.active {
   display: none !important;
 }
 
-#shift-dashboard {
-  order: 1;
-}
-
 #schedule {
   order: 2;
 }
@@ -398,7 +394,6 @@ body[data-page="location"] .content-grid {
 }
 
 body[data-page="shifts"] #schedule,
-body[data-page="shifts"] #shift-dashboard,
 body[data-page="leave"] #leave,
 body[data-page="leave"] #leave-organizer,
 body[data-page="location"] #location,
@@ -1132,10 +1127,6 @@ body[data-role="staff"] .manager-portal {
   display: none;
 }
 
-body:not([data-role="staff"]) .staff-portal {
-  display: none;
-}
-
 body[data-role="staff"] #role-select,
 body[data-role="staff"] #staff-switcher,
 body[data-role="staff"] #export-report,
@@ -1307,8 +1298,7 @@ body[data-role="staff"] .role-grid {
 .request-card,
 .shift-card,
 .directory-card,
-.calendar-day,
-.shift-dashboard-card {
+.calendar-day {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.8rem;
