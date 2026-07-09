@@ -175,6 +175,7 @@ const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
 const defaultHotelMapImage = "hotel-property-map-v2.svg";
 const targetGpsAccuracyMeters = 5;
+const staleGpsMinutes = 10;
 const hotelZones = ["New Wing", "Old Wing"];
 const pageSections = {
   dashboard: ["role-demo", "dashboard", "attendance"],
@@ -423,7 +424,7 @@ function renderStaffTable() {
           <span class="pill ${locationClass}">${person.locationStatus}</span><br>
           <small>${person.location} - ${person.ping}</small>
           ${person.wifiAp ? `<br><small>WiFi: ${wifiLocationLabel(person)} via ${person.wifiAp}${person.wifiRssi ? ` (${person.wifiRssi})` : ""}</small>` : ""}
-          ${person.lastLatitude && person.lastLongitude ? `<br><a class="map-link" href="${googleMapsUrl(person.lastLatitude, person.lastLongitude)}" target="_blank" rel="noreferrer">Open live GPS in Google Maps</a>` : ""}
+          ${person.lastLatitude && person.lastLongitude ? `<br><a class="map-link" href="${googleMapsUrl(person.lastLatitude, person.lastLongitude)}" target="_blank" rel="noreferrer">Open latest saved GPS in Google Maps</a>` : ""}
         </td>
       </tr>
     `;
@@ -1784,12 +1785,14 @@ async function performLiveCheck() {
       return;
     }
 
-    person.locationStatus = statusFromLocationPing(ping.location_status);
-    person.location = `Live GPS - ${staffLocationLabel(person)}`;
-    person.ping = `${Math.round(Number(ping.accuracy_meters || 0))}m accuracy`;
+    const staleGps = isStaleGpsPing(ping.captured_at);
+    person.locationStatus = staleGps ? "Outside" : statusFromLocationPing(ping.location_status);
+    person.location = `${staleGps ? "Stale GPS" : "Live GPS"} - ${staffLocationLabel(person)}`;
+    person.ping = `${Math.round(Number(ping.accuracy_meters || 0))}m accuracy - ${gpsPingAgeLabel(ping.captured_at)}`;
     person.lastLatitude = Number(ping.latitude);
     person.lastLongitude = Number(ping.longitude);
     person.gpsAccuracy = Number(ping.accuracy_meters || 0);
+    person.lastLocationCapturedAt = ping.captured_at;
     person.floor = ping.floor_label || person.floor || "GF";
     person.zone = ping.zone_label || person.zone || "New Wing";
     saveState();
@@ -1801,8 +1804,9 @@ async function performLiveCheck() {
       Wing / floor: ${staffLocationLabel(person)}<br>
       WiFi AP: ${person.wifiAp ? `${wifiLocationLabel(person)} via ${person.wifiAp}${person.wifiRssi ? ` (${person.wifiRssi})` : ""}` : "Not linked yet"}<br>
       Accuracy: ${Math.round(Number(ping.accuracy_meters || 0))} meters<br>
-      Captured: ${formatDateTime(ping.captured_at)}<br>
-      <a class="map-link" href="${googleMapsUrl(ping.latitude, ping.longitude)}" target="_blank" rel="noreferrer">Open latest coordinate in Google Maps</a><br>
+      Captured: ${formatDateTime(ping.captured_at)} (${gpsPingAgeLabel(ping.captured_at)})<br>
+      ${staleGps ? `<strong class="danger-text">GPS is stale. The staff phone has not saved a new movement ping recently.</strong><br>` : ""}
+      <a class="map-link" href="${googleMapsUrl(ping.latitude, ping.longitude)}" target="_blank" rel="noreferrer">Open latest saved GPS in Google Maps</a><br>
       Use the uploaded map as a visual guide; exact floor-map plotting needs map calibration.
     `;
     await renderMovementHistory(person);
@@ -3876,6 +3880,7 @@ async function toggleClock(person) {
   person.lastLatitude = position?.latitude || null;
   person.lastLongitude = position?.longitude || null;
   person.gpsAccuracy = position?.accuracy || null;
+  person.lastLocationCapturedAt = position ? new Date().toISOString() : "";
   rememberRecentClockState(person);
   addActivity("Clock", `${person.name} clocked in at ${now}`);
   await recordAttendanceNotice(person, `${person.name} clocked in at ${now}`, "Clock");
@@ -5936,6 +5941,27 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
+function gpsPingAgeMs(capturedAt) {
+  const capturedTime = new Date(capturedAt).getTime();
+  if (!Number.isFinite(capturedTime)) return Infinity;
+  return Date.now() - capturedTime;
+}
+
+function isStaleGpsPing(capturedAt) {
+  return gpsPingAgeMs(capturedAt) > staleGpsMinutes * 60000;
+}
+
+function gpsPingAgeLabel(capturedAt) {
+  const ageMs = Math.max(0, gpsPingAgeMs(capturedAt));
+  if (!Number.isFinite(ageMs)) return "unknown age";
+  const minutes = Math.floor(ageMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m ago` : `${hours}h ago`;
+}
+
 function isCloudReady() {
   return Boolean(window.staffSyncCloudReady && window.staffSyncDb && window.staffSyncSupabase);
 }
@@ -6582,16 +6608,18 @@ async function applyRecentLocationPings() {
     if (!person || !isOnShift(person)) return;
 
     const accuracy = Number(ping.accuracy_meters || 0);
-    person.locationStatus = statusFromLocationPing(ping.location_status);
+    const staleGps = isStaleGpsPing(ping.captured_at);
+    person.locationStatus = staleGps ? "Outside" : statusFromLocationPing(ping.location_status);
     person.floor = ping.floor_label || person.floor || "GF";
     person.zone = ping.zone_label || person.zone || "New Wing";
-    person.location = `Live GPS - ${staffLocationLabel(person)}`;
+    person.location = `${staleGps ? "Stale GPS" : "Live GPS"} - ${staffLocationLabel(person)}`;
     person.ping = accuracy
-      ? `${Math.round(accuracy)}m accuracy${accuracy > targetGpsAccuracyMeters ? " - above 5m target" : ""}`
-      : "latest GPS";
+      ? `${Math.round(accuracy)}m accuracy${accuracy > targetGpsAccuracyMeters ? " - above 5m target" : ""} - ${gpsPingAgeLabel(ping.captured_at)}`
+      : `latest GPS - ${gpsPingAgeLabel(ping.captured_at)}`;
     person.lastLatitude = Number(ping.latitude);
     person.lastLongitude = Number(ping.longitude);
     person.gpsAccuracy = accuracy || null;
+    person.lastLocationCapturedAt = ping.captured_at;
   });
 }
 
@@ -6626,6 +6654,7 @@ async function saveStaffLocationPing(person, position) {
     person.lastLatitude = position.latitude;
     person.lastLongitude = position.longitude;
     person.gpsAccuracy = position.accuracy || null;
+    person.lastLocationCapturedAt = new Date().toISOString();
     saveState();
     renderAll();
   } catch {

@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v135
-Changes: removed the separate all-employee shift chart page and added clear active-duty staff names to the admin dashboard.
+StaffSync Beach & Bliss Mirissa build v136
+Changes: location live check now marks old GPS pings as stale and shows the age of the latest saved coordinate.

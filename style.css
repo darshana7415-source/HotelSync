@@ -1267,6 +1267,10 @@ body[data-role="staff"] #leave-organizer {
   margin-top: 0.2rem;
 }
 
+.danger-text {
+  color: #b42318;
+}
+
 .movement-list {
   display: grid;
   gap: 0.55rem;
