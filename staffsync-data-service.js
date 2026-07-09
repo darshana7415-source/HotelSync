@@ -552,23 +552,41 @@ const staffSyncDb = {
     return data;
   },
 
-  async getLatestLocationPingForStaff(staffProfileId) {
-    let response = await window.staffSyncSupabase
+  async getLatestLocationPingForStaff(staffProfileId, { attendanceRecordId, sinceIso, untilIso } = {}) {
+    let query = window.staffSyncSupabase
       .from("location_pings")
       .select("latitude, longitude, accuracy_meters, location_status, floor_label, zone_label, captured_at")
       .eq("staff_profile_id", staffProfileId)
       .order("captured_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
+    if (attendanceRecordId) {
+      query = query.eq("attendance_record_id", attendanceRecordId);
+    }
+    if (sinceIso) {
+      query = query.gte("captured_at", sinceIso);
+    }
+    if (untilIso) {
+      query = query.lte("captured_at", untilIso);
+    }
+    let response = await query.maybeSingle();
 
     if (response.error) {
-      response = await window.staffSyncSupabase
+      let fallback = window.staffSyncSupabase
         .from("location_pings")
         .select("latitude, longitude, accuracy_meters, location_status, captured_at")
         .eq("staff_profile_id", staffProfileId)
         .order("captured_at", { ascending: false })
         .limit(1)
-        .maybeSingle();
+      if (attendanceRecordId) {
+        fallback = fallback.eq("attendance_record_id", attendanceRecordId);
+      }
+      if (sinceIso) {
+        fallback = fallback.gte("captured_at", sinceIso);
+      }
+      if (untilIso) {
+        fallback = fallback.lte("captured_at", untilIso);
+      }
+      response = await fallback.maybeSingle();
     }
 
     const { data, error } = response;

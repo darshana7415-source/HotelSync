@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v136
-Changes: location live check now marks old GPS pings as stale and shows the age of the latest saved coordinate.
+StaffSync Beach & Bliss Mirissa build v138
+Changes: staff clock-in is blocked unless the phone captures an active GPS location first.

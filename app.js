@@ -1776,12 +1776,21 @@ async function performLiveCheck() {
     return;
   }
 
-  liveCheckResult.innerHTML = `<strong>${person.name}</strong><br>Checking latest saved GPS ping...`;
+  liveCheckResult.innerHTML = `<strong>${person.name}</strong><br>Checking GPS ping for the current shift...`;
 
   try {
-    const ping = await window.staffSyncDb.getLatestLocationPingForStaff(person.cloudId);
+    const todayStart = new Date(`${todayLocalKey()}T00:00:00+05:30`).toISOString();
+    const ping = await window.staffSyncDb.getLatestLocationPingForStaff(person.cloudId, {
+      attendanceRecordId: person.attendanceRecordId || undefined,
+      sinceIso: todayStart
+    });
     if (!ping) {
-      liveCheckResult.innerHTML = `<strong>${person.name}</strong><br>No live GPS ping yet. Once staff has allowed location, the app sends the first ping automatically after clock-in and stops at clock-out.`;
+      liveCheckResult.innerHTML = `
+        <strong>${person.name}</strong><br>
+        No GPS ping saved for today's current shift.<br>
+        This means the phone did not send location at clock-in or movement tracking is not running on the staff phone.<br>
+        Ask staff to open StaffSync on the phone, allow location, and clock out/clock in again if needed.
+      `;
       return;
     }
 
@@ -3834,6 +3843,13 @@ async function toggleClock(person) {
     return;
   }
 
+  const position = await getCurrentPositionSafe();
+  if (!position) {
+    setStaffActionNotice("Clock in blocked. Please allow location on this phone, keep StaffSync open, then press Clock in again.");
+    showToast("Clock in blocked because location is not active.");
+    return;
+  }
+
   person.clockIn = now;
   person.clockOut = "";
   person.status = "On duty";
@@ -3846,56 +3862,46 @@ async function toggleClock(person) {
   saveState();
   renderRoleDemo();
 
-  const position = await getCurrentPositionSafe();
   const locationStatus = "inside_property";
   if (person.cloudId && isCloudReady()) {
     const attendance = await window.staffSyncDb.clockIn({
       staffProfileId: person.cloudId,
       shiftAssignmentId: null,
-      latitude: position?.latitude || null,
-      longitude: position?.longitude || null
+      latitude: position.latitude,
+      longitude: position.longitude
     });
     person.attendanceRecordId = attendance.id;
 
-    if (position) {
-      await window.staffSyncDb.recordLocationPing({
-        staffProfileId: person.cloudId,
-        attendanceRecordId: attendance.id,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracyMeters: position.accuracy || null,
-        locationStatus,
-        floorLabel: person.floor || "GF",
-        zoneLabel: person.zone || "New Wing"
-      });
-    }
+    await window.staffSyncDb.recordLocationPing({
+      staffProfileId: person.cloudId,
+      attendanceRecordId: attendance.id,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyMeters: position.accuracy || null,
+      locationStatus,
+      floorLabel: person.floor || "GF",
+      zoneLabel: person.zone || "New Wing"
+    });
   }
 
-  person.location = position
-    ? `${staffLocationLabel(person)} - ${Number(position.accuracy || 0) <= targetGpsAccuracyMeters ? "GPS captured" : "GPS captured low accuracy"}`
-    : staffLocationLabel(person);
-  person.ping = position
-    ? `${Math.round(position.accuracy || 0)}m accuracy${Number(position.accuracy || 0) > targetGpsAccuracyMeters ? " - above 5m target" : ""}`
-    : "just now";
-  person.lastLatitude = position?.latitude || null;
-  person.lastLongitude = position?.longitude || null;
-  person.gpsAccuracy = position?.accuracy || null;
-  person.lastLocationCapturedAt = position ? new Date().toISOString() : "";
+  person.location = `${staffLocationLabel(person)} - ${Number(position.accuracy || 0) <= targetGpsAccuracyMeters ? "GPS captured" : "GPS captured low accuracy"}`;
+  person.ping = `${Math.round(position.accuracy || 0)}m accuracy${Number(position.accuracy || 0) > targetGpsAccuracyMeters ? " - above 5m target" : ""}`;
+  person.lastLatitude = position.latitude;
+  person.lastLongitude = position.longitude;
+  person.gpsAccuracy = position.accuracy || null;
+  person.lastLocationCapturedAt = new Date().toISOString();
   rememberRecentClockState(person);
   addActivity("Clock", `${person.name} clocked in at ${now}`);
   await recordAttendanceNotice(person, `${person.name} clocked in at ${now}`, "Clock");
   saveState();
   renderRoleDemo();
   startLocationMonitoring();
-  if (!position) {
-    await recordActiveStaffLocationPing();
-  }
-  setStaffActionNotice(`Clock in successful at ${now}. ${position ? `Location captured with ${Math.round(position.accuracy || 0)}m accuracy.` : "Location was not captured."}`);
+  setStaffActionNotice(`Clock in successful at ${now}. Location captured with ${Math.round(position.accuracy || 0)}m accuracy.`);
   if (isCloudReady()) {
     await syncCloudDashboard();
   }
   showToast(person.cloudId && isCloudReady()
-    ? `${person.name} clocked in. GPS ${position ? `${Math.round(position.accuracy || 0)}m` : "not captured"} saved to Supabase.`
+    ? `${person.name} clocked in. GPS ${Math.round(position.accuracy || 0)}m saved to Supabase.`
     : `${person.name} clocked in. Location monitoring is active.`);
 }
 
