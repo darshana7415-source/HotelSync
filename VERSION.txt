@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v147
-Changes: fixed manager role loading so manager dashboard, staff list, leave requests, and shift change requests stay visible after cloud login.
+StaffSync Beach & Bliss Mirissa build v148
+Changes: force fresh app files for manager dashboard and protect manager cloud login from role text mismatch.

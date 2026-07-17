@@ -1591,6 +1591,17 @@ function renderAdminDashboardCard() {
           </div>
         `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
       </div>
+      ${currentRole === "manager" ? `
+        <div class="staff-message-box">
+          <strong>Manager staff list</strong>
+          ${allStaffStatus.length ? allStaffStatus.map((person) => `
+            <div class="mini-item">
+              <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.role || "Staff"} - ${person.department}</small></span>
+              <span class="pill">${person.shift || defaultShiftName}</span>
+            </div>
+          `).join("") : `<div class="mini-empty">No staff loaded. If this stays empty, manager needs Supabase staff read permission.</div>`}
+        </div>
+      ` : ""}
       <div class="staff-message-box dashboard-approval-box">
         <strong>Leave requests</strong>
         ${pendingLeave.length ? pendingLeave.map(leaveApprovalItemMarkup).join("") : `<div class="mini-empty">No pending leave requests.</div>`}
@@ -6108,7 +6119,12 @@ async function applyCloudUser(user, showMessage) {
   if (!data) {
     throw new Error("Login worked, but this Supabase user is not linked to StaffSync Beach & Bliss Mirissa. Run the link-auth SQL again with this user's UID.");
   }
-  const role = normalizeAppRole(data.role);
+  const selectedLoginRole = normalizeAppRole(loginRoleSelect?.value || "");
+  const databaseRole = normalizeAppRole(data.role);
+  const role = databaseRole || (["admin", "manager"].includes(selectedLoginRole) ? selectedLoginRole : "");
+  if (!role) {
+    throw new Error("Login worked, but the StaffSync role is missing. Set this user role to admin or manager in app_users.");
+  }
   const isAdminLogin = ["admin", "manager"].includes(role);
   if (data.status !== "active" && !isAdminLogin) {
     throw new Error("This login is not active in StaffSync Beach & Bliss Mirissa.");
