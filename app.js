@@ -462,6 +462,11 @@ function renderLeaveRequests() {
     rememberActiveStaff();
   }
   if (leaveForm) leaveForm.hidden = currentRole !== "staff";
+  if (currentRole !== "staff") {
+    leaveList.innerHTML = renderAdminMonthlyLeaveView();
+    return;
+  }
+
   const visibleRequests = currentRole === "staff" && activeStaff
     ? leaveRequests.filter((request) => leaveRequestBelongsToStaff(request, activeStaff))
     : leaveRequests;
@@ -543,9 +548,6 @@ function renderLeaveRequests() {
   `;
   }).join("") : `<div class="mini-empty">${currentRole === "staff" ? "You have no leave requests yet." : "No leave requests yet."}</div>`;
 
-  if (currentRole !== "staff") {
-    leaveList.insertAdjacentHTML("beforeend", renderAdminMonthlyLeaveView());
-  }
 }
 
 function renderAdminMonthlyLeaveView() {
@@ -1534,6 +1536,7 @@ function renderAdminDashboardCard() {
   const onDuty = sortStaffByEmployeeCode(staff.filter((person) => isOnShift(person)));
   const onBreak = sortStaffByEmployeeCode(staff.filter((person) => person.status === "On break"));
   const clockedOut = sortStaffByEmployeeCode(staff.filter((person) => person.clockOut && !isOnShift(person)));
+  const allStaffStatus = sortStaffByEmployeeCode(staff);
   const pendingLeave = leaveRequests.filter((request) => request.status === "Pending");
   const pendingShiftChanges = pendingShiftChangeThreads();
   const leaveForDate = leaveRequests.filter((request) =>
@@ -1549,7 +1552,7 @@ function renderAdminDashboardCard() {
     <div class="self-card admin-ops-card">
       <div class="box-title-row">
         <div>
-          <strong>Admin live dashboard</strong>
+          <strong>${currentRole === "manager" ? "Manager" : "Admin"} live dashboard</strong>
           <small>Duty status, breaks, and leave for selected date</small>
         </div>
         <label class="compact-date-picker">
@@ -1573,6 +1576,15 @@ function renderAdminDashboardCard() {
             <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
           </div>
         `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
+      </div>
+      <div class="staff-message-box">
+        <strong>All staff status</strong>
+        ${allStaffStatus.length ? allStaffStatus.map((person) => `
+          <div class="mini-item">
+            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn ? `In ${person.clockIn}${person.clockOut ? ` / Out ${person.clockOut}` : " / active"}` : "Not clocked in"}</small></span>
+            <span class="pill ${statusClassFor(person.status) || (isOnShift(person) ? "green" : "amber")}">${person.status || "Scheduled"}</span>
+          </div>
+        `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
       </div>
       <div class="staff-message-box">
         <strong>On break now</strong>
@@ -2730,13 +2742,13 @@ function bindEvents() {
         staffPasswords[newPasswordKey] = oldPasswordValue;
         delete staffPasswords[oldPasswordKey];
       }
-      const newPassword = document.querySelector("#edit-staff-password").value;
-      if (document.querySelector("#clear-staff-password").checked) {
+      const newPassword = currentRole === "manager" ? "" : document.querySelector("#edit-staff-password").value;
+      if (currentRole !== "manager" && document.querySelector("#clear-staff-password").checked) {
         clearStaffPassword(person);
         if (person.cloudId && isCloudReady()) {
           await window.staffSyncDb.clearStaffLoginPassword(person.cloudId);
         }
-      } else if (newPassword) {
+      } else if (currentRole !== "manager" && newPassword) {
         saveStaffPassword(person, newPassword);
         if (person.cloudId && isCloudReady()) {
           await saveCloudStaffPassword(person, newPassword);

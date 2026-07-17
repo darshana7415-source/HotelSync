@@ -1148,6 +1148,10 @@ body[data-role="manager"] #leave-organizer {
   display: block;
 }
 
+body[data-role="manager"] .staff-password-controls {
+  display: none;
+}
+
 .attention-panel,
 .daily-roster-editor {
   display: none !important;
