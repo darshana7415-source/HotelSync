@@ -36,8 +36,13 @@ const demoRolePasswords = {
   manager: "House6684$BnBthu"
 };
 
+function normalizeAppRole(role) {
+  const cleanRole = String(role || "").trim().toLowerCase();
+  return ["admin", "manager", "staff"].includes(cleanRole) ? cleanRole : "";
+}
+
 function canManageStaffCloud() {
-  return isCloudReady() && ["admin", "manager"].includes(currentRole);
+  return isCloudReady() && ["admin", "manager"].includes(normalizeAppRole(currentRole));
 }
 let adminLeaveDrafts = {};
 let installPromptEvent = null;
@@ -151,7 +156,7 @@ const notificationList = document.querySelector("#notification-list");
 const pageLinks = Array.from(document.querySelectorAll("[data-page-link]"));
 
 let activeStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localStorage.getItem("staffsync.activeStaffId") || staff[0]?.id || "";
-let currentRole = sessionStorage.getItem("staffsync.role") || "";
+let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "");
 let currentCloudEmail = sessionStorage.getItem("staffsync.cloudEmail") || "";
 let currentAppUserId = sessionStorage.getItem("staffsync.appUserId") || "";
 let staffActionNotice = sessionStorage.getItem("staffsync.staffActionNotice") || "";
@@ -5381,6 +5386,7 @@ async function cleanupCloudLeaveDashboardData() {
 }
 
 async function openDemoRole(role) {
+  role = normalizeAppRole(role);
   if (currentRole === "staff" && role !== "staff") {
     roleSelect.value = "staff";
     if (loginRoleSelect) loginRoleSelect.value = "staff";
@@ -5422,7 +5428,7 @@ async function openDemoRole(role) {
 }
 
 function updateLoginMode() {
-  const role = loginRoleSelect?.value || "staff";
+  const role = normalizeAppRole(loginRoleSelect?.value || "staff") || "staff";
   const isStaff = role === "staff";
   if (staffCredentials) staffCredentials.hidden = !isStaff;
   if (adminCredentials) adminCredentials.hidden = isStaff;
@@ -5437,7 +5443,7 @@ function updateLoginMode() {
 }
 
 async function handleUnifiedLogin() {
-  const role = loginRoleSelect?.value || "staff";
+  const role = normalizeAppRole(loginRoleSelect?.value || "staff") || "staff";
   if (currentRole === "staff" && role !== "staff") {
     if (loginRoleSelect) loginRoleSelect.value = "staff";
     lockStaffOnlyView();
@@ -6102,13 +6108,13 @@ async function applyCloudUser(user, showMessage) {
   if (!data) {
     throw new Error("Login worked, but this Supabase user is not linked to StaffSync Beach & Bliss Mirissa. Run the link-auth SQL again with this user's UID.");
   }
-  const role = String(data.role || "").toLowerCase();
+  const role = normalizeAppRole(data.role);
   const isAdminLogin = ["admin", "manager"].includes(role);
   if (data.status !== "active" && !isAdminLogin) {
     throw new Error("This login is not active in StaffSync Beach & Bliss Mirissa.");
   }
 
-  currentRole = data.role;
+  currentRole = role;
   currentCloudEmail = data.email || user.email || "";
   currentAppUserId = data.id;
   sessionStorage.setItem("staffsync.role", currentRole);

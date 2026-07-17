@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v146
-Changes: manager dashboard now directly shows actionable leave and shift request cards with working buttons.
+StaffSync Beach & Bliss Mirissa build v147
+Changes: fixed manager role loading so manager dashboard, staff list, leave requests, and shift change requests stay visible after cloud login.
