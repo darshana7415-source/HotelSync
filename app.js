@@ -33,7 +33,7 @@ const defaultShiftStart = "07:00";
 const defaultShiftEnd = "17:00";
 const demoRolePasswords = {
   admin: "House6684$RDAA",
-  manager: "House6684$$$"
+  manager: "House6684$BnBthu"
 };
 let adminLeaveDrafts = {};
 let installPromptEvent = null;
@@ -1511,7 +1511,7 @@ function renderSession() {
   document.body.dataset.auth = signedIn ? "in" : "out";
   document.body.dataset.role = signedIn ? currentRole : "manager";
   roleSelect.value = signedIn ? currentRole : "manager";
-  roleSelect.disabled = currentRole === "staff";
+  roleSelect.disabled = currentRole === "staff" || currentRole === "manager";
   staffSwitcher.disabled = currentRole === "staff";
 
   const activeStaff = staff.find((person) => sameId(person.id, activeStaffId)) ||
@@ -2168,6 +2168,12 @@ function bindEvents() {
     if (currentRole === "staff") {
       lockStaffOnlyView();
       showToast("Staff login cannot open admin or manager view.");
+      renderAll();
+      return;
+    }
+    if (currentRole === "manager" && roleSelect.value === "admin") {
+      roleSelect.value = "manager";
+      showToast("Manager cannot switch to admin powers.");
       renderAll();
       return;
     }

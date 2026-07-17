@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v140
-Changes: chat delete now permanently removes leave chat messages from the cloud table so they do not return after relogin.
+StaffSync Beach & Bliss Mirissa build v141
+Changes: manager password updated and manager can use admin tools except switching into the admin role.

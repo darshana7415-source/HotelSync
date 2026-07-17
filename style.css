@@ -1134,10 +1134,6 @@ body[data-role="staff"] #reset-demo {
   display: none;
 }
 
-body[data-role="manager"] #admin {
-  display: none;
-}
-
 body:not([data-role="staff"]) #leave-form {
   display: none !important;
 }
