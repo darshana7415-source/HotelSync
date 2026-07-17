@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v138
-Changes: staff clock-in is blocked unless the phone captures an active GPS location first.
+StaffSync Beach & Bliss Mirissa build v139
+Changes: removed the Reset demo button and disabled reset handling to protect real staff data.

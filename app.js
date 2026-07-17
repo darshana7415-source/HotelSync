@@ -2977,27 +2977,8 @@ function bindEvents() {
     showToast("Shift report downloaded.");
   });
 
-  document.querySelector("#reset-demo").addEventListener("click", () => {
-    staff = structuredClone(defaultStaff);
-    leaveRequests = structuredClone(defaultLeaveRequests);
-    policy = { radius: "250", interval: "5", consentNotice: true };
-    activeStaffId = "";
-    rememberActiveStaff();
-    activityLog = [];
-    staffMessages = [];
-    deletedStaffMessageIds = [];
-    shiftPlans = [];
-    staffDevices = [];
-    staffPasswords = {};
-    hiddenLocationPingIds = [];
-    apLocationMap = [
-      { id: "ap-1st-lobby", apName: "1_St-Floor_Loby", floor: "1F", zone: "New Wing" }
-    ];
-    addActivity("System", "Demo data reset");
-    saveState();
-    populateFilters();
-    renderAll();
-    showToast("Demo data reset.");
+  document.querySelector("#reset-demo")?.addEventListener("click", () => {
+    showToast("Reset is disabled to protect real staff details.");
   });
 
   document.querySelector("#clear-log").addEventListener("click", async () => {
