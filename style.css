@@ -1138,6 +1138,16 @@ body:not([data-role="staff"]) #leave-form {
   display: none !important;
 }
 
+body[data-role="manager"] #admin {
+  display: grid;
+}
+
+body[data-role="manager"] #schedule,
+body[data-role="manager"] #leave,
+body[data-role="manager"] #leave-organizer {
+  display: block;
+}
+
 .attention-panel,
 .daily-roster-editor {
   display: none !important;

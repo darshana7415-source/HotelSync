@@ -35,6 +35,10 @@ const demoRolePasswords = {
   admin: "House6684$RDAA",
   manager: "House6684$BnBthu"
 };
+
+function canManageStaffCloud() {
+  return isCloudReady() && ["admin", "manager"].includes(currentRole);
+}
 let adminLeaveDrafts = {};
 let installPromptEvent = null;
 removeDemoRecordsFromLocalState();
@@ -2565,7 +2569,7 @@ function bindEvents() {
     }
 
     let cloudId = "";
-    if (isCloudReady() && currentCloudEmail) {
+    if (canManageStaffCloud()) {
       try {
         const cloudProfile = await window.staffSyncDb.createStaffProfile({
           hotelId: (window.STAFFSYNC_ENV || {}).HOTEL_ID,
@@ -2621,7 +2625,7 @@ function bindEvents() {
     renderAll();
     showToast(cloudId
       ? `${newStaff.name} was added and saved to cloud.`
-      : `${newStaff.name} was added in this browser. Sign in as admin to save to cloud.`);
+      : `${newStaff.name} was added in this browser. Cloud is not ready, so it was not saved online.`);
   });
 
   staffDirectory.addEventListener("click", async (event) => {
