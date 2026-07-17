@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v145
-Changes: dashboard shows leave and shift approvals plus full staff clock status; leave page is records-only for managers/admins; managers cannot change staff passwords.
+StaffSync Beach & Bliss Mirissa build v146
+Changes: manager dashboard now directly shows actionable leave and shift request cards with working buttons.

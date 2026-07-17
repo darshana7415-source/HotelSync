@@ -1537,7 +1537,7 @@ function renderAdminDashboardCard() {
   const onBreak = sortStaffByEmployeeCode(staff.filter((person) => person.status === "On break"));
   const clockedOut = sortStaffByEmployeeCode(staff.filter((person) => person.clockOut && !isOnShift(person)));
   const allStaffStatus = sortStaffByEmployeeCode(staff);
-  const pendingLeave = leaveRequests.filter((request) => request.status === "Pending");
+  const pendingLeave = pendingLeaveRequestsForDashboard();
   const pendingShiftChanges = pendingShiftChangeThreads();
   const leaveForDate = leaveRequests.filter((request) =>
     ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
@@ -1586,6 +1586,14 @@ function renderAdminDashboardCard() {
           </div>
         `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
       </div>
+      <div class="staff-message-box dashboard-approval-box">
+        <strong>Leave requests</strong>
+        ${pendingLeave.length ? pendingLeave.map(leaveApprovalItemMarkup).join("") : `<div class="mini-empty">No pending leave requests.</div>`}
+      </div>
+      <div class="staff-message-box dashboard-approval-box">
+        <strong>Shift change requests</strong>
+        ${pendingShiftChanges.length ? pendingShiftChanges.map(shiftChangeThreadMarkup).join("") : `<div class="mini-empty">No shift change requests.</div>`}
+      </div>
       <div class="staff-message-box">
         <strong>On break now</strong>
         ${onBreak.length ? onBreak.map((person) => `
@@ -1630,11 +1638,23 @@ function renderAdminDashboardCard() {
     </div>
   `).join("") : `<div class="mini-empty">No one is on duty now.</div>`;
 
-  managerApprovals.innerHTML = pendingLeave.length ? pendingLeave.map((request) => {
-    const requestMessages = leaveMessagesForRequest(request);
-    const threadMessages = decisionMessagesForRequest(request, requestMessages);
-    const adminDraft = adminLeaveDrafts[leaveDraftKey(request)] || "";
-    return `
+  managerApprovals.innerHTML = pendingLeave.length ? pendingLeave.map(leaveApprovalItemMarkup).join("") : `<div class="mini-empty">No pending leave requests.</div>`;
+  renderManagerShiftChanges(pendingShiftChanges);
+
+  document.body.dataset.role = currentRole || roleSelect.value;
+}
+
+function pendingLeaveRequestsForDashboard() {
+  return leaveRequests.filter((request) =>
+    ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)
+  );
+}
+
+function leaveApprovalItemMarkup(request) {
+  const requestMessages = leaveMessagesForRequest(request);
+  const threadMessages = decisionMessagesForRequest(request, requestMessages);
+  const adminDraft = adminLeaveDrafts[leaveDraftKey(request)] || "";
+  return `
     <div class="mini-item approval-item">
       <div class="approval-main">
         <span><strong>${request.name}</strong><small>${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request.status)}</small></span>
@@ -1651,10 +1671,6 @@ function renderAdminDashboardCard() {
       </span>
     </div>
   `;
-  }).join("") : `<div class="mini-empty">No pending leave requests.</div>`;
-  renderManagerShiftChanges(pendingShiftChanges);
-
-  document.body.dataset.role = currentRole || roleSelect.value;
 }
 
 function renderManagerShiftChanges(preparedThreads) {
@@ -2384,6 +2400,8 @@ function bindEvents() {
   });
 
   staffCard.addEventListener("click", handleChatHistoryClick);
+  staffCard.addEventListener("click", handleApprovalClick);
+  staffCard.addEventListener("click", handleShiftChangeClick);
   staffCard.addEventListener("click", handleStaffLeaveCancelClick);
   staffCard.addEventListener("change", (event) => {
     const adminDate = event.target.closest("input[data-admin-dashboard-date]");
@@ -2508,6 +2526,7 @@ function bindEvents() {
   leaveList.addEventListener("submit", handleLeaveChangeSubmit);
   leaveList.addEventListener("submit", handleLeaveChatSubmit);
   staffCard.addEventListener("submit", handleLeaveChatSubmit);
+  staffCard.addEventListener("submit", handleShiftChatSubmit);
   shiftCalendar?.addEventListener("submit", handleShiftChatSubmit);
   shiftCalendar?.addEventListener("toggle", handleShiftChatToggle, true);
   managerApprovals.addEventListener("click", handleApprovalClick);
