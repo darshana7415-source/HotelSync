@@ -461,13 +461,7 @@ function renderLeaveRequests() {
     activeStaffId = activeStaff.id;
     rememberActiveStaff();
   }
-  if (currentRole !== "staff") {
-    if (leaveForm) leaveForm.hidden = true;
-    leaveList.innerHTML = renderAdminMonthlyLeaveView();
-    return;
-  }
-
-  if (leaveForm) leaveForm.hidden = false;
+  if (leaveForm) leaveForm.hidden = currentRole !== "staff";
   const visibleRequests = currentRole === "staff" && activeStaff
     ? leaveRequests.filter((request) => leaveRequestBelongsToStaff(request, activeStaff))
     : leaveRequests;
@@ -548,6 +542,10 @@ function renderLeaveRequests() {
     </article>
   `;
   }).join("") : `<div class="mini-empty">${currentRole === "staff" ? "You have no leave requests yet." : "No leave requests yet."}</div>`;
+
+  if (currentRole !== "staff") {
+    leaveList.insertAdjacentHTML("beforeend", renderAdminMonthlyLeaveView());
+  }
 }
 
 function renderAdminMonthlyLeaveView() {

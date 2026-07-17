@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v143
-Changes: manager password login can save added staff to cloud, and manager staff/shift/leave pages are explicitly enabled.
+StaffSync Beach & Bliss Mirissa build v144
+Changes: manager and admin leave page now shows operational leave requests plus monthly leave summary/calendar.
