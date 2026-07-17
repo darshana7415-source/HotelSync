@@ -3569,7 +3569,41 @@ async function deleteCloudActivityLogsForItems(items) {
 }
 
 async function deleteCloudActivityLogsForMessages(messages) {
-  return deleteCloudActivityLogsForItems(messages);
+  const activityDeleted = await deleteCloudActivityLogsForItems(messages);
+  const leaveDeleted = await deleteCloudLeaveMessages(messages);
+  return activityDeleted || leaveDeleted;
+}
+
+async function deleteCloudLeaveMessages(messages) {
+  if (!isCloudReady() || !window.staffSyncDb.deleteLeaveMessagesByIds) return false;
+
+  const ids = messages
+    .flatMap((message) => [message.id, message.cloudId])
+    .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id)));
+  if (!ids.length) return false;
+
+  try {
+    await window.staffSyncDb.deleteLeaveMessagesByIds({ ids: Array.from(new Set(ids.map(String))) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteCloudLeaveMessageThreads(threadIds) {
+  if (!isCloudReady() || !window.staffSyncDb.deleteLeaveMessagesByThread) return false;
+  const cleanThreadIds = Array.from(new Set((threadIds || []).map(String).filter(Boolean)));
+  if (!cleanThreadIds.length) return false;
+
+  try {
+    await window.staffSyncDb.deleteLeaveMessagesByThread({
+      hotelId: activeHotelId(),
+      threadIds: cleanThreadIds
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function hideActivityLogItems(items) {
@@ -3678,8 +3712,10 @@ async function handleChatHistoryClick(event) {
       const key = String(message.leaveRequestId || `staff-${message.staffProfileId || message.staffId || "unknown"}`);
       return key === clearThreadButton.dataset.clearChatThread;
     });
+    const threadId = clearThreadButton.dataset.clearChatThread;
     hideChatMessages(messages);
     await deleteCloudActivityLogsForMessages(messages);
+    await deleteCloudLeaveMessageThreads([threadId]);
     renderLeaveRequests();
     renderRoleDemo();
     showToast("Selected chat thread was deleted.");
@@ -3687,8 +3723,10 @@ async function handleChatHistoryClick(event) {
   }
 
   const messages = visibleStaffMessages();
+  const threadIds = messages.map((message) => message.leaveRequestId).filter(Boolean);
   hideChatMessages(messages);
   await deleteCloudActivityLogsForMessages(messages);
+  await deleteCloudLeaveMessageThreads(threadIds);
   renderLeaveRequests();
   renderRoleDemo();
   showToast("All chat history was deleted.");

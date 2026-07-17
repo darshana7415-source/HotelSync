@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v139
-Changes: removed the Reset demo button and disabled reset handling to protect real staff data.
+StaffSync Beach & Bliss Mirissa build v140
+Changes: chat delete now permanently removes leave chat messages from the cloud table so they do not return after relogin.

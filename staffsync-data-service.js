@@ -723,6 +723,31 @@ const staffSyncDb = {
     return data;
   },
 
+  async deleteLeaveMessagesByIds({ ids }) {
+    const cleanIds = Array.from(new Set((ids || []).map(String).filter(Boolean)));
+    if (!cleanIds.length) return;
+
+    const { error } = await window.staffSyncSupabase
+      .from("staffsync_leave_messages")
+      .delete()
+      .in("id", cleanIds);
+
+    if (error) throw error;
+  },
+
+  async deleteLeaveMessagesByThread({ hotelId, threadIds }) {
+    const cleanThreadIds = Array.from(new Set((threadIds || []).map(String).filter(Boolean)));
+    if (!cleanThreadIds.length) return;
+
+    const { error } = await window.staffSyncSupabase
+      .from("staffsync_leave_messages")
+      .delete()
+      .eq("hotel_id", hotelId)
+      .in("leave_request_id", cleanThreadIds);
+
+    if (error) throw error;
+  },
+
   async addActivityLog({ hotelId, actorUserId, targetUserId, eventType, message, metadata }) {
     const { data, error } = await window.staffSyncSupabase
       .from("activity_logs")
