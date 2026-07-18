@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v148
-Changes: force fresh app files for manager dashboard and protect manager cloud login from role text mismatch.
+StaffSync Beach & Bliss Mirissa build v150
+Changes: removed the duplicate Today at a glance side panel and made the main dashboard full width.

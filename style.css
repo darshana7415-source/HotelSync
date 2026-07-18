@@ -331,9 +331,13 @@ h3 {
 }
 
 .role-grid {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   align-items: stretch;
   margin-bottom: 1rem;
+}
+
+.manager-portal {
+  display: none;
 }
 
 .admin-row {
