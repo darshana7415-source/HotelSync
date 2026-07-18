@@ -887,12 +887,24 @@ function renderAttendanceReport() {
 }
 
 function renderShifts() {
-  if (!shiftPlans.length) {
-    shiftList.innerHTML = `<div class="mini-empty">No manual shift plans yet. Add one above.</div>`;
-    return;
-  }
+  const today = todayLocalKey();
+  const staffRows = sortStaffByEmployeeCode(staff).map((person) => {
+    const entry = dailyRosterEntryFor(person, today);
+    const plan = activeShiftPlanFor(person, today);
+    return `
+      <article class="shift-card staff-shift-card">
+        <div class="shift-top">
+          <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+          <span class="pill ${entry.status === "Leave" ? "red" : entry.status === "Weekly off" ? "amber" : "green"}">${entry.status}</span>
+        </div>
+        <small>${person.department || "General"} - ${person.role || "Staff"}</small>
+        <small>${normalizeShiftLabel(entry.shift) || defaultShiftName}: ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}</small>
+        <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || today)} until changed` : "Default shift shown until changed"}</small>
+      </article>
+    `;
+  }).join("");
 
-  shiftList.innerHTML = shiftPlans.map((plan) => {
+  const planRows = shiftPlans.length ? shiftPlans.map((plan) => {
     const person = staff.find((item) => sameId(item.id, plan.staffId) || sameId(item.cloudId, plan.staffId));
     return `
     <article class="shift-card">
@@ -900,14 +912,35 @@ function renderShifts() {
         <strong>${person?.name || "Unknown staff"} - ${plan.shift}</strong>
         <span class="pill">${shiftPlanTimeSummary(plan)}</span>
       </div>
-      <small>Dates: ${(plan.repeatDates || []).map((date) => date.slice(8, 10)).join(", ") || (plan.repeatDays || []).join(", ") || "no dates selected"}</small>
+      <small>Effective from ${formatDate(plan.effectiveDate || today)} and continues until changed.</small>
       <div class="request-actions">
         <button class="ghost" data-edit-shift-plan="${plan.id}">Edit</button>
         <button class="ghost danger" data-delete-shift-plan="${plan.id}">Remove</button>
       </div>
     </article>
   `;
-  }).join("");
+  }).join("") : `<div class="mini-empty">No manual saved shift plans yet. Current default shifts are still shown above.</div>`;
+
+  shiftList.innerHTML = `
+    <div class="shift-list-section">
+      <div class="box-title-row">
+        <div>
+          <strong>All staff shifts today</strong>
+          <small>Every staff member is listed here. Saved shifts continue until changed.</small>
+        </div>
+      </div>
+      ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
+    </div>
+    <div class="shift-list-section">
+      <div class="box-title-row">
+        <div>
+          <strong>Saved shift plans</strong>
+          <small>Edit or remove long-running shift allocations.</small>
+        </div>
+      </div>
+      ${planRows}
+    </div>
+  `;
 }
 
 function shiftPlanTimeSummary(plan) {
@@ -983,7 +1016,7 @@ function renderShiftCalendar() {
   const activeStaffForCalendar = staff.find((person) => sameId(person.id, activeStaffId));
   const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
     ? [activeStaffForCalendar.department]
-    : leaveDepartments;
+    : shiftCalendarDepartments();
   const timeline = renderShiftTimeline(selectedDate, calendarDepartments);
   const sections = calendarDepartments.map((department) => {
     const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department)));
@@ -2808,11 +2841,12 @@ function bindEvents() {
   shiftForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const person = staff.find((item) => sameId(item.id, shiftStaff.value));
-    const repeatDates = selectedShiftRepeatDates();
-    if (!repeatDates.length) {
-      showToast("Choose at least one date.");
+    const effectiveDate = shiftEffectiveDate.value || todayLocalKey();
+    if (!effectiveDate) {
+      showToast("Choose an effective date.");
       return;
     }
+    const repeatDates = nextDateKeys(effectiveDate, 45);
 
     const shift = shiftValue.value.trim();
     const secondShift = optionalShiftPart("2");
@@ -2823,7 +2857,7 @@ function bindEvents() {
       shift,
       inTime: shiftInTime.value,
       outTime: shiftOutTime.value,
-      effectiveDate: shiftEffectiveDate.value,
+      effectiveDate,
       repeatDates,
       repeatDays: repeatDates,
       shift2: secondShift.shift,
@@ -2854,13 +2888,11 @@ function bindEvents() {
     }
 
     applyShiftPlanToDailyRosters(person, plan);
-    addActivity("Shift", `${person.name} shift plan saved: ${shift} ${plan.inTime}-${plan.outTime} on ${repeatDates.map((date) => date.slice(8, 10)).join(", ")}`);
+    addActivity("Shift", `${person.name} shift plan saved from ${formatDate(effectiveDate)}: ${shift} ${plan.inTime}-${plan.outTime}`);
     saveState();
     try {
       if (isCloudReady()) {
-        for (const dateValue of repeatDates) {
-          await saveDailyRosterToCloud(dateValue);
-        }
+        await saveRosterDatesToCloud(repeatDates);
         await syncCloudDashboard();
       }
       clearShiftPlannerForm();
@@ -4220,13 +4252,24 @@ function buildShiftCsvReport() {
 }
 
 function activeShiftPlanFor(person, dateValue = "") {
-  return shiftPlans.find((plan) => {
-    if (!(sameId(plan.staffId, person.id) || sameId(plan.staffId, person.cloudId))) return false;
-    if (!dateValue) return true;
-    if (plan.effectiveDate && plan.effectiveDate > dateValue) return false;
-    if (Array.isArray(plan.repeatDates) && plan.repeatDates.length) return plan.repeatDates.includes(dateValue);
-    return !plan.repeatDays?.length || plan.repeatDays.includes(shortDayName(dateValue));
+  const plans = shiftPlans
+    .filter((plan) => sameId(plan.staffId, person.id) || sameId(plan.staffId, person.cloudId))
+    .filter((plan) => !dateValue || !plan.effectiveDate || plan.effectiveDate <= dateValue)
+    .sort((a, b) => String(b.effectiveDate || "").localeCompare(String(a.effectiveDate || "")));
+
+  return plans[0] || null;
+}
+
+function shiftCalendarDepartments() {
+  const seen = new Set();
+  const departments = [];
+  [...leaveDepartments, ...staff.map((person) => person.department || "General")].forEach((department) => {
+    const key = normalizeDepartment(department);
+    if (seen.has(key)) return;
+    seen.add(key);
+    departments.push(department || "General");
   });
+  return departments;
 }
 
 function dailyRosterEntryFor(person, dateValue) {
@@ -4430,7 +4473,8 @@ function buildRosterEntriesForDate(dateValue) {
 }
 
 function applyShiftPlanToDailyRosters(person, plan) {
-  (plan.repeatDates || []).forEach((dateValue) => {
+  const dates = plan.repeatDates?.length ? plan.repeatDates : nextDateKeys(plan.effectiveDate || todayLocalKey(), 45);
+  dates.forEach((dateValue) => {
     dailyRosters[dateValue] = dailyRosters[dateValue] || buildRosterEntriesForDate(dateValue);
     dailyRosters[dateValue][person.id] = {
       shift: displayShiftName(plan.shift || defaultShiftName),
@@ -4693,6 +4737,13 @@ async function saveDailyRosterRangeToCloud(days) {
   }
 
   for (const dateValue of dates) {
+    await saveDailyRosterToCloud(dateValue);
+  }
+}
+
+async function saveRosterDatesToCloud(dates) {
+  const uniqueDates = Array.from(new Set((dates || []).filter(Boolean)));
+  for (const dateValue of uniqueDates) {
     await saveDailyRosterToCloud(dateValue);
   }
 }
@@ -5219,8 +5270,7 @@ function isScheduledForDate(person, dateValue, dayName = shortDayName(dateValue)
   if (plan.effectiveDate && plan.effectiveDate > dateValue) return false;
   if (plan.shift === "Weekly off") return false;
 
-  const repeatDays = plan.repeatDays || [];
-  return !repeatDays.length || repeatDays.includes(dayName);
+  return true;
 }
 
 function shortDayName(dateValue) {

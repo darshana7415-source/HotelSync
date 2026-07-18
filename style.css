@@ -696,6 +696,16 @@ label {
   margin-top: 1rem;
 }
 
+.shift-list-section {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.staff-shift-card {
+  background: #f8fbfc;
+}
+
 .self-card {
   display: grid;
   gap: 1rem;

@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v150
-Changes: removed the duplicate Today at a glance side panel and made the main dashboard full width.
+StaffSync Beach & Bliss Mirissa build v151
+Changes: shift tab now shows all staff and saved shift allocations continue forward until changed.
