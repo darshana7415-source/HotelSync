@@ -1610,7 +1610,7 @@ function renderAdminDashboardCard() {
         <strong>Staff on duty now</strong>
         ${onDuty.length ? onDuty.map((person) => `
           <div class="mini-item">
-            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - In ${person.clockIn || "--:--"}${person.clockOut ? ` / Out ${person.clockOut}` : ""}${person.status === "On break" ? " - On break" : ""}</small></span>
+            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${dashboardShiftLine(person, selectedDate)} - In ${person.clockIn || "--:--"}${person.clockOut ? ` / Out ${person.clockOut}` : ""}${person.status === "On break" ? " - On break" : ""}</small></span>
             <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
           </div>
         `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
@@ -1682,7 +1682,7 @@ function renderAdminDashboardCard() {
   managerAlertCount.textContent = `${onDuty.length} on duty`;
   managerAlerts.innerHTML = onDuty.length ? onDuty.map((person) => `
     <div class="mini-item">
-      <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - In ${person.clockIn || "--:--"}${person.status === "On break" ? " - On break" : ""}</small></span>
+      <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${dashboardShiftLine(person, selectedDate)} - In ${person.clockIn || "--:--"}${person.status === "On break" ? " - On break" : ""}</small></span>
       <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
     </div>
   `).join("") : `<div class="mini-empty">No one is on duty now.</div>`;
@@ -1691,6 +1691,13 @@ function renderAdminDashboardCard() {
   renderManagerShiftChanges(pendingShiftChanges);
 
   document.body.dataset.role = currentRole || roleSelect.value;
+}
+
+function dashboardShiftLine(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue || todayLocalKey());
+  const shiftName = normalizeShiftLabel(entry.shift) || defaultShiftName;
+  const extras = extraShiftLabels(entry);
+  return `${person.department || "General"} - ${shiftName} ${rosterTimeLabel(entry)}${extras.length ? ` | ${extras.join(" | ")}` : ""}`;
 }
 
 function pendingLeaveRequestsForDashboard() {

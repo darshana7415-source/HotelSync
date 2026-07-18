@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v151
-Changes: shift tab now shows all staff and saved shift allocations continue forward until changed.
+StaffSync Beach & Bliss Mirissa build v152
+Changes: dashboard on-duty rows now show the selected day shift before clock-in time.
