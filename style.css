@@ -1148,10 +1148,6 @@ body[data-role="staff"] #reset-demo {
   display: none;
 }
 
-body:not([data-role="staff"]) #leave-form {
-  display: none !important;
-}
-
 body[data-role="manager"] #admin {
   display: grid;
 }
@@ -1409,6 +1405,12 @@ body[data-role="staff"] .role-grid {
 .calendar-item.blue {
   background: #e9f1fb;
   color: var(--blue);
+}
+
+.pill.admin-granted,
+.calendar-item.admin-granted {
+  background: #f1e8ff;
+  color: #6d28d9;
 }
 
 .leave-month-view {

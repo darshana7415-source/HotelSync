@@ -466,7 +466,8 @@ function renderLeaveRequests() {
     activeStaffId = activeStaff.id;
     rememberActiveStaff();
   }
-  if (leaveForm) leaveForm.hidden = currentRole !== "staff";
+  if (leaveForm) leaveForm.hidden = false;
+  updateLeaveFormMode();
   if (currentRole !== "staff") {
     leaveList.innerHTML = renderAdminMonthlyLeaveView();
     return;
@@ -484,7 +485,7 @@ function renderLeaveRequests() {
     <article class="request-card">
       <div class="request-top">
         <strong>${request.name}</strong>
-        <span class="pill ${leaveStatusClass(request.status)}">${leaveStatusDisplay(request.status)}</span>
+        <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
       </div>
       <small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${units} leave day${units === 1 ? "" : "s"}</small>
       <span>${request.reason || "No reason added"}</span>
@@ -606,7 +607,7 @@ function renderAdminMonthlyLeaveView() {
           <div class="mini-item">
             <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)}</small></span>
             <span class="quick-actions">
-              <span class="pill green">Approved</span>
+              <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
               <button class="ghost small-button" type="button" data-action="cancel" data-id="${request.id}">Cancel</button>
             </span>
           </div>
@@ -693,8 +694,8 @@ function renderLeaveCalendar() {
         <small>${shortDayName(dateValue)} - ${formatMonthShort(dateValue)}${requests.length ? ` - ${requests.length} leave record${requests.length === 1 ? "" : "s"}` : " - No leave"}</small>
         <div>
           ${requests.length ? requests.map((request) => `
-            <span class="calendar-item ${leaveStatusClass(request.status)}">
-              ${request.name} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request.status)}
+            <span class="calendar-item ${leavePillClass(request)}">
+              ${request.name} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request)}
             </span>
           `).join("") : `<span class="calendar-empty">Fully available</span>`}
         </div>
@@ -1455,7 +1456,7 @@ function renderRoleDemo() {
           ${myLeaveRequests.length ? myLeaveRequests.map((request) => `
             <div class="mini-item">
               <span>${leaveRequestTitle(request)}<small>${leaveDateRangeLabel(request)}${request.reason ? ` - ${request.reason}` : ""}</small></span>
-              <span class="pill ${leaveStatusClass(request.status)}">${request.status}</span>
+              <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
             </div>
             ${leaveThreadMessagesMarkup(request, 4)}
             ${["Pending", "Change the Request", "Adjustment requested"].includes(request.status) ? `
@@ -1528,7 +1529,7 @@ function renderRoleDemo() {
     return `
     <div class="mini-item approval-item">
       <div class="approval-main">
-        <span><strong>${request.name}</strong><small>${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request.status)}</small></span>
+        <span><strong>${request.name}</strong><small>${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request)}</small></span>
         ${leaveThreadMessagesMarkup(request, 4, threadMessages)}
         <form class="leave-chat-form quick-chat-form admin-message-box compact-message-box" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="admin">
           <span>Message to employee</span>
@@ -1656,9 +1657,9 @@ function renderAdminDashboardCard() {
         <strong>Leave on ${formatDate(selectedDate)}</strong>
         ${leaveForDate.length ? leaveForDate.map((request) => `
           <div class="mini-item">
-            <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request.status)}</small></span>
+            <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request)}</small></span>
             <span class="quick-actions">
-              <span class="pill ${leaveStatusClass(request.status)}">${request.status}</span>
+              <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
               ${request.status === "Approved" ? `<button class="ghost small-button" type="button" data-action="cancel" data-id="${request.id}">Cancel</button>` : ""}
             </span>
           </div>
@@ -1713,7 +1714,7 @@ function leaveApprovalItemMarkup(request) {
   return `
     <div class="mini-item approval-item">
       <div class="approval-main">
-        <span><strong>${request.name}</strong><small>${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request.status)}</small></span>
+        <span><strong>${request.name}</strong><small>${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request)}</small></span>
         ${leaveThreadMessagesMarkup(request, 4, threadMessages)}
         <form class="leave-chat-form quick-chat-form admin-message-box compact-message-box" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="admin">
           <span>Message to employee</span>
@@ -2487,6 +2488,7 @@ function bindEvents() {
     event.preventDefault();
     const submitButton = event.submitter;
     submitButton?.classList.add("action-success");
+    const isAdminGrant = currentRole !== "staff";
     const selectedStaff = currentRole === "staff"
       ? staff.find((person) => sameId(person.id, activeStaffId))
       : staff.find((person) => sameId(person.id, leaveStaff.value));
@@ -2512,13 +2514,13 @@ function bindEvents() {
     }
 
     const balanceCheck = monthlyLeaveRequestAvailability(selectedStaff, { from: startDate, to: endDate, duration });
-    if (!balanceCheck.ok) {
+    if (!isAdminGrant && !balanceCheck.ok) {
       leavePolicyNote.textContent = `This request needs ${formatLeaveUnits(balanceCheck.required)} leave day${balanceCheck.required === 1 ? "" : "s"} in ${balanceCheck.monthLabel}, but ${selectedStaff.name} has ${formatLeaveUnits(balanceCheck.available)} left for that month.`;
       showToast("Leave request is more than the remaining balance.");
       return;
     }
 
-    if (leaveNeedsReason(startDate) && !reason) {
+    if (!isAdminGrant && leaveNeedsReason(startDate) && !reason) {
       leavePolicyNote.textContent = "Reason is required because this leave starts within 2 days.";
       showToast("Please add a reason for short-notice leave.");
       return;
@@ -2535,7 +2537,8 @@ function bindEvents() {
       from: startDate,
       to: endDate,
       reason,
-      status: "Pending"
+      status: isAdminGrant ? "Approved" : "Pending",
+      adminGranted: isAdminGrant
     };
 
     try {
@@ -2549,24 +2552,37 @@ function bindEvents() {
           leaveTypeId: leaveType?.id || null,
           startDate,
           endDate,
-          reason: encodeLeaveReason(reason, duration)
+          reason: encodeLeaveReason(reason, duration, isAdminGrant)
         });
         request.id = cloudRequest.id;
         request.cloudId = cloudRequest.id;
+        if (isAdminGrant) {
+          await window.staffSyncDb.updateLeaveStatus({
+            leaveRequestId: cloudRequest.id,
+            status: "approved",
+            approvedBy: currentAppUserId || null
+          });
+        }
       }
 
       leaveRequests = [request, ...leaveRequests];
-      addActivity("Leave", `${request.name} requested ${leaveRequestTitle(request)}`);
+      addActivity("Leave", isAdminGrant
+        ? `${request.name} was granted ${leaveRequestTitle(request)} by admin`
+        : `${request.name} requested ${leaveRequestTitle(request)}`);
       saveState();
       leaveForm.reset();
       document.querySelector("#leave-duration").value = "full";
       document.querySelector("#leave-to").disabled = false;
       syncLeaveDateFields();
-      setStaffActionNotice(`${leaveRequestTitle(request)} request sent for ${leaveDateRangeLabel(request)}. Waiting for admin answer.`);
+      if (!isAdminGrant) {
+        setStaffActionNotice(`${leaveRequestTitle(request)} request sent for ${leaveDateRangeLabel(request)}. Waiting for admin answer.`);
+      }
       renderAll();
-      showToast(selectedStaff.cloudId && isCloudReady()
-        ? "Leave request sent to admin."
-        : "Leave request saved on this phone. Cloud login is needed for admin to receive it.");
+      showToast(isAdminGrant
+        ? `${selectedStaff.name} marked as Admin granted leave.`
+        : selectedStaff.cloudId && isCloudReady()
+          ? "Leave request sent to admin."
+          : "Leave request saved on this phone. Cloud login is needed for admin to receive it.");
       if (isCloudReady()) {
         await refreshLiveLeaveOnly(true);
         syncCloudDashboard();
@@ -5041,6 +5057,10 @@ function updateLeavePolicyNote() {
   const selectedStaff = currentRole === "staff"
     ? staff.find((person) => sameId(person.id, activeStaffId))
     : staff.find((person) => sameId(person.id, leaveStaff.value));
+  if (currentRole !== "staff") {
+    leavePolicyNote.textContent = "Admin/manager can grant full leave, half day, or short leave for past, current, or future dates. It will show as Admin granted.";
+    return;
+  }
   if (!startDate) {
     leavePolicyNote.textContent = "Reason is only required for leave starting within 2 days.";
     return;
@@ -5213,8 +5233,23 @@ function monthlyLeaveRequestAvailability(person, request, excludeRequestId = "")
   return { ok: true };
 }
 
-function encodeLeaveReason(reason, duration) {
-  return `[${leaveDurationLabel(duration)}] ${reason || ""}`.trim();
+function updateLeaveFormMode() {
+  if (!leaveForm) return;
+  const submitButton = leaveForm.querySelector("button[type='submit']");
+  const policyBox = leaveForm.querySelector(".compact-policy");
+  const reasonField = document.querySelector("#leave-reason");
+  const isAdminGrant = currentRole !== "staff";
+  if (submitButton) submitButton.textContent = isAdminGrant ? "Grant leave" : "Submit request";
+  if (policyBox) {
+    policyBox.innerHTML = isAdminGrant
+      ? `<strong>Admin grant:</strong> Mark leave, half day, or short leave directly for past, current, or future dates. It is saved as approved and shown as Admin granted.`
+      : `<strong>Leave policy:</strong> Requests need 2 days prior approval. If the leave starts within 2 days, a reason is required.`;
+  }
+  if (reasonField) reasonField.placeholder = isAdminGrant ? "Optional note for admin granted leave" : "Short reason";
+}
+
+function encodeLeaveReason(reason, duration, adminGranted = false) {
+  return `[${leaveDurationLabel(duration)}] ${adminGranted ? "[Admin granted] " : ""}${reason || ""}`.trim();
 }
 
 function decodeLeaveReason(reason) {
@@ -5222,9 +5257,12 @@ function decodeLeaveReason(reason) {
   const match = value.match(/^\[(Full day|Half day|Short leave - 2\.5 hours)\]\s*(.*)$/i);
   if (!match) return { duration: "full", reason: value };
   const label = match[1].toLowerCase();
+  const rest = match[2] || "";
+  const adminGranted = /^\[Admin granted\]/i.test(rest);
   return {
     duration: label.startsWith("half") ? "half" : label.startsWith("short") ? "short" : "full",
-    reason: match[2] || ""
+    reason: adminGranted ? rest.replace(/^\[Admin granted\]\s*/i, "") : rest,
+    adminGranted
   };
 }
 
@@ -6047,7 +6085,17 @@ function leaveStatusClass(status) {
   return "amber";
 }
 
-function leaveStatusDisplay(status) {
+function isAdminGrantedLeave(request) {
+  return Boolean(request?.adminGranted);
+}
+
+function leavePillClass(request) {
+  return isAdminGrantedLeave(request) ? "admin-granted" : leaveStatusClass(request?.status || request);
+}
+
+function leaveStatusDisplay(requestOrStatus) {
+  if (typeof requestOrStatus === "object" && isAdminGrantedLeave(requestOrStatus)) return "Admin granted";
+  const status = typeof requestOrStatus === "object" ? requestOrStatus?.status : requestOrStatus;
   return status === "Adjustment requested" ? "Change the Request" : status;
 }
 
@@ -6895,6 +6943,7 @@ function mapCloudLeaveRequest(request) {
     to: request.end_date,
     reason: decodedReason.reason,
     status: leaveStatusLabel(request.status || "pending"),
+    adminGranted: Boolean(decodedReason.adminGranted),
     updatedAt: request.approved_at || request.created_at
   };
 }
