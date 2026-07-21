@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v159
-Changes: cancelled granted leave now remains visible in leave records and the month calendar with a separate cancelled colour and label.
+StaffSync Beach & Bliss Mirissa build v160
+Changes: shift bulk upload now accepts Excel .xlsx/.xls/.xlsm or CSV, matches employee_code to staff, imports split second/third shifts, and includes an Excel template.

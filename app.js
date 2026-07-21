@@ -133,6 +133,7 @@ const shiftImportFile = document.querySelector("#shift-import-file");
 const shiftImportText = document.querySelector("#shift-import-text");
 const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
+let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
 const rosterCopyDays = document.querySelector("#roster-copy-days");
 const dailyRosterBody = document.querySelector("#daily-roster-body");
@@ -2988,13 +2989,23 @@ function bindEvents() {
   shiftImportFile?.addEventListener("change", async () => {
     const file = shiftImportFile.files?.[0];
     if (!file) return;
-    shiftImportText.value = await file.text();
-    if (shiftImportResult) shiftImportResult.textContent = `${file.name} loaded. Click Import shift rows to update the roster.`;
+    try {
+      loadedShiftImportRows = await readShiftImportFile(file);
+      shiftImportText.value = file.name.toLowerCase().match(/\.(xlsx|xls|xlsm)$/)
+        ? ""
+        : await file.text();
+      if (shiftImportResult) shiftImportResult.textContent = `${file.name} loaded with ${loadedShiftImportRows.length} row${loadedShiftImportRows.length === 1 ? "" : "s"}. Click Import uploaded shifts to update the roster.`;
+    } catch (error) {
+      loadedShiftImportRows = [];
+      shiftImportText.value = "";
+      if (shiftImportResult) shiftImportResult.textContent = error.message || "Shift file could not be read.";
+      showToast(error.message || "Shift file could not be read.");
+    }
   });
 
   importShiftRowsButton?.addEventListener("click", async () => {
     const text = shiftImportText?.value || "";
-    if (!text.trim()) {
+    if (!loadedShiftImportRows.length && !text.trim()) {
       showToast("Paste shift rows or upload a file first.");
       return;
     }
@@ -3002,10 +3013,10 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-      const result = await importShiftRows(text);
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text);
       saveState();
       renderAll();
-      const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported. ${result.skipped} skipped.`;
+      const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported for ${result.dates.length} date${result.dates.length === 1 ? "" : "s"}. ${result.skipped} skipped.`;
       if (shiftImportResult) shiftImportResult.textContent = message;
       showToast(message);
     } catch (error) {
@@ -4442,42 +4453,92 @@ function saveDailyRosterFromTable(dateValue) {
   return Object.keys(entries).length;
 }
 
-async function importShiftRows(text) {
-  const rows = String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+async function readShiftImportFile(file) {
+  const name = String(file?.name || "").toLowerCase();
+  if (name.match(/\.(xlsx|xls|xlsm)$/)) {
+    if (!window.XLSX) {
+      throw new Error("Excel reader is still loading. Wait a few seconds and choose the file again.");
+    }
+    const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) throw new Error("No sheet was found in this Excel file.");
+    return window.XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], {
+      header: 1,
+      raw: false,
+      defval: ""
+    }).map(cleanImportRow).filter((row) => row.some(Boolean));
+  }
+
+  return parseDelimitedRows(await file.text());
+}
+
+async function importShiftRows(source) {
+  const rows = Array.isArray(source)
+    ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
+    : parseDelimitedRows(source);
   const touchedDates = new Set();
   let updated = 0;
   let skipped = 0;
+  if (!rows.length) return { updated, skipped, dates: [] };
 
-  for (const line of rows) {
-    const columns = parseImportColumns(line);
-    if (isShiftImportHeader(columns)) {
-      skipped += 1;
+  const header = isShiftImportHeader(rows[0]) ? rows[0] : [];
+  const headerMap = buildShiftImportHeaderMap(header);
+  const wideDateColumns = header.length ? shiftWideDateColumns(header) : [];
+  const dataRows = header.length ? rows.slice(1) : rows;
+
+  for (const columns of dataRows) {
+    if (!columns.some(Boolean)) continue;
+    if (wideDateColumns.length) {
+      const codeIndex = headerMap.employeeCode ?? 0;
+      const employeeCode = normalizeEmployeeCode(columns[codeIndex]);
+      const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
+      if (!person) {
+        skipped += 1;
+        continue;
+      }
+
+      for (const dateColumn of wideDateColumns) {
+        const entry = parseShiftCell(columns[dateColumn.index]);
+        if (!entry) continue;
+        saveImportedShiftEntry(person, dateColumn.dateValue, entry);
+        touchedDates.add(dateColumn.dateValue);
+        updated += 1;
+      }
       continue;
     }
 
-    const employeeCode = normalizeEmployeeCode(columns[0]);
-    const dateValue = parseShiftImportDate(columns[1] || dailyRosterDate?.value || todayLocalKey());
+    const employeeCode = normalizeEmployeeCode(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
+    const dateValue = parseShiftImportDate(valueByShiftHeader(columns, headerMap, "date", 1) || dailyRosterDate?.value || todayLocalKey());
     const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
     if (!person || !dateValue) {
       skipped += 1;
       continue;
     }
 
-    const shift = displayShiftName(columns[2] || defaultShiftName);
-    const inTime = normalizeImportTime(columns[3] || defaultShiftStart);
-    const outTime = normalizeImportTime(columns[4] || defaultShiftEnd);
-    const status = columns[5] || (shift === "Weekly off" ? "Weekly off" : "Working");
-    dailyRosters[dateValue] = dailyRosters[dateValue] || buildRosterEntriesForDate(dateValue);
-    dailyRosters[dateValue][person.id] = {
-      ...(dailyRosters[dateValue][person.id] || {}),
-      shift,
-      inTime,
-      outTime,
-      status
-    };
+    const shift = displayShiftName(valueByShiftHeader(columns, headerMap, "shift", 2) || defaultShiftName);
+    const inTime = normalizeImportTime(valueByShiftHeader(columns, headerMap, "inTime", 3) || defaultShiftStart);
+    const outTime = normalizeImportTime(valueByShiftHeader(columns, headerMap, "outTime", 4) || defaultShiftEnd);
+    const status = valueByShiftHeader(columns, headerMap, "status", 5) || (shift === "Weekly off" ? "Weekly off" : "Working");
+    const entry = { shift, inTime, outTime, status };
+    const shift2 = valueByShiftHeader(columns, headerMap, "shift2", 6);
+    const inTime2 = valueByShiftHeader(columns, headerMap, "inTime2", 7);
+    const outTime2 = valueByShiftHeader(columns, headerMap, "outTime2", 8);
+    if (shift2 || inTime2 || outTime2) {
+      entry.shift2 = displayShiftName(shift2 || "Evening");
+      entry.inTime2 = normalizeImportTime(inTime2 || "");
+      entry.outTime2 = normalizeImportTime(outTime2 || "");
+      entry.status2 = valueByShiftHeader(columns, headerMap, "status2", 9) || "Working";
+    }
+    const shift3 = valueByShiftHeader(columns, headerMap, "shift3", 10);
+    const inTime3 = valueByShiftHeader(columns, headerMap, "inTime3", 11);
+    const outTime3 = valueByShiftHeader(columns, headerMap, "outTime3", 12);
+    if (shift3 || inTime3 || outTime3) {
+      entry.shift3 = displayShiftName(shift3 || "Third shift");
+      entry.inTime3 = normalizeImportTime(inTime3 || "");
+      entry.outTime3 = normalizeImportTime(outTime3 || "");
+      entry.status3 = valueByShiftHeader(columns, headerMap, "status3", 13) || "Working";
+    }
+    saveImportedShiftEntry(person, dateValue, entry);
     touchedDates.add(dateValue);
     updated += 1;
   }
@@ -4493,20 +4554,173 @@ async function importShiftRows(text) {
   return { updated, skipped, dates: Array.from(touchedDates) };
 }
 
+function saveImportedShiftEntry(person, dateValue, entry) {
+  dailyRosters[dateValue] = dailyRosters[dateValue] || buildRosterEntriesForDate(dateValue);
+  dailyRosters[dateValue][person.id] = {
+    ...(dailyRosters[dateValue][person.id] || {}),
+    ...cleanRosterEntry(entry)
+  };
+}
+
+function cleanRosterEntry(entry) {
+  return {
+    shift: displayShiftName(entry.shift || defaultShiftName),
+    inTime: normalizeImportTime(entry.inTime || defaultShiftStart),
+    outTime: normalizeImportTime(entry.outTime || defaultShiftEnd),
+    status: entry.status || "Working",
+    shift2: entry.shift2 ? displayShiftName(entry.shift2) : "",
+    inTime2: entry.inTime2 ? normalizeImportTime(entry.inTime2) : "",
+    outTime2: entry.outTime2 ? normalizeImportTime(entry.outTime2) : "",
+    status2: entry.status2 || (entry.shift2 ? "Working" : ""),
+    shift3: entry.shift3 ? displayShiftName(entry.shift3) : "",
+    inTime3: entry.inTime3 ? normalizeImportTime(entry.inTime3) : "",
+    outTime3: entry.outTime3 ? normalizeImportTime(entry.outTime3) : "",
+    status3: entry.status3 || (entry.shift3 ? "Working" : "")
+  };
+}
+
 function isShiftImportHeader(columns) {
   const cleaned = columns.map((value) => String(value || "").trim());
   if (cleaned.length && cleaned.every((value) => /^-+$/.test(value))) return true;
   const first = cleaned[0].toLowerCase();
   const second = cleaned[1].toLowerCase();
-  return first.includes("employee") || first === "code" || second.includes("date");
+  return first.includes("employee") || first === "code" || first.includes("staff") || second.includes("date");
+}
+
+function cleanImportRow(row) {
+  return Array.from(row || []).map((value) => String(value ?? "").trim());
+}
+
+function parseDelimitedRows(text) {
+  const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const first = lines[0] || "";
+  const separator = first.includes("\t") ? "\t" : first.includes("|") ? "|" : ",";
+  return lines.map((line) => parseDelimitedLine(line, separator).map((value) => value.trim()));
+}
+
+function parseDelimitedLine(line, separator = ",") {
+  if (separator !== ",") return String(line || "").split(separator);
+  const columns = [];
+  let current = "";
+  let quoted = false;
+  const text = String(line || "");
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\"" && text[index + 1] === "\"") {
+      current += "\"";
+      index += 1;
+    } else if (character === "\"") {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      columns.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  columns.push(current);
+  return columns;
+}
+
+function buildShiftImportHeaderMap(header) {
+  const map = {};
+  header.forEach((heading, index) => {
+    const key = normalizeShiftHeader(heading);
+    if (["employeecode", "staffcode", "code"].includes(key)) map.employeeCode = index;
+    if (["date", "shiftdate", "day"].includes(key)) map.date = index;
+    if (["shift", "shift1", "shiftname", "shiftname1"].includes(key)) map.shift = index;
+    if (["intime", "in", "start", "starttime", "from"].includes(key)) map.inTime = index;
+    if (["outtime", "out", "end", "endtime", "to"].includes(key)) map.outTime = index;
+    if (["status", "workstatus"].includes(key)) map.status = index;
+    if (["shift2", "secondshift", "secondshiftname"].includes(key)) map.shift2 = index;
+    if (["intime2", "in2", "secondin", "secondstart"].includes(key)) map.inTime2 = index;
+    if (["outtime2", "out2", "secondout", "secondend"].includes(key)) map.outTime2 = index;
+    if (["status2", "secondstatus"].includes(key)) map.status2 = index;
+    if (["shift3", "thirdshift", "thirdshiftname"].includes(key)) map.shift3 = index;
+    if (["intime3", "in3", "thirdin", "thirdstart"].includes(key)) map.inTime3 = index;
+    if (["outtime3", "out3", "thirdout", "thirdend"].includes(key)) map.outTime3 = index;
+    if (["status3", "thirdstatus"].includes(key)) map.status3 = index;
+  });
+  return map;
+}
+
+function normalizeShiftHeader(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function valueByShiftHeader(columns, headerMap, key, fallbackIndex) {
+  const index = headerMap[key] ?? fallbackIndex;
+  return columns[index] || "";
+}
+
+function shiftWideDateColumns(header) {
+  return header
+    .map((heading, index) => ({ index, dateValue: parseShiftImportDate(heading) }))
+    .filter((item) => item.dateValue);
+}
+
+function parseShiftCell(value) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (/^(off|weekly off|week off|wo|leave|holiday)$/i.test(text)) {
+    return { shift: "Weekly off", inTime: "00:00", outTime: "00:00", status: "Weekly off" };
+  }
+
+  const parts = text.split(/\s*(?:;|\n|\+|\/)\s*/).filter(Boolean);
+  const first = parseShiftCellPart(parts[0]);
+  if (!first) return null;
+  const entry = { ...first };
+  const second = parts[1] ? parseShiftCellPart(parts[1]) : null;
+  if (second) {
+    entry.shift2 = second.shift || "Evening";
+    entry.inTime2 = second.inTime;
+    entry.outTime2 = second.outTime;
+    entry.status2 = second.status || "Working";
+  }
+  const third = parts[2] ? parseShiftCellPart(parts[2]) : null;
+  if (third) {
+    entry.shift3 = third.shift || "Third shift";
+    entry.inTime3 = third.inTime;
+    entry.outTime3 = third.outTime;
+    entry.status3 = third.status || "Working";
+  }
+  return entry;
+}
+
+function parseShiftCellPart(value) {
+  const text = String(value || "").trim();
+  const range = text.match(/(\d{1,2}(?::?\d{2})?)\s*(?:-|to)\s*(\d{1,2}(?::?\d{2})?)/i);
+  if (range) {
+    const label = displayShiftName(text.slice(0, range.index).replace(/[:,-]+$/, "").trim() || defaultShiftName);
+    return {
+      shift: label,
+      inTime: normalizeImportTime(range[1]),
+      outTime: normalizeImportTime(range[2]),
+      status: "Working"
+    };
+  }
+  return {
+    shift: displayShiftName(text || defaultShiftName),
+    inTime: defaultShiftStart,
+    outTime: defaultShiftEnd,
+    status: "Working"
+  };
 }
 
 function parseShiftImportDate(value) {
   const text = String(value || "").trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  const slash = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  const slash = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (slash) {
-    return `${slash[3]}-${slash[2].padStart(2, "0")}-${slash[1].padStart(2, "0")}`;
+    let first = Number(slash[1]);
+    let second = Number(slash[2]);
+    const yearNumber = Number(slash[3]);
+    const year = yearNumber < 100 ? 2000 + yearNumber : yearNumber;
+    if (first <= 12 && second > 12) {
+      [first, second] = [second, first];
+    }
+    if (second < 1 || second > 12 || first < 1 || first > 31) return "";
+    return `${year}-${String(second).padStart(2, "0")}-${String(first).padStart(2, "0")}`;
   }
   return "";
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "staffsync-beach-bliss-v159";
+const CACHE_NAME = "staffsync-beach-bliss-v160";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -9,7 +9,9 @@ const APP_FILES = [
   "./env.js",
   "./manifest.webmanifest",
   "./icon.svg",
-  "./hotel-property-map-v2.svg"
+  "./hotel-property-map-v2.svg",
+  "./staffsync-shift-upload-template.csv",
+  "./staffsync-shift-upload-template.xlsx"
 ];
 
 self.addEventListener("install", (event) => {
