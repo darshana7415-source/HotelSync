@@ -1040,52 +1040,67 @@ function activeStaffForCurrentLogin() {
 function renderShiftCalendar() {
   if (!shiftCalendar || !shiftCalendarStart) return;
 
-  if (!shiftCalendarStart.value) {
-    shiftCalendarStart.value = todayLocalKey();
-  }
+  try {
+    if (!shiftCalendarStart.value) {
+      shiftCalendarStart.value = todayLocalKey();
+    }
 
-  const selectedDate = shiftCalendarStart.value;
-  const dates = nextDateKeys(selectedDate, 7);
-  const activeStaffForCalendar = activeStaffForCurrentLogin();
+    const selectedDate = shiftCalendarStart.value;
+    const dates = nextDateKeys(selectedDate, 7);
+    const activeStaffForCalendar = activeStaffForCurrentLogin();
 
-  const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
-    ? [activeStaffForCalendar.department || "General"]
-    : shiftCalendarDepartments();
+    const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
+      ? [activeStaffForCalendar.department || "General"]
+      : shiftCalendarDepartments();
 
-  const header = `
-    <div class="shift-calendar-row shift-calendar-header">
-      <span>Department / Staff</span>
-      ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
-    </div>
-  `;
-
-  const timeline = renderShiftTimeline(selectedDate, calendarDepartments);
-
-  const sections = calendarDepartments.map((department) => {
-    const safeDepartment = department || "General";
-    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
-      normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
-    ));
-
-    if (!departmentStaff.length) return "";
-
-    return `
-      <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
-        <h3>${safeDepartment}</h3>
-        ${departmentStaff.map((person) => `
-          <div class="shift-calendar-row">
-            <span class="shift-calendar-person">
-              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-              <small>${person.role || "Staff"}</small>
-            </span>
-            ${dates.map((dateValue) => shiftCalendarCell(person, dateValue)).join("")}
-          </div>
-        `).join("")}
-      </section>
+    const header = `
+      <div class="shift-calendar-row shift-calendar-header">
+        <span>Department / Staff</span>
+        ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
+      </div>
     `;
-  }).join("");
 
-  shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No same-department shifts found for this week.</div>`);
+    let timeline = "";
+    try {
+      timeline = renderShiftTimeline(selectedDate, calendarDepartments);
+    } catch (error) {
+      timeline = `<div class="mini-empty">Shift time chart could not load, but weekly shifts are shown below.</div>`;
+    }
+
+    const sections = calendarDepartments.map((department) => {
+      const safeDepartment = department || "General";
+      const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
+        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
+      ));
+
+      if (!departmentStaff.length) return "";
+
+      return `
+        <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
+          <h3>${safeDepartment}</h3>
+          ${departmentStaff.map((person) => `
+            <div class="shift-calendar-row">
+              <span class="shift-calendar-person">
+                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+                <small>${person.role || "Staff"}</small>
+              </span>
+              ${dates.map((dateValue) => {
+                try {
+                  return shiftCalendarCell(person, dateValue);
+                } catch (error) {
+                  return `<div class="shift-calendar-cell off"><b>Shift</b><small>Could not load</small></div>`;
+                }
+              }).join("")}
+            </div>
+          `).join("")}
+        </section>
+      `;
+    }).join("");
+
+    shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No shifts found for this week.</div>`);
+  } catch (error) {
+    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
+  }
 }
 
 function renderShiftTimeline(dateValue, calendarDepartments) {
