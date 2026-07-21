@@ -583,7 +583,7 @@ function staffLeaveSummaryMarkup(person, dateValue = todayLocalKey()) {
         <strong>Leaves obtained this month</strong>
         ${approvedItems.length ? approvedItems.map((request) => `
           <div class="mini-item">
-            <span><strong>${leaveRequestTitle(request)}</strong><small>${leaveDateRangeLabel(request)} - ${formatLeaveUnits(leaveUnitsInMonth(request, monthKey))} day${leaveUnitsInMonth(request, monthKey) === 1 ? "" : "s"}</small></span>
+            <span><strong>${leaveDetailTitle(request)}</strong><small>${leaveDetailLine(request, monthKey)}</small></span>
             <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
           </div>
         `).join("") : `<div class="mini-empty">No approved leave obtained in ${monthLabel(monthKey)} yet.</div>`}
@@ -613,10 +613,10 @@ function renderAdminMonthlyLeaveView() {
     rejected: sum.rejected + row.rejected
   }), { quota: 0, approved: 0, available: 0, rejected: 0 });
   const threads = chatThreadsForAdmin().filter((thread) => !thread.isShiftThread);
-  const approvedRequests = leaveRequests.filter((request) =>
-    request.status === "Approved" &&
+  const monthlyLeaveRecords = sortLeaveRecordsByStaffCode(leaveRequests.filter((request) =>
+    ["Approved", "Rejected", "Cancelled", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
     leaveUnitsInMonth(request, monthKey) > 0
-  );
+  ));
 
   return `
     <section class="leave-month-view">
@@ -638,16 +638,8 @@ function renderAdminMonthlyLeaveView() {
         `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
       </div>
       <div class="staff-message-box">
-        <strong>Approved leave this month</strong>
-        ${approvedRequests.length ? approvedRequests.map((request) => `
-          <div class="mini-item">
-            <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveDateRangeLabel(request)}</small></span>
-            <span class="quick-actions">
-              <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
-              <button class="ghost small-button" type="button" data-action="cancel" data-id="${request.id}">Cancel</button>
-            </span>
-          </div>
-        `).join("") : `<div class="mini-empty">No approved leave this month.</div>`}
+        <strong>All leave records this month</strong>
+        ${monthlyLeaveRecords.length ? groupedLeaveRecordsMarkup(monthlyLeaveRecords, monthKey) : `<div class="mini-empty">No leave records this month.</div>`}
       </div>
       <div class="staff-message-box leave-history-box">
         <div class="box-title-row">
@@ -1696,7 +1688,7 @@ function renderAdminDashboardCard() {
         <strong>Leave on ${formatDate(selectedDate)}</strong>
         ${leaveForDate.length ? leaveForDate.map((request) => `
           <div class="mini-item">
-            <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request)}</small></span>
+            <span><strong>${request.name}</strong><small>${departmentForLeaveRequest(request)} - ${leaveDetailTitle(request)} - ${leaveDateRangeLabel(request)} - ${leaveStatusDisplay(request)}</small></span>
             <span class="quick-actions">
               <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
               ${request.status === "Approved" ? `<button class="ghost small-button" type="button" data-action="cancel" data-id="${request.id}">Cancel</button>` : ""}
@@ -2562,6 +2554,13 @@ function bindEvents() {
     if (!isAdminGrant && leaveNeedsReason(startDate) && !reason) {
       leavePolicyNote.textContent = "Reason is required because this leave starts within 2 days.";
       showToast("Please add a reason for short-notice leave.");
+      return;
+    }
+
+    if (isAdminGrant && duplicateGrantedLeaveExists(selectedStaff, { from: startDate, to: endDate, duration })) {
+      leavePolicyNote.textContent = "Already leave granted for this staff member on the same date with the same leave nature.";
+      showToast("Already leave granted for this date and leave type.");
+      submitButton?.classList.remove("action-success");
       return;
     }
 
@@ -4943,6 +4942,13 @@ function employeeCodeSortValue(value) {
   return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
 }
 
+function compareEmployeeCodes(leftCode, rightCode) {
+  const leftValue = employeeCodeSortValue(leftCode);
+  const rightValue = employeeCodeSortValue(rightCode);
+  if (leftValue !== rightValue) return leftValue - rightValue;
+  return String(leftCode || "").localeCompare(String(rightCode || ""), undefined, { numeric: true });
+}
+
 function csvCell(value) {
   return `"${String(value).replaceAll('"', '""')}"`;
 }
@@ -5148,6 +5154,15 @@ function leaveRequestTitle(request) {
   return `${leaveDurationLabel(request.duration)} ${request.type || "Leave"}`;
 }
 
+function leaveDetailTitle(request) {
+  return leaveRequestTitle(request);
+}
+
+function leaveDetailLine(request, monthKey = monthKeyForDate()) {
+  const units = leaveUnitsInMonth(request, monthKey) || leaveRequestUnits(request);
+  return `${leaveDateRangeLabel(request)} - ${leaveDurationLabel(request)} - ${formatLeaveUnits(units)} leave day${units === 1 ? "" : "s"}`;
+}
+
 function leaveDateRangeLabel(request) {
   return request.from === request.to
     ? formatDate(request.from)
@@ -5270,6 +5285,64 @@ function monthlyLeaveRequestAvailability(person, request, excludeRequestId = "")
     }
   }
   return { ok: true };
+}
+
+function duplicateGrantedLeaveExists(person, newRequest) {
+  const newDuration = leaveDurationValue(newRequest);
+  return leaveRequests.some((request) =>
+    request.status === "Approved" &&
+    (sameId(request.staffId, person.id) || sameId(request.staffId, person.cloudId)) &&
+    leaveDurationValue(request) === newDuration &&
+    dateRangesOverlap(request.from, request.to, newRequest.from, newRequest.to)
+  );
+}
+
+function dateRangesOverlap(leftFrom, leftTo, rightFrom, rightTo) {
+  return leftFrom <= rightTo && rightFrom <= leftTo;
+}
+
+function sortLeaveRecordsByStaffCode(records) {
+  return [...records].sort((left, right) => {
+    const leftPerson = staffPersonForLeaveRequest(left);
+    const rightPerson = staffPersonForLeaveRequest(right);
+    const codeCompare = compareEmployeeCodes(leftPerson?.employeeCode || left.employeeCode || "", rightPerson?.employeeCode || right.employeeCode || "");
+    if (codeCompare !== 0) return codeCompare;
+    return String(left.from || "").localeCompare(String(right.from || ""));
+  });
+}
+
+function groupedLeaveRecordsMarkup(records, monthKey) {
+  const groups = new Map();
+  records.forEach((request) => {
+    const person = staffPersonForLeaveRequest(request);
+    const key = person?.id || request.staffId || request.name;
+    if (!groups.has(key)) groups.set(key, { person, requests: [] });
+    groups.get(key).requests.push(request);
+  });
+
+  return Array.from(groups.values()).map((group) => {
+    const person = group.person;
+    const name = person
+      ? `${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}`
+      : group.requests[0]?.name || "Unknown staff";
+    return `
+      <div class="chat-thread-card leave-record-group">
+        <div class="box-title-row">
+          <strong>${name}</strong>
+          <small>${person?.department || departmentForLeaveRequest(group.requests[0])}</small>
+        </div>
+        ${group.requests.map((request) => `
+          <div class="mini-item">
+            <span><strong>${leaveDetailTitle(request)}</strong><small>${leaveDetailLine(request, monthKey)}</small></span>
+            <span class="quick-actions">
+              <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
+              ${request.status === "Approved" ? `<button class="ghost small-button" type="button" data-action="cancel" data-id="${request.id}">Cancel</button>` : ""}
+            </span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }).join("");
 }
 
 function updateLeaveFormMode() {

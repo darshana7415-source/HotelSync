@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v154
-Changes: staff now see monthly leave obtained and leave remaining on dashboard and leave page.
+StaffSync Beach & Bliss Mirissa build v155
+Changes: leave records now show date and full/half/short nature, admin monthly leave records are grouped by employee code, and duplicate same-date same-nature admin grants are blocked.
