@@ -476,8 +476,11 @@ function renderLeaveRequests() {
   const visibleRequests = currentRole === "staff" && activeStaff
     ? leaveRequests.filter((request) => leaveRequestBelongsToStaff(request, activeStaff))
     : leaveRequests;
+  const staffLeaveSummary = currentRole === "staff" && activeStaff
+    ? staffLeaveSummaryMarkup(activeStaff)
+    : "";
 
-  leaveList.innerHTML = visibleRequests.length ? visibleRequests.map((request) => {
+  const requestListMarkup = visibleRequests.length ? visibleRequests.map((request) => {
     const requestMessages = leaveMessagesForRequest(request);
     const displayMessages = decisionMessagesForRequest(request, requestMessages);
     const units = leaveRequestUnits(request);
@@ -554,6 +557,39 @@ function renderLeaveRequests() {
   `;
   }).join("") : `<div class="mini-empty">${currentRole === "staff" ? "You have no leave requests yet." : "No leave requests yet."}</div>`;
 
+  leaveList.innerHTML = staffLeaveSummary + requestListMarkup;
+
+}
+
+function staffLeaveSummaryMarkup(person, dateValue = todayLocalKey()) {
+  const monthKey = monthKeyForDate(dateValue);
+  const obtained = approvedLeaveUsedInMonth(person, monthKey);
+  const remaining = monthlyLeaveBalance(person, `${monthKey}-01`);
+  const approvedItems = leaveRequests
+    .filter((request) =>
+      leaveRequestBelongsToStaff(request, person) &&
+      request.status === "Approved" &&
+      leaveUnitsInMonth(request, monthKey) > 0
+    );
+
+  return `
+    <section class="staff-leave-summary">
+      <div class="self-stats compact-self-stats">
+        <span><b>${formatLeaveUnits(monthlyLeaveQuota)}</b><small>${monthLabel(monthKey)} quota</small></span>
+        <span><b>${formatLeaveUnits(obtained)}</b><small>leave obtained</small></span>
+        <span><b>${formatLeaveUnits(remaining)}</b><small>leave left</small></span>
+      </div>
+      <div class="staff-message-box">
+        <strong>Leaves obtained this month</strong>
+        ${approvedItems.length ? approvedItems.map((request) => `
+          <div class="mini-item">
+            <span><strong>${leaveRequestTitle(request)}</strong><small>${leaveDateRangeLabel(request)} - ${formatLeaveUnits(leaveUnitsInMonth(request, monthKey))} day${leaveUnitsInMonth(request, monthKey) === 1 ? "" : "s"}</small></span>
+            <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
+          </div>
+        `).join("") : `<div class="mini-empty">No approved leave obtained in ${monthLabel(monthKey)} yet.</div>`}
+      </div>
+    </section>
+  `;
 }
 
 function renderAdminMonthlyLeaveView() {
@@ -1386,6 +1422,8 @@ function renderRoleDemo() {
     ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)
   ).length;
   const leaveQuota = monthlyLeaveQuota;
+  const monthKey = monthKeyForDate(todayKey);
+  const monthlyTaken = approvedLeaveUsedInMonth(activeStaff, monthKey);
   const monthlyBalance = monthlyLeaveBalance(activeStaff, todayKey);
   const lowBalance = monthlyBalance <= 2;
   const departmentShiftRows = staff
@@ -1413,6 +1451,7 @@ function renderRoleDemo() {
       </div>
       <div class="self-stats">
         <span><b>${normalizeShiftLabel(todayRoster.shift) || "Today"}</b><small>${rosterTimeLabel(todayRoster)}</small></span>
+        <span><b>${formatLeaveUnits(monthlyTaken)}</b><small>leave obtained in ${monthLabel(monthKey)}</small></span>
         <span><b>${formatLeaveUnits(monthlyBalance)}</b><small>remaining this month from ${leaveQuota} day quota</small></span>
         <span><b>${formatHours(workedHours)}</b><small>worked hours this shift</small></span>
       </div>

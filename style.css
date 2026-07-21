@@ -1418,6 +1418,11 @@ body[data-role="staff"] .role-grid {
   gap: 1rem;
 }
 
+.staff-leave-summary {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .leave-quota-table {
   display: grid;
   gap: 0.55rem;
