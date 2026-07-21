@@ -7640,6 +7640,64 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
+// bulk-shift-repeat-button-v177
+document.addEventListener("click", async (event) => {
+  const button = event.target?.closest?.("#shift-import-apply-repeat");
+  if (!button) return;
+
+  event.preventDefault();
+
+  const notify = (message, type = "success") => {
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    } else {
+      alert(message);
+    }
+  };
+
+  try {
+    button.disabled = true;
+    button.textContent = "Applying shifts...";
+
+    if (typeof renderShiftImportRepeatDates === "function") {
+      renderShiftImportRepeatDates();
+    }
+
+    const text = shiftImportText?.value || "";
+    const rows = Array.isArray(loadedShiftImportRows) ? loadedShiftImportRows : [];
+
+    if (!rows.length && !text.trim()) {
+      throw new Error("Upload the Excel shift file first.");
+    }
+
+    const overrideDates = typeof selectedShiftImportRepeatDates === "function"
+      ? selectedShiftImportRepeatDates()
+      : [shiftImportDate?.value || todayLocalKey()];
+
+    if (!overrideDates.length) {
+      throw new Error("Select at least one date to apply the uploaded shift.");
+    }
+
+    const result = await importShiftRows(rows.length ? rows : text, { overrideDates });
+
+    if (typeof persistCloudDailyRoster === "function") {
+      await persistCloudDailyRoster();
+    }
+
+    if (typeof renderAll === "function") {
+      renderAll();
+    }
+
+    notify(`Uploaded shift applied to ${overrideDates.length} selected date(s).`);
+  } catch (error) {
+    notify(error.message || "Could not apply uploaded shift to selected dates.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Apply uploaded shift to selected dates";
+  }
+});
+
 init();
+
 
 
