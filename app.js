@@ -1036,7 +1036,11 @@ function activeStaffForCurrentLogin() {
     staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 }
-
+function activeStaffForCurrentLogin() {
+  return staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+}
 function renderShiftCalendar() {
   if (!shiftCalendar || !shiftCalendarStart) return;
 
@@ -1060,13 +1064,6 @@ function renderShiftCalendar() {
       </div>
     `;
 
-    let timeline = "";
-    try {
-      timeline = renderShiftTimeline(selectedDate, calendarDepartments);
-    } catch (error) {
-      timeline = `<div class="mini-empty">Shift time chart could not load, but weekly shifts are shown below.</div>`;
-    }
-
     const sections = calendarDepartments.map((department) => {
       const safeDepartment = department || "General";
       const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
@@ -1084,20 +1081,14 @@ function renderShiftCalendar() {
                 <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
                 <small>${person.role || "Staff"}</small>
               </span>
-              ${dates.map((dateValue) => {
-                try {
-                  return shiftCalendarCell(person, dateValue);
-                } catch (error) {
-                  return `<div class="shift-calendar-cell off"><b>Shift</b><small>Could not load</small></div>`;
-                }
-              }).join("")}
+              ${dates.map((dateValue) => shiftCalendarCell(person, dateValue)).join("")}
             </div>
           `).join("")}
         </section>
       `;
     }).join("");
 
-    shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No shifts found for this week.</div>`);
+    shiftCalendar.innerHTML = header + (sections || `<div class="mini-empty">No shifts found for this week.</div>`);
   } catch (error) {
     shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
   }
