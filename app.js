@@ -714,7 +714,7 @@ function renderLeaveCalendar() {
   leaveCalendar.innerHTML = days.map((dateValue) => {
     const requests = leaveRequests.filter((request) =>
       requestCoversDate(request, dateValue) &&
-      ["Approved", "Rejected", "Pending", "Change the Request", "Adjustment requested"].includes(request.status)
+      ["Approved", "Rejected", "Cancelled", "Pending", "Change the Request", "Adjustment requested"].includes(request.status)
     );
 
     return `
@@ -6220,7 +6220,7 @@ function leaveStatusLabel(status) {
 function leaveStatusClass(status) {
   if (status === "Approved") return "green";
   if (status === "Rejected") return "red";
-  if (status === "Cancelled") return "blue";
+  if (status === "Cancelled") return "cancelled";
   if (status === "Adjustment requested" || status === "Change the Request") return "blue";
   return "amber";
 }
@@ -6230,12 +6230,14 @@ function isAdminGrantedLeave(request) {
 }
 
 function leavePillClass(request) {
+  if ((request?.status || request) === "Cancelled") return "cancelled";
   return isAdminGrantedLeave(request) ? "admin-granted" : leaveStatusClass(request?.status || request);
 }
 
 function leaveStatusDisplay(requestOrStatus) {
-  if (typeof requestOrStatus === "object" && isAdminGrantedLeave(requestOrStatus)) return "Admin granted";
   const status = typeof requestOrStatus === "object" ? requestOrStatus?.status : requestOrStatus;
+  if (status === "Cancelled") return "Cancelled";
+  if (typeof requestOrStatus === "object" && isAdminGrantedLeave(requestOrStatus)) return "Admin granted";
   return status === "Adjustment requested" ? "Change the Request" : status;
 }
 

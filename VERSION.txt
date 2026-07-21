@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v158
-Changes: fixed leave record dropdowns so they stay open with arrow indicators and split admin dashboard into duty/status and leave/shift request columns.
+StaffSync Beach & Bliss Mirissa build v159
+Changes: cancelled granted leave now remains visible in leave records and the month calendar with a separate cancelled colour and label.

@@ -508,6 +508,11 @@ th {
   color: var(--blue);
 }
 
+.pill.cancelled {
+  background: #eef0f3;
+  color: #5f6874;
+}
+
 .map {
   min-height: min(78vh, 820px);
   border: 1px solid var(--line);
@@ -1422,6 +1427,11 @@ body[data-role="staff"] .role-grid {
 .calendar-item.blue {
   background: #e9f1fb;
   color: var(--blue);
+}
+
+.calendar-item.cancelled {
+  background: #eef0f3;
+  color: #5f6874;
 }
 
 .pill.admin-granted,
