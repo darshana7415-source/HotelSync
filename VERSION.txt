@@ -1,3 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v171
-- Fixed shift import overrideDate crash.
-- Keeps Excel date range upload.
+StaffSync Beach & Bliss Mirissa build v172 - fixed Excel shift date range import.

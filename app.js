@@ -4541,7 +4541,12 @@ async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
-  const overrideDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
+  const overrideStartDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
+  const overrideEndDate = parseShiftImportDate(options.overrideEndDate || overrideStartDate) || overrideStartDate;
+  if (overrideStartDate && overrideEndDate < overrideStartDate) {
+    throw new Error("The shift import end date must be the same as or later than the start date.");
+  }
+  const overrideDates = overrideStartDate ? dateKeysInRange(overrideStartDate, overrideEndDate) : [];
   const touchedDates = new Set();
   const importedTargets = new Set();
   let updated = 0;
