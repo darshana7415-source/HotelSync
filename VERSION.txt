@@ -1,4 +1,3 @@
-StaffSync Beach & Bliss Mirissa build v170
-- Restored Excel shift upload date range: from and through.
-- Blank employee-code rows in uploaded sheets are ignored instead of showing missing-code warning.
-- Keeps v169 Shift page repair.
+StaffSync Beach & Bliss Mirissa build v171
+- Fixed shift import overrideDate crash.
+- Keeps Excel date range upload.
