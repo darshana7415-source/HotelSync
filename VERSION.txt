@@ -1,2 +1,3 @@
-StaffSync Beach & Bliss Mirissa build v164
-Changes: no-date shift uploads now use the selected upload date reliably, employee code matching is more forgiving, skipped rows show reasons, and the Excel/CSV templates no longer include a date column.
+StaffSync Beach & Bliss Mirissa build v165
+- Fixed staff Shift page blank screen by repairing the shift calendar functions.
+- Staff Shift page now resolves the logged-in staff member and shows same-department upcoming shifts.

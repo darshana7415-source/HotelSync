@@ -1030,6 +1030,13 @@ function renderDailyRoster() {
   }).join("");
 }
 
+
+function activeStaffForCurrentLogin() {
+  return staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+}
+
 function renderShiftCalendar() {
   if (!shiftCalendar || !shiftCalendarStart) return;
 
@@ -1039,6 +1046,12 @@ function renderShiftCalendar() {
 
   const selectedDate = shiftCalendarStart.value;
   const dates = nextDateKeys(selectedDate, 7);
+  const activeStaffForCalendar = activeStaffForCurrentLogin();
+
+  const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
+    ? [activeStaffForCalendar.department || "General"]
+    : shiftCalendarDepartments();
+
   const header = `
     <div class="shift-calendar-row shift-calendar-header">
       <span>Department / Staff</span>
@@ -1046,18 +1059,19 @@ function renderShiftCalendar() {
     </div>
   `;
 
-  const activeStaffForCalendar = staff.find((person) => sameId(person.id, activeStaffId));
-  const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
-    ? [activeStaffForCalendar.department]
-    : shiftCalendarDepartments();
   const timeline = renderShiftTimeline(selectedDate, calendarDepartments);
+
   const sections = calendarDepartments.map((department) => {
-    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) => normalizeDepartment(person.department) === normalizeDepartment(department)));
+    const safeDepartment = department || "General";
+    const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
+    ));
+
     if (!departmentStaff.length) return "";
 
     return `
-      <section class="shift-calendar-department ${departmentColorClass(department)}">
-        <h3>${department}</h3>
+      <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
+        <h3>${safeDepartment}</h3>
         ${departmentStaff.map((person) => `
           <div class="shift-calendar-row">
             <span class="shift-calendar-person">
@@ -1071,20 +1085,23 @@ function renderShiftCalendar() {
     `;
   }).join("");
 
-  shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No staff found for the shift calendar.</div>`);
+  shiftCalendar.innerHTML = timeline + header + (sections || `<div class="mini-empty">No same-department shifts found for this week.</div>`);
 }
 
 function renderShiftTimeline(dateValue, calendarDepartments) {
-  const departments = calendarDepartments
+  const departments = (calendarDepartments || [])
     .map((department) => {
+      const safeDepartment = department || "General";
       const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
-        normalizeDepartment(person.department) === normalizeDepartment(department)
+        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
       ));
+
       const rows = departmentStaff.map((person) => shiftTimelineRow(person, dateValue)).filter(Boolean);
       if (!rows.length) return "";
+
       return `
-        <section class="shift-timeline-department ${departmentColorClass(department)}">
-          <h3>${department}</h3>
+        <section class="shift-timeline-department ${departmentColorClass(safeDepartment)}">
+          <h3>${safeDepartment}</h3>
           ${rows.join("")}
         </section>
       `;
@@ -1106,7 +1123,6 @@ function renderShiftTimeline(dateValue, calendarDepartments) {
     </div>
   `;
 }
-
 function shiftTimelineRow(person, dateValue) {
   const entry = dailyRosterEntryFor(person, dateValue);
   const segments = shiftSegmentsForEntry(entry);
