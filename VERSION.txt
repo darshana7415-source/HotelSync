@@ -1,4 +1,4 @@
-StaffSync Beach & Bliss Mirissa build v169
-- Restored missing Shift calendar container.
-- Removed duplicate pasted Shift page rescue functions after init.
-- Shift page now renders simple department weekly shifts for staff, manager, and admin.
+StaffSync Beach & Bliss Mirissa build v170
+- Restored Excel shift upload date range: from and through.
+- Blank employee-code rows in uploaded sheets are ignored instead of showing missing-code warning.
+- Keeps v169 Shift page repair.

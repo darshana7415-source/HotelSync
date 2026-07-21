@@ -134,6 +134,7 @@ const shiftImportText = document.querySelector("#shift-import-text");
 const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
 const shiftImportDate = document.querySelector("#shift-import-date");
+const shiftImportEndDate = document.querySelector("#shift-import-end-date");
 const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
@@ -4542,7 +4543,7 @@ async function importShiftRows(source, options = {}) {
   const headerIndex = findShiftHeaderIndex(rows);
   const header = headerIndex >= 0 ? rows[headerIndex] : [];
   const headerMap = buildShiftImportHeaderMap(header);
-  const wideDateColumns = header.length && !overrideDate ? shiftWideDateColumns(header) : [];
+  const wideDateColumns = header.length && !overrideDates.length ? shiftWideDateColumns(header) : [];
   const dataRows = header.length ? rows.slice(headerIndex + 1) : rows;
 
   for (const columns of dataRows) {
