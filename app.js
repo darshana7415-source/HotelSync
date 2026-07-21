@@ -135,6 +135,7 @@ const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
 const shiftImportDate = document.querySelector("#shift-import-date");
 const shiftImportEndDate = document.querySelector("#shift-import-end-date");
+const shiftImportRepeatDates = document.querySelector("#shift-import-repeat-dates");
 const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
@@ -3030,6 +3031,7 @@ function bindEvents() {
     renderShiftCalendar();
   });
 
+  renderShiftImportRepeatDates();
   shiftImportFile?.addEventListener("change", async () => {
     const file = shiftImportFile.files?.[0];
     if (!file) return;
@@ -3057,19 +3059,10 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-           const overrideStartDate = shiftImportIgnoreSheetDate?.checked
-        ? (shiftImportDate?.value || todayLocalKey())
-        : "";
-      const overrideEndDate = shiftImportIgnoreSheetDate?.checked
-        ? (shiftImportEndDate?.value || overrideStartDate)
-        : "";
-      if (overrideStartDate && overrideEndDate < overrideStartDate) {
-        throw new Error("The shift import end date must be the same as or later than the start date.");
-      }
-      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, {
-        overrideStartDate,
-        overrideEndDate
-      });
+           const overrideDates = shiftImportIgnoreSheetDate?.checked
+        ? selectedShiftImportRepeatDates()
+        : [];
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDates });
       if (result.dates.length) {
         const firstDate = result.dates.sort()[0];
         if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
@@ -4553,16 +4546,38 @@ function dateKeysInRange(startDate, endDate) {
   return dates;
 }
 
+function renderShiftImportRepeatDates() {
+  if (!shiftImportRepeatDates || !shiftImportDate) return;
+
+  const baseDate = shiftImportDate.value || todayLocalKey();
+  if (!shiftImportDate.value) shiftImportDate.value = baseDate;
+
+  const dates = nextDateKeys(baseDate, 7);
+  shiftImportRepeatDates.innerHTML = dates.map((dateValue, index) => `
+    <label class="repeat-date-pill">
+      <input type="checkbox" value="${dateValue}" ${index === 0 ? "checked" : ""}>
+      <strong>${new Date(`${dateValue}T00:00:00`).getDate()}</strong>
+      <span>${shortDayName(dateValue)}</span>
+    </label>
+  `).join("");
+}
+
+function selectedShiftImportRepeatDates() {
+  if (!shiftImportRepeatDates) return [shiftImportDate?.value || todayLocalKey()];
+  const selected = Array.from(shiftImportRepeatDates.querySelectorAll("input[type='checkbox']:checked"))
+    .map((input) => parseShiftImportDate(input.value))
+    .filter(Boolean);
+
+  return selected.length ? selected : [shiftImportDate?.value || todayLocalKey()];
+}
+
 async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
-  const overrideStartDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
-  const overrideEndDate = parseShiftImportDate(options.overrideEndDate || overrideStartDate) || overrideStartDate;
-  if (overrideStartDate && overrideEndDate < overrideStartDate) {
-    throw new Error("The shift import end date must be the same as or later than the start date.");
-  }
-  const overrideDates = overrideStartDate ? dateKeysInRange(overrideStartDate, overrideEndDate) : [];
+  const overrideDates = Array.isArray(options.overrideDates) && options.overrideDates.length
+    ? options.overrideDates.map((dateValue) => parseShiftImportDate(dateValue)).filter(Boolean)
+    : [];
   const touchedDates = new Set();
   const importedTargets = new Set();
   let updated = 0;
@@ -7625,3 +7640,4 @@ function showToast(message) {
 }
 
 init();
+
