@@ -1201,9 +1201,14 @@ body[data-role="staff"] nav a[data-page-link="staff"],
 body[data-role="staff"] nav a[data-page-link="location"],
 body[data-role="staff"] nav a[data-page-link="reports"],
 body[data-role="staff"] .leave-staff-field,
-body[data-role="staff"] #schedule,
 body[data-role="staff"] #leave-organizer {
   display: none;
+}
+
+body[data-role="staff"] #shift-form,
+body[data-role="staff"] .shift-import-box,
+body[data-role="staff"] .daily-roster-editor {
+  display: none !important;
 }
 
 .shift-planner-form {

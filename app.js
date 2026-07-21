@@ -964,15 +964,17 @@ function renderShifts() {
       </div>
       ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
     </div>
-    <div class="shift-list-section">
-      <div class="box-title-row">
-        <div>
-          <strong>Saved shift plans</strong>
-          <small>Edit or remove long-running shift allocations.</small>
+    ${currentRole === "staff" ? "" : `
+      <div class="shift-list-section">
+        <div class="box-title-row">
+          <div>
+            <strong>Saved shift plans</strong>
+            <small>Edit or remove long-running shift allocations.</small>
+          </div>
         </div>
+        ${planRows}
       </div>
-      ${planRows}
-    </div>
+    `}
   `;
 }
 
@@ -1453,7 +1455,6 @@ function renderRoleDemo() {
   const monthlyBalance = monthlyLeaveBalance(activeStaff, todayKey);
   const lowBalance = monthlyBalance <= 2;
   const departmentShiftRows = staff
-    .filter((person) => normalizeDepartment(person.department) === normalizeDepartment(activeStaff.department))
     .map((person) => {
       const entry = dailyRosterEntryFor(person, todayKey);
       const shiftLabel = normalizeShiftLabel(entry.shift) || "Shift";
@@ -1571,7 +1572,7 @@ function renderRoleDemo() {
         `}
       </div>
       <div class="staff-message-box">
-        <strong>${activeStaff.department} department shifts today</strong>
+        <strong>All department shifts today</strong>
         ${departmentShiftRows || `<div class="mini-empty">No department shifts found for today.</div>`}
       </div>
     </div>
