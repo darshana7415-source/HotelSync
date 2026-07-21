@@ -3057,10 +3057,19 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-      const overrideDate = shiftImportIgnoreSheetDate?.checked
+           const overrideStartDate = shiftImportIgnoreSheetDate?.checked
         ? (shiftImportDate?.value || todayLocalKey())
         : "";
-      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDate });
+      const overrideEndDate = shiftImportIgnoreSheetDate?.checked
+        ? (shiftImportEndDate?.value || overrideStartDate)
+        : "";
+      if (overrideStartDate && overrideEndDate < overrideStartDate) {
+        throw new Error("The shift import end date must be the same as or later than the start date.");
+      }
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, {
+        overrideStartDate,
+        overrideEndDate
+      });
       if (result.dates.length) {
         const firstDate = result.dates.sort()[0];
         if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
