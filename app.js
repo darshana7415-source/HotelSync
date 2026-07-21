@@ -7692,7 +7692,80 @@ const text = shiftImportText?.value || "";
   }
 });
 
+// bulk-shift-copy-saved-base-date-v179
+document.addEventListener("click", async (event) => {
+  const button = event.target?.closest?.("#shift-import-apply-repeat");
+  if (!button) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  const notify = (message, type = "success") => {
+    if (typeof showToast === "function") {
+      showToast(message, type);
+    } else {
+      alert(message);
+    }
+  };
+
+  try {
+    button.disabled = true;
+    button.textContent = "Copying shifts...";
+
+    const baseDate = shiftImportDate?.value || dailyRosterDate?.value || todayLocalKey();
+    const selectedDates = typeof selectedShiftImportRepeatDates === "function"
+      ? selectedShiftImportRepeatDates()
+      : [];
+
+    const targetDates = selectedDates
+      .map((dateValue) => parseShiftImportDate(dateValue))
+      .filter((dateValue) => dateValue && dateValue !== baseDate);
+
+    if (!targetDates.length) {
+      throw new Error("Tick at least one future date box, for example 22 Wed or 23 Thu.");
+    }
+
+    const sourceRoster = dailyRosters?.[baseDate];
+    if (!sourceRoster || !Object.keys(sourceRoster).length) {
+      throw new Error(`First import and save the uploaded shift for ${formatDate(baseDate)}.`);
+    }
+
+    let copiedRows = 0;
+
+    targetDates.forEach((targetDate) => {
+      dailyRosters[targetDate] = dailyRosters[targetDate] || buildRosterEntriesForDate(targetDate);
+
+      Object.entries(sourceRoster).forEach(([staffId, entry]) => {
+        dailyRosters[targetDate][staffId] = structuredClone(entry);
+        copiedRows += 1;
+      });
+    });
+
+    localStorage.setItem("staffsync.dailyRosters", JSON.stringify(dailyRosters));
+
+    if (typeof saveDailyRosterToCloud === "function") {
+      for (const targetDate of targetDates) {
+        await saveDailyRosterToCloud(targetDate);
+      }
+    } else if (typeof persistCloudDailyRoster === "function") {
+      await persistCloudDailyRoster();
+    }
+
+    if (typeof renderAll === "function") {
+      renderAll();
+    }
+
+    notify(`Copied ${formatDate(baseDate)} uploaded shift to ${targetDates.length} future date(s). ${copiedRows} row(s) saved.`);
+  } catch (error) {
+    notify(error.message || "Could not copy uploaded shift to selected dates.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Apply uploaded shift to selected dates";
+  }
+}, true);
+
 init();
+
 
 
 

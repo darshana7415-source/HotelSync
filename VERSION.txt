@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v178 - fixed bulk shift repeat date boxes staying selected.
+StaffSync Beach & Bliss Mirissa build v179 - bulk shift repeat copies saved base date roster.
