@@ -922,30 +922,31 @@ function renderAttendanceReport() {
 
 function renderShifts() {
   const today = todayLocalKey();
-  const dates = nextDateKeys(today, 4);
-  const departments = ["All", ...new Set(staff.map((person) => person.department || "General"))];
-  if (!departments.includes(shiftPageDepartment)) shiftPageDepartment = "All";
+  const dates = nextDateKeys(today, 3);
+  const activeStaff = activeStaffForCurrentLogin();
+  const departments = [...new Set(staff.map((person) => person.department || "General"))]
+    .sort((a, b) => a.localeCompare(b));
+
+  if (!departments.includes(shiftPageDepartment)) {
+    shiftPageDepartment = departments.includes(activeStaff?.department)
+      ? activeStaff.department
+      : (departments[0] || "General");
+    localStorage.setItem("staffsync.shiftPageDepartment", shiftPageDepartment);
+  }
 
   const visibleStaff = sortStaffByEmployeeCode(staff.filter((person) =>
-    shiftPageDepartment === "All" ||
     normalizeDepartment(person.department) === normalizeDepartment(shiftPageDepartment)
   ));
 
-  const staffRows = visibleStaff.flatMap((person) => dates.map((dateValue) => {
-    const entry = dailyRosterEntryFor(person, dateValue);
-    const plan = activeShiftPlanFor(person, dateValue);
-    return `
-      <article class="shift-card staff-shift-card">
-        <div class="shift-top">
-          <strong>${formatDate(dateValue)} - ${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-          <span class="pill ${entry.status === "Leave" ? "red" : entry.status === "Weekly off" ? "amber" : "green"}">${entry.status}</span>
-        </div>
-        <small>${shortDayName(dateValue)} - ${person.department || "General"} - ${person.role || "Staff"}</small>
-        <small>${normalizeShiftLabel(entry.shift) || defaultShiftName}: ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}</small>
-        <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || dateValue)} until changed` : "Default shift shown until changed"}</small>
-      </article>
-    `;
-  })).join("");
+  const staffRows = visibleStaff.map((person) => `
+    <div class="shift-calendar-row">
+      <span class="shift-calendar-person">
+        <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+        <small>${person.role || "Staff"}</small>
+      </span>
+      ${dates.map((dateValue) => shiftOverviewCell(person, dateValue)).join("")}
+    </div>
+  `).join("");
 
   const planRows = shiftPlans.length ? shiftPlans.map((plan) => {
     const person = staff.find((item) => sameId(item.id, plan.staffId) || sameId(item.cloudId, plan.staffId));
@@ -968,17 +969,25 @@ function renderShifts() {
     <div class="shift-list-section">
       <div class="box-title-row">
         <div>
-          <strong>${shiftPageDepartment === "All" ? "All department shifts" : `${shiftPageDepartment} shifts`}: today and next 3 days</strong>
-          <small>Choose a department. Your selection stays in place during live updates.</small>
+          <strong>${shiftPageDepartment} department shifts</strong>
+          <small>Today, tomorrow, and the following day. The selected department stays open during live updates.</small>
         </div>
         <label class="shift-department-picker">
           Department
           <select id="shift-page-department">
-            ${departments.map((department) => `<option value="${escapeAttribute(department)}" ${department === shiftPageDepartment ? "selected" : ""}>${department === "All" ? "All departments" : department}</option>`).join("")}
+            ${departments.map((department) => `<option value="${escapeAttribute(department)}" ${department === shiftPageDepartment ? "selected" : ""}>${department}</option>`).join("")}
           </select>
         </label>
       </div>
-      ${staffRows || `<div class="mini-empty">No staff found in this department.</div>`}
+      <div class="three-day-shift-grid">
+        <div class="shift-calendar-row shift-calendar-header">
+          <span>Staff</span>
+          ${dates.map((dateValue, index) => `<span>${index === 0 ? "Today" : index === 1 ? "Tomorrow" : "Day after tomorrow"}<small>${formatDate(dateValue)} - ${shortDayName(dateValue)}</small></span>`).join("")}
+        </div>
+        <section class="shift-calendar-department ${departmentColorClass(shiftPageDepartment)}">
+          ${staffRows || `<div class="mini-empty">No staff found in this department.</div>`}
+        </section>
+      </div>
     </div>
     ${currentRole === "staff" ? "" : `
       <div class="shift-list-section">
@@ -991,6 +1000,20 @@ function renderShifts() {
         ${planRows}
       </div>
     `}
+  `;
+}
+
+function shiftOverviewCell(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue);
+  const status = entry.status || "Working";
+  const statusClass = status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working";
+  return `
+    <div class="shift-calendar-cell ${statusClass}">
+      <b>${normalizeShiftLabel(entry.shift) || defaultShiftName}</b>
+      <small>${rosterTimeLabel(entry)}</small>
+      ${extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("")}
+      <span class="pill ${status === "Leave" ? "red" : status === "Weekly off" ? "amber" : "green"}">${status}</span>
+    </div>
   `;
 }
 function shiftPlanTimeSummary(plan) {

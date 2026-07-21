@@ -1684,6 +1684,26 @@ body[data-role="staff"] .role-grid {
   min-width: 1120px;
   align-items: stretch;
 }
+.three-day-shift-grid {
+  display: grid;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.three-day-shift-grid .shift-calendar-row {
+  grid-template-columns: minmax(190px, 1.25fr) repeat(3, minmax(145px, 1fr));
+  min-width: 680px;
+}
+
+.shift-department-picker {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 190px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
 
 .shift-calendar-header {
   position: sticky;
