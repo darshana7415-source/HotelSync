@@ -921,21 +921,27 @@ function renderAttendanceReport() {
 
 function renderShifts() {
   const today = todayLocalKey();
-  const staffRows = sortStaffByEmployeeCode(staff).map((person) => {
-    const entry = dailyRosterEntryFor(person, today);
-    const plan = activeShiftPlanFor(person, today);
+  const dates = currentRole === "staff" ? nextDateKeys(today, 4) : [today];
+  const activeStaff = activeStaffForCurrentLogin();
+  const visibleStaff = currentRole === "staff" && activeStaff
+    ? [activeStaff]
+    : sortStaffByEmployeeCode(staff);
+
+  const staffRows = visibleStaff.flatMap((person) => dates.map((dateValue) => {
+    const entry = dailyRosterEntryFor(person, dateValue);
+    const plan = activeShiftPlanFor(person, dateValue);
     return `
       <article class="shift-card staff-shift-card">
         <div class="shift-top">
-          <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+          <strong>${currentRole === "staff" ? formatDate(dateValue) : `${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}`}</strong>
           <span class="pill ${entry.status === "Leave" ? "red" : entry.status === "Weekly off" ? "amber" : "green"}">${entry.status}</span>
         </div>
-        <small>${person.department || "General"} - ${person.role || "Staff"}</small>
+        <small>${currentRole === "staff" ? `${shortDayName(dateValue)} - ${person.name}` : `${person.department || "General"} - ${person.role || "Staff"}`}</small>
         <small>${normalizeShiftLabel(entry.shift) || defaultShiftName}: ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}</small>
-        <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || today)} until changed` : "Default shift shown until changed"}</small>
+        <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || dateValue)} until changed` : "Default shift shown until changed"}</small>
       </article>
     `;
-  }).join("");
+  })).join("");
 
   const planRows = shiftPlans.length ? shiftPlans.map((plan) => {
     const person = staff.find((item) => sameId(item.id, plan.staffId) || sameId(item.cloudId, plan.staffId));
@@ -958,8 +964,8 @@ function renderShifts() {
     <div class="shift-list-section">
       <div class="box-title-row">
         <div>
-          <strong>All staff shifts today</strong>
-          <small>Every staff member is listed here. Saved shifts continue until changed.</small>
+          <strong>${currentRole === "staff" ? "My shifts: today and next 3 days" : "All staff shifts today"}</strong>
+          <small>${currentRole === "staff" ? "Four-day personal shift schedule." : "Every staff member is listed here. Saved shifts continue until changed."}</small>
         </div>
       </div>
       ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
@@ -977,7 +983,6 @@ function renderShifts() {
     `}
   `;
 }
-
 function shiftPlanTimeSummary(plan) {
   return [
     `${normalizeTime24(plan.inTime)} - ${normalizeTime24(plan.outTime)}`,
@@ -5990,6 +5995,15 @@ async function openDemoRole(role) {
     return;
   }
 
+  if (currentRole === "staff" && isCloudReady()) {
+    try {
+      await loadCloudStaffProfiles();
+      await loadCloudDailyRosterData();
+    } catch {
+      // The background sync retries if the full directory is temporarily unavailable.
+    }
+  }
+
   sessionStorage.setItem("staffsync.role", currentRole);
   sessionStorage.removeItem("staffsync.cloudEmail");
   if (currentRole === "staff" && currentAppUserId) {
@@ -7218,6 +7232,13 @@ async function syncCloudDashboard() {
     }
 
     try {
+      if (currentRole === "staff" && staff.length <= 1) await loadCloudStaffProfiles();
+      shouldRender = true;
+    } catch {
+      // Keep the signed-in profile if the full staff directory cannot refresh.
+    }
+
+    try {
       await loadCloudLeaveData();
       shouldRender = true;
     } catch {
@@ -7539,140 +7560,3 @@ function showToast(message) {
 }
 
 init();
-function renderShiftCalendar() {
-  if (!shiftCalendar || !shiftCalendarStart) return;
-
-  try {
-    if (!shiftCalendarStart.value) shiftCalendarStart.value = todayLocalKey();
-
-    const selectedDate = shiftCalendarStart.value;
-    const dates = nextDateKeys(selectedDate, 7);
-
-    const activePerson =
-      staff.find((person) => sameId(person.id, activeStaffId)) ||
-      staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
-      staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-
-    const departments = currentRole === "staff" && activePerson
-      ? [activePerson.department || "General"]
-      : shiftCalendarDepartments();
-
-    const rows = departments.map((department) => {
-      const safeDepartment = department || "General";
-      const people = sortStaffByEmployeeCode(staff.filter((person) =>
-        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
-      ));
-
-      if (!people.length) return "";
-
-      return `
-        <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
-          <h3>${safeDepartment}</h3>
-          ${people.map((person) => `
-            <div class="shift-calendar-row">
-              <span class="shift-calendar-person">
-                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-                <small>${person.role || "Staff"}</small>
-              </span>
-              ${dates.map((dateValue) => {
-                const entry = dailyRosterEntryFor(person, dateValue) || {};
-                const status = entry.status || "Working";
-                const shiftName = normalizeShiftLabel(entry.shift || person.shift || "10h") || "10h";
-                const timeText = status === "Working" || status === "Extra shift"
-                  ? `${normalizeTime24(entry.inTime || "07:00")} - ${normalizeTime24(entry.outTime || "17:00")}`
-                  : status;
-
-                return `
-                  <div class="shift-calendar-cell ${status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working"}">
-                    <b>${shiftName}</b>
-                    <small>${timeText}</small>
-                    ${entry.shift2 ? `<small>${normalizeShiftLabel(entry.shift2)}: ${normalizeTime24(entry.inTime2)} - ${normalizeTime24(entry.outTime2)}</small>` : ""}
-                    ${entry.shift3 ? `<small>${normalizeShiftLabel(entry.shift3)}: ${normalizeTime24(entry.inTime3)} - ${normalizeTime24(entry.outTime3)}</small>` : ""}
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          `).join("")}
-        </section>
-      `;
-    }).join("");
-
-    shiftCalendar.innerHTML = `
-      <div class="shift-calendar-row shift-calendar-header">
-        <span>Department / Staff</span>
-        ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
-      </div>
-      ${rows || `<div class="mini-empty">No shifts found for this week.</div>`}
-    `;
-  } catch (error) {
-    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
-  }
-}function renderShiftCalendar() {
-  if (!shiftCalendar || !shiftCalendarStart) return;
-
-  try {
-    if (!shiftCalendarStart.value) shiftCalendarStart.value = todayLocalKey();
-
-    const selectedDate = shiftCalendarStart.value;
-    const dates = nextDateKeys(selectedDate, 7);
-
-    const activePerson =
-      staff.find((person) => sameId(person.id, activeStaffId)) ||
-      staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
-      staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-
-    const departments = currentRole === "staff" && activePerson
-      ? [activePerson.department || "General"]
-      : shiftCalendarDepartments();
-
-    const rows = departments.map((department) => {
-      const safeDepartment = department || "General";
-      const people = sortStaffByEmployeeCode(staff.filter((person) =>
-        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
-      ));
-
-      if (!people.length) return "";
-
-      return `
-        <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
-          <h3>${safeDepartment}</h3>
-          ${people.map((person) => `
-            <div class="shift-calendar-row">
-              <span class="shift-calendar-person">
-                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-                <small>${person.role || "Staff"}</small>
-              </span>
-              ${dates.map((dateValue) => {
-                const entry = dailyRosterEntryFor(person, dateValue) || {};
-                const status = entry.status || "Working";
-                const shiftName = normalizeShiftLabel(entry.shift || person.shift || "10h") || "10h";
-                const timeText = status === "Working" || status === "Extra shift"
-                  ? `${normalizeTime24(entry.inTime || "07:00")} - ${normalizeTime24(entry.outTime || "17:00")}`
-                  : status;
-
-                return `
-                  <div class="shift-calendar-cell ${status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working"}">
-                    <b>${shiftName}</b>
-                    <small>${timeText}</small>
-                    ${entry.shift2 ? `<small>${normalizeShiftLabel(entry.shift2)}: ${normalizeTime24(entry.inTime2)} - ${normalizeTime24(entry.outTime2)}</small>` : ""}
-                    ${entry.shift3 ? `<small>${normalizeShiftLabel(entry.shift3)}: ${normalizeTime24(entry.inTime3)} - ${normalizeTime24(entry.outTime3)}</small>` : ""}
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          `).join("")}
-        </section>
-      `;
-    }).join("");
-
-    shiftCalendar.innerHTML = `
-      <div class="shift-calendar-row shift-calendar-header">
-        <span>Department / Staff</span>
-        ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
-      </div>
-      ${rows || `<div class="mini-empty">No shifts found for this week.</div>`}
-    `;
-  } catch (error) {
-    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
-  }
-}
