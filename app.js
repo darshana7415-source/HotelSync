@@ -7772,7 +7772,96 @@ async function refreshStaffDirectoryForShiftViews() {
 setTimeout(refreshStaffDirectoryForShiftViews, 1500);
 setInterval(refreshStaffDirectoryForShiftViews, 8000);
 
+// shift-page-direct-render-v185
+function renderShiftPageDirectly() {
+  const container = document.querySelector("#shift-calendar");
+  const startInput = document.querySelector("#shift-calendar-start");
+  if (!container) return;
+
+  const dateStart = startInput?.value || todayLocalKey();
+  if (startInput && !startInput.value) startInput.value = dateStart;
+
+  const dates = nextDateKeys(dateStart, 3);
+  const same = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+
+  const activePerson =
+    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
+    staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+
+  const departments = currentRole === "staff" && activePerson
+    ? [activePerson.department || "General"]
+    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+
+  if (!staff.length) {
+    container.innerHTML = `<div class="mini-empty">Staff list is still loading. Please wait a few seconds.</div>`;
+    return;
+  }
+
+  const html = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(staff.filter((person) =>
+      same(normalizeDepartment(person.department || "General"), normalizeDepartment(department || "General"))
+    ));
+
+    if (!people.length) return "";
+
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `
+            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
+          `).join("")}
+
+          ${people.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => {
+              const entry = dailyRosterEntryFor(person, dateValue) || {};
+              const status = String(entry.status || "").toLowerCase();
+              const isLeave = status.includes("leave");
+              const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+              const start = entry.start || entry.startTime || "";
+              const end = entry.end || entry.endTime || "";
+              const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+
+              return `
+                <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
+                  <strong>${shiftName}</strong>
+                  <span>${time}</span>
+                </div>
+              `;
+            }).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  container.innerHTML = html || `<div class="mini-empty">No same-department shifts found for the next 3 days.</div>`;
+}
+
+function wakeShiftPageDirectRender() {
+  const container = document.querySelector("#shift-calendar");
+  if (!container) return;
+
+  const hashLooksShift = String(location.hash || "").toLowerCase().includes("shift");
+  const shiftSection = container.closest("section, .view, .panel, main");
+  const visible = !shiftSection || shiftSection.offsetParent !== null || hashLooksShift;
+
+  if (visible) renderShiftPageDirectly();
+}
+
+document.addEventListener("click", () => setTimeout(wakeShiftPageDirectRender, 250), true);
+window.addEventListener("hashchange", () => setTimeout(wakeShiftPageDirectRender, 250));
+document.addEventListener("DOMContentLoaded", () => setTimeout(wakeShiftPageDirectRender, 1000));
+setInterval(wakeShiftPageDirectRender, 5000);
+
 init();
+
 
 
 

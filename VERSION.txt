@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v184 - actually replaced Shift page renderer.
+StaffSync Beach & Bliss Mirissa build v185 - direct Shift page renderer added.
