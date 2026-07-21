@@ -3014,6 +3014,11 @@ function bindEvents() {
     importShiftRowsButton.disabled = true;
     try {
       const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text);
+      if (result.dates.length) {
+        const firstDate = result.dates.sort()[0];
+        if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
+        if (dailyRosterDate) dailyRosterDate.value = firstDate;
+      }
       saveState();
       renderAll();
       const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported for ${result.dates.length} date${result.dates.length === 1 ? "" : "s"}. ${result.skipped} skipped.`;
@@ -4353,7 +4358,8 @@ function shiftCalendarDepartments() {
 }
 
 function dailyRosterEntryFor(person, dateValue) {
-  const saved = dailyRosters[dateValue]?.[person.id];
+  const rosterForDate = dailyRosters[dateValue] || {};
+  const saved = rosterForDate[person.id] || rosterForDate[person.cloudId] || rosterForDate[person.appUserId];
   const approvedLeave = approvedLeaveForStaffDate(person, dateValue);
   if (saved) return applyLeaveToRosterEntry(saved, approvedLeave);
 
@@ -4481,10 +4487,11 @@ async function importShiftRows(source) {
   let skipped = 0;
   if (!rows.length) return { updated, skipped, dates: [] };
 
-  const header = isShiftImportHeader(rows[0]) ? rows[0] : [];
+  const headerIndex = findShiftHeaderIndex(rows);
+  const header = headerIndex >= 0 ? rows[headerIndex] : [];
   const headerMap = buildShiftImportHeaderMap(header);
   const wideDateColumns = header.length ? shiftWideDateColumns(header) : [];
-  const dataRows = header.length ? rows.slice(1) : rows;
+  const dataRows = header.length ? rows.slice(headerIndex + 1) : rows;
 
   for (const columns of dataRows) {
     if (!columns.some(Boolean)) continue;
@@ -4518,7 +4525,8 @@ async function importShiftRows(source) {
     const shift = displayShiftName(valueByShiftHeader(columns, headerMap, "shift", 2) || defaultShiftName);
     const inTime = normalizeImportTime(valueByShiftHeader(columns, headerMap, "inTime", 3) || defaultShiftStart);
     const outTime = normalizeImportTime(valueByShiftHeader(columns, headerMap, "outTime", 4) || defaultShiftEnd);
-    const status = valueByShiftHeader(columns, headerMap, "status", 5) || (shift === "Weekly off" ? "Weekly off" : "Working");
+    const statusValue = valueByShiftHeader(columns, headerMap, "status", 5);
+    const status = isOffShiftLabel(shift) ? "Weekly off" : (statusValue || "Working");
     const entry = { shift, inTime, outTime, status };
     const shift2 = valueByShiftHeader(columns, headerMap, "shift2", 6);
     const inTime2 = valueByShiftHeader(columns, headerMap, "inTime2", 7);
@@ -4585,6 +4593,16 @@ function isShiftImportHeader(columns) {
   const first = cleaned[0].toLowerCase();
   const second = cleaned[1].toLowerCase();
   return first.includes("employee") || first === "code" || first.includes("staff") || second.includes("date");
+}
+
+function findShiftHeaderIndex(rows) {
+  return rows.findIndex((row) => {
+    if (!isShiftImportHeader(row)) return false;
+    const map = buildShiftImportHeaderMap(row);
+    const hasRowFormat = map.employeeCode !== undefined && map.date !== undefined;
+    const hasWideFormat = map.employeeCode !== undefined && shiftWideDateColumns(row).length > 0;
+    return hasRowFormat || hasWideFormat || row.some((value) => normalizeShiftHeader(value).includes("employee"));
+  });
 }
 
 function cleanImportRow(row) {
@@ -4662,7 +4680,7 @@ function shiftWideDateColumns(header) {
 function parseShiftCell(value) {
   const text = String(value || "").trim();
   if (!text) return null;
-  if (/^(off|weekly off|week off|wo|leave|holiday)$/i.test(text)) {
+  if (isOffShiftLabel(text)) {
     return { shift: "Weekly off", inTime: "00:00", outTime: "00:00", status: "Weekly off" };
   }
 
@@ -4689,6 +4707,9 @@ function parseShiftCell(value) {
 
 function parseShiftCellPart(value) {
   const text = String(value || "").trim();
+  if (isOffShiftLabel(text)) {
+    return { shift: "Weekly off", inTime: "00:00", outTime: "00:00", status: "Weekly off" };
+  }
   const range = text.match(/(\d{1,2}(?::?\d{2})?)\s*(?:-|to)\s*(\d{1,2}(?::?\d{2})?)/i);
   if (range) {
     const label = displayShiftName(text.slice(0, range.index).replace(/[:,-]+$/, "").trim() || defaultShiftName);
@@ -4710,6 +4731,10 @@ function parseShiftCellPart(value) {
 function parseShiftImportDate(value) {
   const text = String(value || "").trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const serialDate = excelSerialDateToLocalKey(Number(text));
+    if (serialDate) return serialDate;
+  }
   const slash = text.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (slash) {
     let first = Number(slash[1]);
@@ -4725,8 +4750,28 @@ function parseShiftImportDate(value) {
   return "";
 }
 
+function excelSerialDateToLocalKey(value) {
+  if (!Number.isFinite(value) || value < 1) return "";
+  const epoch = new Date(Date.UTC(1899, 11, 30));
+  const date = new Date(epoch.getTime() + Math.floor(value) * 86400000);
+  return localDateKey(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 function normalizeImportTime(value) {
   const text = String(value || "").trim();
+  if (/^0?\.\d+$/.test(text) || /^1(\.0+)?$/.test(text)) {
+    const totalMinutes = Math.round(Number(text) * 24 * 60) % (24 * 60);
+    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+  }
+  const amPm = text.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([ap])\.?m?\.?$/i);
+  if (amPm) {
+    let hour = Number(amPm[1]);
+    const minute = Number(amPm[2] || 0);
+    const marker = amPm[3].toLowerCase();
+    if (marker === "p" && hour < 12) hour += 12;
+    if (marker === "a" && hour === 12) hour = 0;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
   const compact = text.match(/^(\d{1,2})(\d{2})$/);
   if (compact) return `${compact[1].padStart(2, "0")}:${compact[2]}`;
   return normalizeTime24(text);
@@ -4892,8 +4937,13 @@ function normalizeShiftLabel(shift) {
 function displayShiftName(shift) {
   const value = String(shift || "").trim();
   const lowered = value.toLowerCase();
+  if (isOffShiftLabel(value)) return "Weekly off";
   if (!value || lowered === "varied 10h" || lowered === "varied" || lowered === "10h") return defaultShiftName;
   return value;
+}
+
+function isOffShiftLabel(value) {
+  return /^(off|weekly[\s_-]*off|week[\s_-]*off|wo|holiday)$/i.test(String(value || "").trim());
 }
 
 function departmentColorClass(department) {
@@ -4915,7 +4965,7 @@ async function saveDailyRosterToCloud(dateValue) {
 
   const entries = Object.entries(dailyRosters[dateValue])
     .map(([staffId, entry]) => {
-      const person = staff.find((item) => sameId(item.id, staffId));
+      const person = staff.find((item) => sameId(item.id, staffId) || sameId(item.cloudId, staffId) || sameId(item.appUserId, staffId));
       return person?.cloudId ? { staffProfileId: person.cloudId, ...entry, shift: encodeRosterShift(entry) } : null;
     })
     .filter(Boolean);
@@ -4928,7 +4978,7 @@ async function notifyDailyRosterSaved(dateValue) {
 
   const notices = Object.entries(dailyRosters[dateValue])
     .map(([staffId, entry]) => {
-      const person = staff.find((item) => sameId(item.id, staffId));
+      const person = staff.find((item) => sameId(item.id, staffId) || sameId(item.cloudId, staffId) || sameId(item.appUserId, staffId));
       if (!person?.cloudId) return null;
       const shiftText = `${normalizeShiftLabel(entry.shift) || "Shift"} ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}`;
       return { person, entry, message: `Your shift for ${formatDate(dateValue)} was updated: ${shiftText}.` };

@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v160
-Changes: shift bulk upload now accepts Excel .xlsx/.xls/.xlsm or CSV, matches employee_code to staff, imports split second/third shifts, and includes an Excel template.
+StaffSync Beach & Bliss Mirissa build v162
+Changes: checked uploaded Excel shift file and added support for Excel serial dates/times, AM/PM times, and weekly_off rows so imported shifts display correctly.
