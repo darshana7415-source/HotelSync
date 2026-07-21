@@ -7860,7 +7860,26 @@ window.addEventListener("hashchange", () => setTimeout(wakeShiftPageDirectRender
 document.addEventListener("DOMContentLoaded", () => setTimeout(wakeShiftPageDirectRender, 1000));
 setInterval(wakeShiftPageDirectRender, 5000);
 
+// shift-page-force-render-v186
+function forceShiftPageRender() {
+  const container = document.querySelector("#shift-calendar");
+  if (!container) return;
+
+  if (typeof renderShiftPageDirectly === "function") {
+    renderShiftPageDirectly();
+  } else if (typeof renderShiftCalendar === "function") {
+    renderShiftCalendar();
+  }
+}
+
+document.addEventListener("click", () => setTimeout(forceShiftPageRender, 400), true);
+window.addEventListener("hashchange", () => setTimeout(forceShiftPageRender, 400));
+setTimeout(forceShiftPageRender, 1500);
+setTimeout(forceShiftPageRender, 4000);
+setInterval(forceShiftPageRender, 6000);
+
 init();
+
 
 
 
