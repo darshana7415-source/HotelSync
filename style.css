@@ -2194,3 +2194,45 @@ button.danger {
     grid-template-columns: 1fr;
   }
 }
+
+/* shift-import-repeat-dates compact buttons */
+.repeat-date-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.repeat-date-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 52px;
+  padding: 6px 8px;
+  border: 1px solid #c9d8dc;
+  border-radius: 8px;
+  background: #f7fbfc;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.repeat-date-pill input {
+  width: 13px;
+  height: 13px;
+}
+
+.repeat-date-pill strong {
+  font-size: 14px;
+}
+
+.repeat-date-pill:has(input:checked) {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: white;
+}
+
+#shift-import-apply-repeat {
+  margin-top: 6px;
+  width: 100%;
+}

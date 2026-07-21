@@ -136,6 +136,7 @@ const shiftImportResult = document.querySelector("#shift-import-result");
 const shiftImportDate = document.querySelector("#shift-import-date");
 const shiftImportEndDate = document.querySelector("#shift-import-end-date");
 const shiftImportRepeatDates = document.querySelector("#shift-import-repeat-dates");
+const shiftImportApplyRepeat = document.querySelector("#shift-import-apply-repeat");
 const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
@@ -3060,7 +3061,7 @@ function bindEvents() {
     importShiftRowsButton.disabled = true;
     try {
            const overrideDates = shiftImportIgnoreSheetDate?.checked
-        ? selectedShiftImportRepeatDates()
+        ? [shiftImportDate?.value || todayLocalKey()]
         : [];
       const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDates });
       if (result.dates.length) {
@@ -7640,4 +7641,5 @@ function showToast(message) {
 }
 
 init();
+
 

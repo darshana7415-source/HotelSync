@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v175 - bulk shift upload uses selected repeat date buttons.
+StaffSync Beach & Bliss Mirissa build v176 - bulk shift upload has compact date boxes and apply button.

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="StaffSync Beach & Bliss Mirissa">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=175">
+  <link rel="stylesheet" href="style.css?v=176">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running StaffSync v175</small>
+        <small class="login-note">Running StaffSync v176</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v175</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v176</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose role">
@@ -706,6 +706,7 @@
               <fieldset class="repeat-date-panel">
                 <legend>Repeat uploaded shift on dates</legend>
                 <div id="shift-import-repeat-dates" class="repeat-date-options"></div>
+                <button id="shift-import-apply-repeat" class="secondary-action" type="button">Apply uploaded shift to selected dates</button>
                 <small class="form-note">Tick the dates that must receive the uploaded Excel shift plan.</small>
               </fieldset>
               <input id="shift-import-end-date" type="hidden">
@@ -915,10 +916,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=175"></script>
-  <script src="app.js?v=175"></script>
+  <script src="staffsync-data-service.js?v=176"></script>
+  <script src="app.js?v=176"></script>
 </body>
 </html>
+
 
 
 
