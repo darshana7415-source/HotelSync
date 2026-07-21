@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v186 - force Shift page render without visibility check.
+StaffSync Beach & Bliss Mirissa build v187 - visible Shift rescue panel for next 3 days.

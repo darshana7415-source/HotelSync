@@ -7878,7 +7878,131 @@ setTimeout(forceShiftPageRender, 1500);
 setTimeout(forceShiftPageRender, 4000);
 setInterval(forceShiftPageRender, 6000);
 
+// shift-visible-rescue-panel-v187
+function isShiftScreenActive() {
+  const hash = String(location.hash || "").toLowerCase();
+  if (hash.includes("shift")) return true;
+
+  return Array.from(document.querySelectorAll("button, a, .tab, .nav-btn, [data-view], [data-tab]"))
+    .some((item) => {
+      const text = String(item.textContent || "").toLowerCase();
+      const active = item.classList.contains("active") || item.getAttribute("aria-selected") === "true";
+      return active && text.includes("shift");
+    });
+}
+
+function ensureShiftRescuePanel() {
+  let panel = document.querySelector("#shift-visible-rescue-panel");
+  if (panel) return panel;
+
+  panel = document.createElement("section");
+  panel.id = "shift-visible-rescue-panel";
+  panel.className = "shift-rescue-panel";
+
+  const anchor =
+    document.querySelector("#shift-calendar") ||
+    Array.from(document.querySelectorAll("section, main, div")).find((item) =>
+      String(item.textContent || "").toLowerCase().includes("shift dashboard")
+    );
+
+  if (anchor?.parentElement) {
+    anchor.parentElement.appendChild(panel);
+  } else {
+    document.body.appendChild(panel);
+  }
+
+  return panel;
+}
+
+function renderVisibleShiftRescuePanel() {
+  const panel = ensureShiftRescuePanel();
+  if (!panel) return;
+
+  if (!isShiftScreenActive()) {
+    panel.style.display = "none";
+    return;
+  }
+
+  panel.style.display = "block";
+
+  const activePerson =
+    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
+    staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+
+  if (!staff.length) {
+    panel.innerHTML = `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`;
+    return;
+  }
+
+  const startDate = todayLocalKey();
+  const dates = nextDateKeys(startDate, 3);
+
+  const departments = currentRole === "staff" && activePerson
+    ? [activePerson.department || "General"]
+    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+
+  const sections = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(staff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
+
+    if (!people.length) return "";
+
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `
+            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
+          `).join("")}
+
+          ${people.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => {
+              const entry = dailyRosterEntryFor(person, dateValue) || {};
+              const status = String(entry.status || "").toLowerCase();
+              const isLeave = status.includes("leave");
+              const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+              const start = entry.start || entry.startTime || "";
+              const end = entry.end || entry.endTime || "";
+              const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+
+              return `
+                <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
+                  <strong>${shiftName}</strong>
+                  <span>${time}</span>
+                </div>
+              `;
+            }).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  panel.innerHTML = `
+    <div class="box-title-row">
+      <div>
+        <strong>Department shifts - next 3 days</strong>
+        <small>Staff can see same department shifts. Admin and manager can see all departments.</small>
+      </div>
+    </div>
+    ${sections || `<div class="mini-empty">No shifts found for the next 3 days.</div>`}
+  `;
+}
+
+document.addEventListener("click", () => setTimeout(renderVisibleShiftRescuePanel, 300), true);
+window.addEventListener("hashchange", () => setTimeout(renderVisibleShiftRescuePanel, 300));
+setTimeout(renderVisibleShiftRescuePanel, 1500);
+setInterval(renderVisibleShiftRescuePanel, 5000);
+
 init();
+
 
 
 
