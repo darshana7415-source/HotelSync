@@ -1,3 +1,4 @@
-StaffSync Beach & Bliss Mirissa build v165
-- Fixed staff Shift page blank screen by repairing the shift calendar functions.
-- Staff Shift page now resolves the logged-in staff member and shows same-department upcoming shifts.
+StaffSync Beach & Bliss Mirissa build v168
+- Fixed blank Shift page by removing the failing timeline call.
+- Staff Shift page shows same-department weekly shifts.
+- Admin and manager Shift page shows department-wise weekly shifts.

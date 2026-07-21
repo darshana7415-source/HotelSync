@@ -1051,7 +1051,10 @@ function renderShiftCalendar() {
 
     const selectedDate = shiftCalendarStart.value;
     const dates = nextDateKeys(selectedDate, 7);
-    const activeStaffForCalendar = activeStaffForCurrentLogin();
+    const activeStaffForCalendar =
+      staff.find((person) => sameId(person.id, activeStaffId)) ||
+      staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
+      staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 
     const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
       ? [activeStaffForCalendar.department || "General"]
@@ -1081,7 +1084,13 @@ function renderShiftCalendar() {
                 <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
                 <small>${person.role || "Staff"}</small>
               </span>
-              ${dates.map((dateValue) => shiftCalendarCell(person, dateValue)).join("")}
+              ${dates.map((dateValue) => {
+                try {
+                  return shiftCalendarCell(person, dateValue);
+                } catch (error) {
+                  return `<div class="shift-calendar-cell off"><b>Shift</b><small>Could not load</small></div>`;
+                }
+              }).join("")}
             </div>
           `).join("")}
         </section>
@@ -1093,7 +1102,6 @@ function renderShiftCalendar() {
     shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
   }
 }
-
 function renderShiftTimeline(dateValue, calendarDepartments) {
   const departments = (calendarDepartments || [])
     .map((department) => {
