@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v155
-Changes: leave records now show date and full/half/short nature, admin monthly leave records are grouped by employee code, and duplicate same-date same-nature admin grants are blocked.
+StaffSync Beach & Bliss Mirissa build v157
+Changes: added NO PAY leave type to the leave form and included Supabase SQL to add it in cloud leave types.

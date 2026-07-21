@@ -5325,12 +5325,21 @@ function groupedLeaveRecordsMarkup(records, monthKey) {
     const name = person
       ? `${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}`
       : group.requests[0]?.name || "Unknown staff";
+    const approvedUnits = group.requests
+      .filter((request) => request.status === "Approved")
+      .reduce((sum, request) => sum + leaveUnitsInMonth(request, monthKey), 0);
     return `
-      <div class="chat-thread-card leave-record-group">
-        <div class="box-title-row">
-          <strong>${name}</strong>
-          <small>${person?.department || departmentForLeaveRequest(group.requests[0])}</small>
-        </div>
+      <details class="chat-thread-card leave-record-group">
+        <summary class="leave-record-summary">
+          <span>
+            <strong>${name}</strong>
+            <small>${person?.department || departmentForLeaveRequest(group.requests[0])}</small>
+          </span>
+          <span class="quick-actions">
+            <span class="pill blue">${group.requests.length} record${group.requests.length === 1 ? "" : "s"}</span>
+            <span class="pill green">${formatLeaveUnits(approvedUnits)} approved day${approvedUnits === 1 ? "" : "s"}</span>
+          </span>
+        </summary>
         ${group.requests.map((request) => `
           <div class="mini-item">
             <span><strong>${leaveDetailTitle(request)}</strong><small>${leaveDetailLine(request, monthKey)}</small></span>
@@ -5340,7 +5349,7 @@ function groupedLeaveRecordsMarkup(records, monthKey) {
             </span>
           </div>
         `).join("")}
-      </div>
+      </details>
     `;
   }).join("");
 }
