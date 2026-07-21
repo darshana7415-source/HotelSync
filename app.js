@@ -133,6 +133,8 @@ const shiftImportFile = document.querySelector("#shift-import-file");
 const shiftImportText = document.querySelector("#shift-import-text");
 const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
+const shiftImportDate = document.querySelector("#shift-import-date");
+const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
 const rosterCopyDays = document.querySelector("#roster-copy-days");
@@ -2980,6 +2982,9 @@ function bindEvents() {
   });
 
   dailyRosterDate?.addEventListener("change", renderDailyRoster);
+  if (shiftImportDate && !shiftImportDate.value) {
+    shiftImportDate.value = todayLocalKey();
+  }
   shiftCalendarStart?.addEventListener("change", renderShiftCalendar);
   shiftCalendarToday?.addEventListener("click", () => {
     shiftCalendarStart.value = todayLocalKey();
@@ -3013,7 +3018,10 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text);
+      const overrideDate = shiftImportIgnoreSheetDate?.checked
+        ? (shiftImportDate?.value || todayLocalKey())
+        : "";
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDate });
       if (result.dates.length) {
         const firstDate = result.dates.sort()[0];
         if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
@@ -4478,10 +4486,11 @@ async function readShiftImportFile(file) {
   return parseDelimitedRows(await file.text());
 }
 
-async function importShiftRows(source) {
+async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
+  const overrideDate = parseShiftImportDate(options.overrideDate || "") || "";
   const touchedDates = new Set();
   let updated = 0;
   let skipped = 0;
@@ -4490,7 +4499,7 @@ async function importShiftRows(source) {
   const headerIndex = findShiftHeaderIndex(rows);
   const header = headerIndex >= 0 ? rows[headerIndex] : [];
   const headerMap = buildShiftImportHeaderMap(header);
-  const wideDateColumns = header.length ? shiftWideDateColumns(header) : [];
+  const wideDateColumns = header.length && !overrideDate ? shiftWideDateColumns(header) : [];
   const dataRows = header.length ? rows.slice(headerIndex + 1) : rows;
 
   for (const columns of dataRows) {
@@ -4515,7 +4524,10 @@ async function importShiftRows(source) {
     }
 
     const employeeCode = normalizeEmployeeCode(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
-    const dateValue = parseShiftImportDate(valueByShiftHeader(columns, headerMap, "date", 1) || dailyRosterDate?.value || todayLocalKey());
+    const sheetDate = headerMap.date !== undefined
+      ? valueByShiftHeader(columns, headerMap, "date", 1)
+      : (header.length ? "" : columns[1]);
+    const dateValue = overrideDate || parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
     const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
     if (!person || !dateValue) {
       skipped += 1;
@@ -5983,7 +5995,10 @@ async function handleUnifiedLogin() {
 }
 
 function normalizeEmployeeCode(value) {
-  const digits = String(value || "").replace(/\D/g, "");
+  const text = String(value || "").trim();
+  const numericCode = text.match(/^0*(\d+)(?:\.0+)?$/);
+  if (numericCode) return String(Number(numericCode[1]));
+  const digits = text.replace(/\D/g, "");
   return digits ? String(Number(digits)) : "";
 }
 

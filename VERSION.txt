@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v162
-Changes: checked uploaded Excel shift file and added support for Excel serial dates/times, AM/PM times, and weekly_off rows so imported shifts display correctly.
+StaffSync Beach & Bliss Mirissa build v163
+Changes: shift upload now defaults to applying the sheet to the selected upload date, accepts files without a date column, and reads numeric employee codes like 1.0 correctly.

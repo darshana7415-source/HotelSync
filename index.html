@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="StaffSync Beach & Bliss Mirissa">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=162">
+  <link rel="stylesheet" href="style.css?v=163">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running build v162</small>
+        <small class="login-note">Running build v163</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v162</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v163</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose role">
@@ -698,11 +698,19 @@
               Upload completed Excel or CSV file
               <input id="shift-import-file" type="file" accept=".xlsx,.xls,.xlsm,.csv,text/csv">
             </label>
+            <label>
+              Apply uploaded shifts to this date
+              <input id="shift-import-date" type="date">
+            </label>
+            <label class="checkbox-line">
+              <input id="shift-import-ignore-sheet-date" type="checkbox" checked>
+              Ignore sheet date and use the date above
+            </label>
             <textarea id="shift-import-text" hidden></textarea>
             <div class="form-actions">
               <button id="import-shift-rows" type="button">Import uploaded shifts</button>
             </div>
-            <small class="form-note" id="shift-import-result">Step 1: download template. Step 2: edit in Excel or Google Sheets. Step 3: upload the .xlsx or CSV file here.</small>
+            <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies it to the date selected above, even if the sheet has an old date.</small>
           </div>
           <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
@@ -884,7 +892,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=162"></script>
-  <script src="app.js?v=162"></script>
+  <script src="staffsync-data-service.js?v=163"></script>
+  <script src="app.js?v=163"></script>
 </body>
 </html>
