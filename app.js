@@ -8130,7 +8130,21 @@ document.addEventListener("DOMContentLoaded", () => setTimeout(ensureFloatingShi
 setTimeout(ensureFloatingShiftButton, 2000);
 setInterval(ensureFloatingShiftButton, 5000);
 
+// shift-top-button-click-v191
+document.addEventListener("click", (event) => {
+  if (!event.target?.closest?.("#open-shift-modal-view-top")) return;
+
+  event.preventDefault();
+
+  if (typeof openShiftModalView === "function") {
+    openShiftModalView();
+  } else {
+    alert("Shift view is still loading. Please refresh and try again.");
+  }
+}, true);
+
 init();
+
 
 
 
