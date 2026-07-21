@@ -3029,7 +3029,10 @@ function bindEvents() {
       }
       saveState();
       renderAll();
-      const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported for ${result.dates.length} date${result.dates.length === 1 ? "" : "s"}. ${result.skipped} skipped.`;
+      const reasonText = result.skipped && result.skipReasons
+        ? ` Reason: ${Object.entries(result.skipReasons).map(([reason, count]) => `${count} ${reason}`).join(", ")}.`
+        : "";
+      const message = `${result.updated} shift row${result.updated === 1 ? "" : "s"} imported for ${result.dates.length} date${result.dates.length === 1 ? "" : "s"}. ${result.skipped} skipped.${reasonText}`;
       if (shiftImportResult) shiftImportResult.textContent = message;
       showToast(message);
     } catch (error) {
@@ -4494,6 +4497,7 @@ async function importShiftRows(source, options = {}) {
   const touchedDates = new Set();
   let updated = 0;
   let skipped = 0;
+  const skipReasons = {};
   if (!rows.length) return { updated, skipped, dates: [] };
 
   const headerIndex = findShiftHeaderIndex(rows);
@@ -4507,15 +4511,19 @@ async function importShiftRows(source, options = {}) {
     if (wideDateColumns.length) {
       const codeIndex = headerMap.employeeCode ?? 0;
       const employeeCode = normalizeEmployeeCode(columns[codeIndex]);
-      const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
+      const person = findStaffForShiftImport(columns[codeIndex]);
       if (!person) {
         skipped += 1;
+        countSkipReason(skipReasons, employeeCode ? "employee code not found" : "missing employee code");
         continue;
       }
 
       for (const dateColumn of wideDateColumns) {
         const entry = parseShiftCell(columns[dateColumn.index]);
-        if (!entry) continue;
+        if (!entry) {
+          countSkipReason(skipReasons, "empty shift cell");
+          continue;
+        }
         saveImportedShiftEntry(person, dateColumn.dateValue, entry);
         touchedDates.add(dateColumn.dateValue);
         updated += 1;
@@ -4528,9 +4536,10 @@ async function importShiftRows(source, options = {}) {
       ? valueByShiftHeader(columns, headerMap, "date", 1)
       : (header.length ? "" : columns[1]);
     const dateValue = overrideDate || parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
-    const person = staff.find((item) => normalizeEmployeeCode(item.employeeCode) === employeeCode);
+    const person = findStaffForShiftImport(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
     if (!person || !dateValue) {
       skipped += 1;
+      countSkipReason(skipReasons, !person ? (employeeCode ? "employee code not found" : "missing employee code") : "missing date");
       continue;
     }
 
@@ -4571,7 +4580,30 @@ async function importShiftRows(source, options = {}) {
     await syncCloudDashboard();
   }
 
-  return { updated, skipped, dates: Array.from(touchedDates) };
+  return { updated, skipped, dates: Array.from(touchedDates), skipReasons };
+}
+
+function countSkipReason(reasons, key) {
+  reasons[key] = (reasons[key] || 0) + 1;
+}
+
+function findStaffForShiftImport(value) {
+  const normalized = normalizeEmployeeCode(value);
+  const plain = String(value || "").trim().replace(/\.0+$/, "");
+  const padded = normalized ? normalized.padStart(2, "0") : "";
+  return staff.find((person) => {
+    const candidates = [
+      person.employeeCode,
+      person.id,
+      person.cloudId,
+      person.appUserId
+    ].map((item) => String(item || "").trim());
+    return candidates.some((candidate) =>
+      candidate === plain ||
+      candidate === padded ||
+      normalizeEmployeeCode(candidate) === normalized
+    );
+  }) || null;
 }
 
 function saveImportedShiftEntry(person, dateValue, entry) {
