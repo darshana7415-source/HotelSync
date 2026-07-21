@@ -7606,4 +7606,72 @@ function renderShiftCalendar() {
   } catch (error) {
     shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
   }
+}function renderShiftCalendar() {
+  if (!shiftCalendar || !shiftCalendarStart) return;
+
+  try {
+    if (!shiftCalendarStart.value) shiftCalendarStart.value = todayLocalKey();
+
+    const selectedDate = shiftCalendarStart.value;
+    const dates = nextDateKeys(selectedDate, 7);
+
+    const activePerson =
+      staff.find((person) => sameId(person.id, activeStaffId)) ||
+      staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
+      staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+
+    const departments = currentRole === "staff" && activePerson
+      ? [activePerson.department || "General"]
+      : shiftCalendarDepartments();
+
+    const rows = departments.map((department) => {
+      const safeDepartment = department || "General";
+      const people = sortStaffByEmployeeCode(staff.filter((person) =>
+        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
+      ));
+
+      if (!people.length) return "";
+
+      return `
+        <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
+          <h3>${safeDepartment}</h3>
+          ${people.map((person) => `
+            <div class="shift-calendar-row">
+              <span class="shift-calendar-person">
+                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+                <small>${person.role || "Staff"}</small>
+              </span>
+              ${dates.map((dateValue) => {
+                const entry = dailyRosterEntryFor(person, dateValue) || {};
+                const status = entry.status || "Working";
+                const shiftName = normalizeShiftLabel(entry.shift || person.shift || "10h") || "10h";
+                const timeText = status === "Working" || status === "Extra shift"
+                  ? `${normalizeTime24(entry.inTime || "07:00")} - ${normalizeTime24(entry.outTime || "17:00")}`
+                  : status;
+
+                return `
+                  <div class="shift-calendar-cell ${status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working"}">
+                    <b>${shiftName}</b>
+                    <small>${timeText}</small>
+                    ${entry.shift2 ? `<small>${normalizeShiftLabel(entry.shift2)}: ${normalizeTime24(entry.inTime2)} - ${normalizeTime24(entry.outTime2)}</small>` : ""}
+                    ${entry.shift3 ? `<small>${normalizeShiftLabel(entry.shift3)}: ${normalizeTime24(entry.inTime3)} - ${normalizeTime24(entry.outTime3)}</small>` : ""}
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          `).join("")}
+        </section>
+      `;
+    }).join("");
+
+    shiftCalendar.innerHTML = `
+      <div class="shift-calendar-row shift-calendar-header">
+        <span>Department / Staff</span>
+        ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
+      </div>
+      ${rows || `<div class="mini-empty">No shifts found for this week.</div>`}
+    `;
+  } catch (error) {
+    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
+  }
 }
