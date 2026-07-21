@@ -183,6 +183,7 @@ let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let openShiftChatThreadId = "";
+let shiftPageDepartment = localStorage.getItem("staffsync.shiftPageDepartment") || "All";
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -921,11 +922,14 @@ function renderAttendanceReport() {
 
 function renderShifts() {
   const today = todayLocalKey();
-  const dates = currentRole === "staff" ? nextDateKeys(today, 4) : [today];
-  const activeStaff = activeStaffForCurrentLogin();
-  const visibleStaff = currentRole === "staff" && activeStaff
-    ? [activeStaff]
-    : sortStaffByEmployeeCode(staff);
+  const dates = nextDateKeys(today, 4);
+  const departments = ["All", ...new Set(staff.map((person) => person.department || "General"))];
+  if (!departments.includes(shiftPageDepartment)) shiftPageDepartment = "All";
+
+  const visibleStaff = sortStaffByEmployeeCode(staff.filter((person) =>
+    shiftPageDepartment === "All" ||
+    normalizeDepartment(person.department) === normalizeDepartment(shiftPageDepartment)
+  ));
 
   const staffRows = visibleStaff.flatMap((person) => dates.map((dateValue) => {
     const entry = dailyRosterEntryFor(person, dateValue);
@@ -933,10 +937,10 @@ function renderShifts() {
     return `
       <article class="shift-card staff-shift-card">
         <div class="shift-top">
-          <strong>${currentRole === "staff" ? formatDate(dateValue) : `${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}`}</strong>
+          <strong>${formatDate(dateValue)} - ${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
           <span class="pill ${entry.status === "Leave" ? "red" : entry.status === "Weekly off" ? "amber" : "green"}">${entry.status}</span>
         </div>
-        <small>${currentRole === "staff" ? `${shortDayName(dateValue)} - ${person.name}` : `${person.department || "General"} - ${person.role || "Staff"}`}</small>
+        <small>${shortDayName(dateValue)} - ${person.department || "General"} - ${person.role || "Staff"}</small>
         <small>${normalizeShiftLabel(entry.shift) || defaultShiftName}: ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}</small>
         <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || dateValue)} until changed` : "Default shift shown until changed"}</small>
       </article>
@@ -964,11 +968,17 @@ function renderShifts() {
     <div class="shift-list-section">
       <div class="box-title-row">
         <div>
-          <strong>${currentRole === "staff" ? "My shifts: today and next 3 days" : "All staff shifts today"}</strong>
-          <small>${currentRole === "staff" ? "Four-day personal shift schedule." : "Every staff member is listed here. Saved shifts continue until changed."}</small>
+          <strong>${shiftPageDepartment === "All" ? "All department shifts" : `${shiftPageDepartment} shifts`}: today and next 3 days</strong>
+          <small>Choose a department. Your selection stays in place during live updates.</small>
         </div>
+        <label class="shift-department-picker">
+          Department
+          <select id="shift-page-department">
+            ${departments.map((department) => `<option value="${escapeAttribute(department)}" ${department === shiftPageDepartment ? "selected" : ""}>${department === "All" ? "All departments" : department}</option>`).join("")}
+          </select>
+        </label>
       </div>
-      ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
+      ${staffRows || `<div class="mini-empty">No staff found in this department.</div>`}
     </div>
     ${currentRole === "staff" ? "" : `
       <div class="shift-list-section">
@@ -3145,6 +3155,12 @@ function bindEvents() {
     showToast("Shift plan removed.");
   });
 
+  shiftList.addEventListener("change", (event) => {
+    if (event.target?.id !== "shift-page-department") return;
+    shiftPageDepartment = event.target.value || "All";
+    localStorage.setItem("staffsync.shiftPageDepartment", shiftPageDepartment);
+    renderShifts();
+  });
   if (shiftClearForm) {
     shiftClearForm.addEventListener("click", clearShiftPlannerForm);
   }
