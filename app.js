@@ -4537,6 +4537,22 @@ async function readShiftImportFile(file) {
   return parseDelimitedRows(await file.text());
 }
 
+function dateKeysInRange(startDate, endDate) {
+  const dates = [];
+  if (!startDate) return dates;
+
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${(endDate || startDate)}T00:00:00`);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return dates;
+
+  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    dates.push(localDateKey(date.getFullYear(), date.getMonth(), date.getDate()));
+  }
+
+  return dates;
+}
+
 async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))

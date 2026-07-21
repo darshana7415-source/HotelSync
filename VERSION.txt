@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v172 - fixed Excel shift date range import.
+StaffSync Beach & Bliss Mirissa build v173 - fixed bulk shift date range helper.
