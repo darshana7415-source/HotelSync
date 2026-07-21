@@ -4532,7 +4532,7 @@ async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
-  const overrideDate = parseShiftImportDate(options.overrideDate || "") || "";
+  const overrideDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
   const touchedDates = new Set();
   const importedTargets = new Set();
   let updated = 0;
@@ -4588,7 +4588,7 @@ async function importShiftRows(source, options = {}) {
     const sheetDate = headerMap.date !== undefined
       ? valueByShiftHeader(columns, headerMap, "date", 1)
       : (header.length ? "" : columns[1]);
-    const dateValue = overrideDate || parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
+    const dateValue = parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
     const person = findStaffForShiftImport(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
     if (!person || !dateValue) {
       skipped += 1;
