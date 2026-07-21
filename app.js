@@ -134,6 +134,7 @@ const shiftImportText = document.querySelector("#shift-import-text");
 const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
 const shiftImportDate = document.querySelector("#shift-import-date");
+const shiftImportEndDate = document.querySelector("#shift-import-end-date");
 const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
@@ -3054,6 +3055,14 @@ function bindEvents() {
   if (shiftImportDate && !shiftImportDate.value) {
     shiftImportDate.value = todayLocalKey();
   }
+  if (shiftImportEndDate && !shiftImportEndDate.value) {
+    shiftImportEndDate.value = shiftImportDate?.value || todayLocalKey();
+  }
+  shiftImportDate?.addEventListener("change", () => {
+    if (shiftImportEndDate && (!shiftImportEndDate.value || shiftImportEndDate.value < shiftImportDate.value)) {
+      shiftImportEndDate.value = shiftImportDate.value;
+    }
+  });
   shiftCalendarStart?.addEventListener("change", renderShiftCalendar);
   shiftCalendarToday?.addEventListener("click", () => {
     shiftCalendarStart.value = todayLocalKey();
@@ -3087,10 +3096,19 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-      const overrideDate = shiftImportIgnoreSheetDate?.checked
+      const overrideStartDate = shiftImportIgnoreSheetDate?.checked
         ? (shiftImportDate?.value || todayLocalKey())
         : "";
-      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDate });
+      const overrideEndDate = shiftImportIgnoreSheetDate?.checked
+        ? (shiftImportEndDate?.value || overrideStartDate)
+        : "";
+      if (overrideStartDate && overrideEndDate < overrideStartDate) {
+        throw new Error("The shift import end date must be the same as or later than the start date.");
+      }
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, {
+        overrideStartDate,
+        overrideEndDate
+      });
       if (result.dates.length) {
         const firstDate = result.dates.sort()[0];
         if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
@@ -4568,7 +4586,12 @@ async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
-  const overrideDate = parseShiftImportDate(options.overrideDate || "") || "";
+  const overrideStartDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
+  const overrideEndDate = parseShiftImportDate(options.overrideEndDate || overrideStartDate) || overrideStartDate;
+  if (overrideStartDate && overrideEndDate < overrideStartDate) {
+    throw new Error("The shift import end date must be the same as or later than the start date.");
+  }
+  const overrideDates = overrideStartDate ? dateKeysInRange(overrideStartDate, overrideEndDate) : [];
   const touchedDates = new Set();
   let updated = 0;
   let skipped = 0;
@@ -4578,7 +4601,8 @@ async function importShiftRows(source, options = {}) {
   const headerIndex = findShiftHeaderIndex(rows);
   const header = headerIndex >= 0 ? rows[headerIndex] : [];
   const headerMap = buildShiftImportHeaderMap(header);
-  const wideDateColumns = header.length && !overrideDate ? shiftWideDateColumns(header) : [];
+  const sheetWideDateColumns = header.length ? shiftWideDateColumns(header) : [];
+  const wideDateColumns = !overrideDates.length ? sheetWideDateColumns : [];
   const dataRows = header.length ? rows.slice(headerIndex + 1) : rows;
 
   for (const columns of dataRows) {
@@ -4610,7 +4634,7 @@ async function importShiftRows(source, options = {}) {
     const sheetDate = headerMap.date !== undefined
       ? valueByShiftHeader(columns, headerMap, "date", 1)
       : (header.length ? "" : columns[1]);
-    const dateValue = overrideDate || parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
+    const dateValue = parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
     const person = findStaffForShiftImport(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
     if (!person || !dateValue) {
       skipped += 1;
@@ -4642,9 +4666,12 @@ async function importShiftRows(source, options = {}) {
       entry.outTime3 = normalizeImportTime(outTime3 || "");
       entry.status3 = valueByShiftHeader(columns, headerMap, "status3", 13) || "Working";
     }
-    saveImportedShiftEntry(person, dateValue, entry);
-    touchedDates.add(dateValue);
-    updated += 1;
+    const targetDates = overrideDates.length ? overrideDates : [dateValue];
+    for (const targetDate of targetDates) {
+      saveImportedShiftEntry(person, targetDate, entry);
+      touchedDates.add(targetDate);
+      updated += 1;
+    }
   }
 
   if (isCloudReady()) {
@@ -4660,6 +4687,16 @@ async function importShiftRows(source, options = {}) {
 
 function countSkipReason(reasons, key) {
   reasons[key] = (reasons[key] || 0) + 1;
+}
+
+function dateKeysInRange(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const dates = [];
+  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+    dates.push(localDateKey(date.getFullYear(), date.getMonth(), date.getDate()));
+  }
+  return dates;
 }
 
 function findStaffForShiftImport(value) {

@@ -698,19 +698,25 @@
               Upload completed Excel or CSV file
               <input id="shift-import-file" type="file" accept=".xlsx,.xls,.xlsm,.csv,text/csv">
             </label>
-            <label>
-              Apply uploaded shifts to this date
-              <input id="shift-import-date" type="date">
-            </label>
+            <div class="form-row">
+              <label>
+                Apply shifts from
+                <input id="shift-import-date" type="date">
+              </label>
+              <label>
+                Apply shifts through
+                <input id="shift-import-end-date" type="date">
+              </label>
+            </div>
             <label class="checkbox-line">
               <input id="shift-import-ignore-sheet-date" type="checkbox" checked>
-              Ignore sheet date and use the date above
+              Ignore sheet dates and use the date range above
             </label>
             <textarea id="shift-import-text" hidden></textarea>
             <div class="form-actions">
               <button id="import-shift-rows" type="button">Import uploaded shifts</button>
             </div>
-            <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies it to the date selected above, even if the sheet has an old date.</small>
+            <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies every uploaded shift to each day in the selected date range.</small>
           </div>
           <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
