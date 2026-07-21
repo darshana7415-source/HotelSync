@@ -45,6 +45,7 @@ function canManageStaffCloud() {
   return isCloudReady() && ["admin", "manager"].includes(normalizeAppRole(currentRole));
 }
 let adminLeaveDrafts = {};
+let openLeaveRecordGroups = new Set();
 let installPromptEvent = null;
 removeDemoRecordsFromLocalState();
 staff = sortStaffByEmployeeCode(staff);
@@ -1630,31 +1631,45 @@ function renderAdminDashboardCard() {
           <input type="date" data-admin-dashboard-date value="${selectedDate}">
         </label>
       </div>
-      <div class="self-stats compact-self-stats">
-        <span><b>${onDuty.length}</b><small>on duty now</small></span>
-        <span><b>${onBreak.length}</b><small>on break</small></span>
-        <span><b>${clockedOut.length}</b><small>clocked out</small></span>
-        <span><b>${leaveForDate.length}</b><small>leave on date</small></span>
-        <span><b>${pendingLeave.length}</b><small>pending leave</small></span>
-        <span><b>${pendingShiftChanges.length}</b><small>shift changes</small></span>
-      </div>
-      <div class="staff-message-box">
-        <strong>Staff on duty now</strong>
-        ${onDuty.length ? onDuty.map((person) => `
-          <div class="mini-item">
-            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${dashboardShiftLine(person, selectedDate)} - In ${person.clockIn || "--:--"}${person.clockOut ? ` / Out ${person.clockOut}` : ""}${person.status === "On break" ? " - On break" : ""}</small></span>
-            <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
+      <div class="admin-dashboard-split">
+        <div class="admin-dashboard-column">
+          <div class="self-stats compact-self-stats">
+            <span><b>${onDuty.length}</b><small>on duty now</small></span>
+            <span><b>${onBreak.length}</b><small>on break</small></span>
+            <span><b>${clockedOut.length}</b><small>clocked out</small></span>
+            <span><b>${leaveForDate.length}</b><small>leave on date</small></span>
+            <span><b>${pendingLeave.length}</b><small>pending leave</small></span>
+            <span><b>${pendingShiftChanges.length}</b><small>shift changes</small></span>
           </div>
-        `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
-      </div>
-      <div class="staff-message-box">
-        <strong>All staff status</strong>
-        ${allStaffStatus.length ? allStaffStatus.map((person) => `
-          <div class="mini-item">
-            <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn ? `In ${person.clockIn}${person.clockOut ? ` / Out ${person.clockOut}` : " / active"}` : "Not clocked in"}</small></span>
-            <span class="pill ${statusClassFor(person.status) || (isOnShift(person) ? "green" : "amber")}">${person.status || "Scheduled"}</span>
+          <div class="staff-message-box">
+            <strong>Staff on duty now</strong>
+            ${onDuty.length ? onDuty.map((person) => `
+              <div class="mini-item">
+                <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${dashboardShiftLine(person, selectedDate)} - In ${person.clockIn || "--:--"}${person.clockOut ? ` / Out ${person.clockOut}` : ""}${person.status === "On break" ? " - On break" : ""}</small></span>
+                <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
+              </div>
+            `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
           </div>
-        `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
+          <div class="staff-message-box">
+            <strong>All staff status</strong>
+            ${allStaffStatus.length ? allStaffStatus.map((person) => `
+              <div class="mini-item">
+                <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn ? `In ${person.clockIn}${person.clockOut ? ` / Out ${person.clockOut}` : " / active"}` : "Not clocked in"}</small></span>
+                <span class="pill ${statusClassFor(person.status) || (isOnShift(person) ? "green" : "amber")}">${person.status || "Scheduled"}</span>
+              </div>
+            `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
+          </div>
+        </div>
+        <div class="admin-dashboard-column">
+          <div class="staff-message-box dashboard-approval-box">
+            <strong>Leave requests</strong>
+            ${pendingLeave.length ? pendingLeave.map(leaveApprovalItemMarkup).join("") : `<div class="mini-empty">No pending leave requests.</div>`}
+          </div>
+          <div class="staff-message-box dashboard-approval-box">
+            <strong>Shift change requests</strong>
+            ${pendingShiftChanges.length ? pendingShiftChanges.map(shiftChangeThreadMarkup).join("") : `<div class="mini-empty">No shift change requests.</div>`}
+          </div>
+        </div>
       </div>
       ${currentRole === "manager" ? `
         <div class="staff-message-box">
@@ -1667,14 +1682,6 @@ function renderAdminDashboardCard() {
           `).join("") : `<div class="mini-empty">No staff loaded. If this stays empty, manager needs Supabase staff read permission.</div>`}
         </div>
       ` : ""}
-      <div class="staff-message-box dashboard-approval-box">
-        <strong>Leave requests</strong>
-        ${pendingLeave.length ? pendingLeave.map(leaveApprovalItemMarkup).join("") : `<div class="mini-empty">No pending leave requests.</div>`}
-      </div>
-      <div class="staff-message-box dashboard-approval-box">
-        <strong>Shift change requests</strong>
-        ${pendingShiftChanges.length ? pendingShiftChanges.map(shiftChangeThreadMarkup).join("") : `<div class="mini-empty">No shift change requests.</div>`}
-      </div>
       <div class="staff-message-box">
         <strong>On break now</strong>
         ${onBreak.length ? onBreak.map((person) => `
@@ -2635,6 +2642,7 @@ function bindEvents() {
   leaveList.addEventListener("click", handleChatHistoryClick);
   leaveList.addEventListener("submit", handleLeaveChangeSubmit);
   leaveList.addEventListener("submit", handleLeaveChatSubmit);
+  leaveList.addEventListener("toggle", handleLeaveRecordGroupToggle, true);
   staffCard.addEventListener("submit", handleLeaveChatSubmit);
   staffCard.addEventListener("submit", handleShiftChatSubmit);
   shiftCalendar?.addEventListener("submit", handleShiftChatSubmit);
@@ -5320,8 +5328,9 @@ function groupedLeaveRecordsMarkup(records, monthKey) {
     groups.get(key).requests.push(request);
   });
 
-  return Array.from(groups.values()).map((group) => {
+  return Array.from(groups.entries()).map(([groupKey, group]) => {
     const person = group.person;
+    const recordGroupKey = String(groupKey || "");
     const name = person
       ? `${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}`
       : group.requests[0]?.name || "Unknown staff";
@@ -5329,7 +5338,7 @@ function groupedLeaveRecordsMarkup(records, monthKey) {
       .filter((request) => request.status === "Approved")
       .reduce((sum, request) => sum + leaveUnitsInMonth(request, monthKey), 0);
     return `
-      <details class="chat-thread-card leave-record-group">
+      <details class="chat-thread-card leave-record-group" data-leave-record-group="${recordGroupKey}" ${openLeaveRecordGroups.has(recordGroupKey) ? "open" : ""}>
         <summary class="leave-record-summary">
           <span>
             <strong>${name}</strong>
@@ -5352,6 +5361,16 @@ function groupedLeaveRecordsMarkup(records, monthKey) {
       </details>
     `;
   }).join("");
+}
+
+function handleLeaveRecordGroupToggle(event) {
+  const group = event.target.closest?.("details[data-leave-record-group]");
+  if (!group) return;
+  const groupKey = group.dataset.leaveRecordGroup || "";
+  if (!groupKey) return;
+  if (group.open) openLeaveRecordGroups.add(groupKey);
+  else openLeaveRecordGroups.delete(groupKey);
+  typingAutoRenderPauseUntil = Date.now() + 45000;
 }
 
 function updateLeaveFormMode() {

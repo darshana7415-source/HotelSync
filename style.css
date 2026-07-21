@@ -852,6 +852,23 @@ label {
   margin-top: 0.75rem;
 }
 
+.admin-dashboard-split {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.admin-dashboard-column {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-dashboard-column .staff-message-box {
+  margin-top: 0;
+}
+
 .approval-item {
   align-items: stretch;
 }
@@ -1460,10 +1477,20 @@ body[data-role="staff"] .role-grid {
 .leave-record-summary {
   align-items: center;
   cursor: pointer;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.75rem;
-  justify-content: space-between;
   padding: 0.85rem;
+}
+
+.leave-record-summary::before {
+  color: var(--brand);
+  content: ">";
+  font-weight: 900;
+}
+
+.leave-record-group[open] .leave-record-summary::before {
+  content: "v";
 }
 
 .leave-record-summary strong,
@@ -2001,6 +2028,10 @@ button.danger {
 
 @media (max-width: 980px) {
   .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard-split {
     grid-template-columns: 1fr;
   }
 

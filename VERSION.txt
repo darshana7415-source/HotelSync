@@ -1,2 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v157
-Changes: added NO PAY leave type to the leave form and included Supabase SQL to add it in cloud leave types.
+StaffSync Beach & Bliss Mirissa build v158
+Changes: fixed leave record dropdowns so they stay open with arrow indicators and split admin dashboard into duty/status and leave/shift request columns.
