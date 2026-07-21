@@ -1041,77 +1041,68 @@ function activeStaffForCurrentLogin() {
 }
 
 function renderShiftCalendar() {
-  if (!shiftCalendar || !shiftCalendarStart) return;
+  if (!shiftCalendar) return;
 
-  const normalizeKey = (value) => String(value || "General").trim().toLowerCase();
-  const staffCodeNumber = (person) => Number(String(person.employeeCode || "").replace(/\D/g, "")) || 9999;
-  const safeTime = (value, fallback = "") => normalizeTime24(value || fallback || "00:00");
+  const startDate = shiftCalendarStart?.value || todayLocalKey();
+  if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
 
-  try {
-    if (!shiftCalendarStart.value) {
-      shiftCalendarStart.value = todayLocalKey();
-    }
+  const dates = nextDateKeys(startDate, 3);
 
-    const selectedDate = shiftCalendarStart.value;
-    const dates = nextDateKeys(selectedDate, 7);
-    const activeStaffForCalendar = activeStaffForCurrentLogin();
+  const activePerson =
+    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
+    staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 
-    const departments = currentRole === "staff" && activeStaffForCalendar
-      ? [activeStaffForCalendar.department || "General"]
-      : shiftCalendarDepartments();
+  const departments = currentRole === "staff" && activePerson
+    ? [activePerson.department || "General"]
+    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
 
-    const header = `
-      <div class="shift-calendar-row shift-calendar-header">
-        <span>Department / Staff</span>
-        ${dates.map((dateValue) => `<span>${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></span>`).join("")}
-      </div>
-    `;
+  const sections = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(staff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
 
-    const sections = departments.map((department) => {
-      const safeDepartment = department || "General";
-      const people = staff
-        .filter((person) => normalizeKey(person.department) === normalizeKey(safeDepartment))
-        .sort((a, b) => staffCodeNumber(a) - staffCodeNumber(b));
+    if (!people.length) return "";
 
-      if (!people.length) return "";
-
-      return `
-        <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
-          <h3>${safeDepartment}</h3>
-          ${people.map((person) => `
-            <div class="shift-calendar-row">
-              <span class="shift-calendar-person">
-                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-                <small>${person.role || "Staff"}</small>
-              </span>
-              ${dates.map((dateValue) => {
-                const entry = dailyRosterEntryFor(person, dateValue) || {};
-                const status = entry.status || "Working";
-                const shiftName = normalizeShiftLabel(entry.shift || person.shift || defaultShiftName || "10 hours") || "10 hours";
-                const cellClass = status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working";
-                const mainTime = status === "Working" || status === "Extra shift"
-                  ? `${safeTime(entry.inTime, defaultShiftStart)} - ${safeTime(entry.outTime, defaultShiftEnd)}`
-                  : status;
-                const extra = extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("");
-
-                return `
-                  <div class="shift-calendar-cell ${cellClass}">
-                    <b>${shiftName}</b>
-                    <small>${mainTime}</small>
-                    ${extra}
-                  </div>
-                `;
-              }).join("")}
-            </div>
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `
+            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
           `).join("")}
-        </section>
-      `;
-    }).join("");
 
-    shiftCalendar.innerHTML = header + (sections || `<div class="mini-empty">No shifts found for this week.</div>`);
-  } catch (error) {
-    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. ${error?.message || "Please check staff department and shift data."}</div>`;
-  }
+          ${people.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => shiftSimpleCell(person, dateValue)).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for this department.</div>`;
+}
+
+function shiftSimpleCell(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue) || {};
+  const status = String(entry.status || "").toLowerCase();
+  const isLeave = status.includes("leave");
+  const name = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+  const start = entry.start || entry.startTime || "";
+  const end = entry.end || entry.endTime || "";
+  const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+
+  return `
+    <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
+      <strong>${name}</strong>
+      <span>${time}</span>
+    </div>
+  `;
 }
 function renderShiftTimeline(dateValue, calendarDepartments) {
   const departments = (calendarDepartments || [])
@@ -7782,6 +7773,7 @@ setTimeout(refreshStaffDirectoryForShiftViews, 1500);
 setInterval(refreshStaffDirectoryForShiftViews, 8000);
 
 init();
+
 
 
 

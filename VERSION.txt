@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v183 - restored Shift page department drop-downs for next 3 days.
+StaffSync Beach & Bliss Mirissa build v184 - actually replaced Shift page renderer.
