@@ -1053,9 +1053,7 @@ function renderShiftCalendar() {
     staff.find((person) => sameId(person.id, activeStaffId)) ||
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 
-  const departments = currentRole === "staff" && activePerson
-    ? [activePerson.department || "General"]
-    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+  const departments = Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
 
   const sections = departments.map((department) => {
     const people = sortStaffByEmployeeCode(staff.filter((person) =>
@@ -1093,9 +1091,7 @@ function shiftSimpleCell(person, dateValue) {
   const status = String(entry.status || "").toLowerCase();
   const isLeave = status.includes("leave");
   const name = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-  const start = entry.start || entry.startTime || "";
-  const end = entry.end || entry.endTime || "";
-  const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+  const time = staffsyncShiftTimeTextV190(entry);
 
   return `
     <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
@@ -7789,9 +7785,7 @@ function renderShiftPageDirectly() {
     staff.find((person) => sameId(person.id, activeStaffId)) ||
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 
-  const departments = currentRole === "staff" && activePerson
-    ? [activePerson.department || "General"]
-    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+  const departments = Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
 
   if (!staff.length) {
     container.innerHTML = `<div class="mini-empty">Staff list is still loading. Please wait a few seconds.</div>`;
@@ -7824,9 +7818,7 @@ function renderShiftPageDirectly() {
               const status = String(entry.status || "").toLowerCase();
               const isLeave = status.includes("leave");
               const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-              const start = entry.start || entry.startTime || "";
-              const end = entry.end || entry.endTime || "";
-              const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+              const time = staffsyncShiftTimeTextV190(entry);
 
               return `
                 <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
@@ -7938,9 +7930,7 @@ function renderVisibleShiftRescuePanel() {
   const startDate = todayLocalKey();
   const dates = nextDateKeys(startDate, 3);
 
-  const departments = currentRole === "staff" && activePerson
-    ? [activePerson.department || "General"]
-    : Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+  const departments = Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
 
   const sections = departments.map((department) => {
     const people = sortStaffByEmployeeCode(staff.filter((person) =>
@@ -7968,9 +7958,7 @@ function renderVisibleShiftRescuePanel() {
               const status = String(entry.status || "").toLowerCase();
               const isLeave = status.includes("leave");
               const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-              const start = entry.start || entry.startTime || "";
-              const end = entry.end || entry.endTime || "";
-              const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+              const time = staffsyncShiftTimeTextV190(entry);
 
               return `
                 <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
@@ -8003,16 +7991,14 @@ setInterval(renderVisibleShiftRescuePanel, 5000);
 
 // shift-modal-view-v188
 function shiftModalDepartments() {
-  const activePerson =
-    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
-    staff.find((person) => sameId(person.id, activeStaffId)) ||
-    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-
-  if (currentRole === "staff" && activePerson) {
-    return [activePerson.department || "General"];
-  }
-
   return Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+}
+
+function staffsyncShiftTimeTextV190(entry) {
+  const start = entry?.start || entry?.startTime || entry?.start_time || entry?.from || entry?.fromTime || entry?.inTime || "";
+  const end = entry?.end || entry?.endTime || entry?.end_time || entry?.to || entry?.toTime || entry?.outTime || "";
+  if (start && end) return `${start} - ${end}`;
+  return entry?.time || entry?.timeText || entry?.hours || entry?.note || "Time not set";
 }
 
 function shiftModalCell(person, dateValue) {
@@ -8020,9 +8006,7 @@ function shiftModalCell(person, dateValue) {
   const status = String(entry.status || "").toLowerCase();
   const isLeave = status.includes("leave");
   const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-  const start = entry.start || entry.startTime || "";
-  const end = entry.end || entry.endTime || "";
-  const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+  const time = staffsyncShiftTimeTextV190(entry);
 
   return `
     <div class="shift-modal-cell ${isLeave ? "is-leave" : ""}">
@@ -8147,6 +8131,7 @@ setTimeout(ensureFloatingShiftButton, 2000);
 setInterval(ensureFloatingShiftButton, 5000);
 
 init();
+
 
 
 
