@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v188 - added dashboard button for 3-day Shift view.
+StaffSync Beach & Bliss Mirissa build v189 - fixed visible floating 3-day shifts button.

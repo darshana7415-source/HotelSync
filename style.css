@@ -2439,3 +2439,17 @@ button.danger {
     display: none;
   }
 }
+
+#floating-shift-view-button {
+  position: fixed !important;
+  right: 14px !important;
+  bottom: 74px !important;
+  z-index: 999999 !important;
+  padding: 12px 16px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: #0f766e !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25) !important;
+}

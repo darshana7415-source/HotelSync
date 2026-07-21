@@ -8122,7 +8122,32 @@ document.addEventListener("click", (event) => {
 setTimeout(ensureShiftModalButton, 1500);
 setInterval(ensureShiftModalButton, 5000);
 
+// shift-floating-button-v189
+function ensureFloatingShiftButton() {
+  if (document.querySelector("#floating-shift-view-button")) return;
+
+  const button = document.createElement("button");
+  button.id = "floating-shift-view-button";
+  button.type = "button";
+  button.textContent = "3-Day Shifts";
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (typeof openShiftModalView === "function") {
+      openShiftModalView();
+    } else {
+      alert("Shift view is still loading. Please wait a few seconds and try again.");
+    }
+  });
+
+  document.body.appendChild(button);
+}
+
+document.addEventListener("DOMContentLoaded", () => setTimeout(ensureFloatingShiftButton, 1000));
+setTimeout(ensureFloatingShiftButton, 2000);
+setInterval(ensureFloatingShiftButton, 5000);
+
 init();
+
 
 
 
