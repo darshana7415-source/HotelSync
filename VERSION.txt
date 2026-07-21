@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v182 - staff login reloads full directory for dashboard and shift views.
+StaffSync Beach & Bliss Mirissa build v183 - restored Shift page department drop-downs for next 3 days.
