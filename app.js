@@ -7658,12 +7658,7 @@ document.addEventListener("click", async (event) => {
   try {
     button.disabled = true;
     button.textContent = "Applying shifts...";
-
-    if (typeof renderShiftImportRepeatDates === "function") {
-      renderShiftImportRepeatDates();
-    }
-
-    const text = shiftImportText?.value || "";
+const text = shiftImportText?.value || "";
     const rows = Array.isArray(loadedShiftImportRows) ? loadedShiftImportRows : [];
 
     if (!rows.length && !text.trim()) {
@@ -7688,7 +7683,7 @@ document.addEventListener("click", async (event) => {
       renderAll();
     }
 
-    notify(`Uploaded shift applied to ${overrideDates.length} selected date(s).`);
+    notify(`Uploaded shift applied to ${overrideDates.length} selected date(s). ${result.updated || 0} shift row(s) saved.`);
   } catch (error) {
     notify(error.message || "Could not apply uploaded shift to selected dates.", "error");
   } finally {
@@ -7698,6 +7693,7 @@ document.addEventListener("click", async (event) => {
 });
 
 init();
+
 
 
 

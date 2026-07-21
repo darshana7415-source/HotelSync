@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v177 - repaired bulk shift repeat apply button.
+StaffSync Beach & Bliss Mirissa build v178 - fixed bulk shift repeat date boxes staying selected.
