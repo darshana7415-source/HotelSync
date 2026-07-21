@@ -2356,3 +2356,86 @@ button.danger {
   border-left-color: #ef4444;
   background: #fff5f5;
 }
+
+/* shift-modal-view-v188 */
+.shift-modal-open {
+  margin: 10px 0;
+  width: 100%;
+}
+
+.shift-modal-view {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.55);
+  overflow: auto;
+  padding: 12px;
+}
+
+.shift-modal-card {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 14px;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shift-dept-fold {
+  margin: 10px 0;
+  border: 1px solid #d8e5e8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.shift-dept-fold summary {
+  padding: 10px 12px;
+  font-weight: 800;
+  background: #eef8f8;
+  cursor: pointer;
+}
+
+.shift-simple-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) repeat(3, minmax(92px, 1fr));
+  gap: 1px;
+  background: #d8e5e8;
+}
+
+.shift-simple-grid > div {
+  background: #fff;
+  padding: 8px;
+}
+
+.shift-simple-head {
+  font-weight: 800;
+  color: #064e4a;
+}
+
+.shift-simple-head small,
+.shift-simple-staff small,
+.shift-modal-cell span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.shift-modal-cell {
+  min-height: 52px;
+  border-left: 4px solid #0f766e;
+}
+
+.shift-modal-cell.is-leave {
+  border-left-color: #ef4444;
+  background: #fff5f5;
+}
+
+@media (max-width: 760px) {
+  .shift-simple-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shift-simple-head:first-child {
+    display: none;
+  }
+}

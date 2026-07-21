@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v187 - visible Shift rescue panel for next 3 days.
+StaffSync Beach & Bliss Mirissa build v188 - added dashboard button for 3-day Shift view.

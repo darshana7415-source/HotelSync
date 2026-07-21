@@ -8001,7 +8001,129 @@ window.addEventListener("hashchange", () => setTimeout(renderVisibleShiftRescueP
 setTimeout(renderVisibleShiftRescuePanel, 1500);
 setInterval(renderVisibleShiftRescuePanel, 5000);
 
+// shift-modal-view-v188
+function shiftModalDepartments() {
+  const activePerson =
+    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
+    staff.find((person) => sameId(person.id, activeStaffId)) ||
+    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+
+  if (currentRole === "staff" && activePerson) {
+    return [activePerson.department || "General"];
+  }
+
+  return Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+}
+
+function shiftModalCell(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue) || {};
+  const status = String(entry.status || "").toLowerCase();
+  const isLeave = status.includes("leave");
+  const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+  const start = entry.start || entry.startTime || "";
+  const end = entry.end || entry.endTime || "";
+  const time = start && end ? `${start} - ${end}` : (entry.note || "Time not set");
+
+  return `
+    <div class="shift-modal-cell ${isLeave ? "is-leave" : ""}">
+      <strong>${shiftName}</strong>
+      <span>${time}</span>
+    </div>
+  `;
+}
+
+function renderShiftModalView() {
+  const dates = nextDateKeys(todayLocalKey(), 3);
+  const departments = shiftModalDepartments();
+
+  const sections = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(staff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
+
+    if (!people.length) return "";
+
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `
+            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
+          `).join("")}
+
+          ${people.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => shiftModalCell(person, dateValue)).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  return sections || `<div class="mini-empty">No shifts found for the next 3 days.</div>`;
+}
+
+function openShiftModalView() {
+  let modal = document.querySelector("#shift-modal-view");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "shift-modal-view";
+    modal.className = "shift-modal-view";
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="shift-modal-card">
+      <div class="box-title-row">
+        <div>
+          <strong>3-Day Shift View</strong>
+          <small>Staff see same department only. Admin and manager see all departments.</small>
+        </div>
+        <button class="ghost" type="button" id="close-shift-modal-view">Close</button>
+      </div>
+      ${renderShiftModalView()}
+    </div>
+  `;
+}
+
+function ensureShiftModalButton() {
+  if (document.querySelector("#open-shift-modal-view")) return;
+
+  const button = document.createElement("button");
+  button.id = "open-shift-modal-view";
+  button.className = "primary-action shift-modal-open";
+  button.type = "button";
+  button.textContent = "Open 3-Day Shift View";
+
+  const target =
+    document.querySelector("#dashboard") ||
+    document.querySelector("main") ||
+    document.body;
+
+  target.prepend(button);
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.("#open-shift-modal-view")) {
+    event.preventDefault();
+    openShiftModalView();
+  }
+
+  if (event.target?.closest?.("#close-shift-modal-view")) {
+    event.preventDefault();
+    document.querySelector("#shift-modal-view")?.remove();
+  }
+}, true);
+
+setTimeout(ensureShiftModalButton, 1500);
+setInterval(ensureShiftModalButton, 5000);
+
 init();
+
 
 
 
