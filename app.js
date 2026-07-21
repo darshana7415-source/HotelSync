@@ -134,7 +134,6 @@ const shiftImportText = document.querySelector("#shift-import-text");
 const importShiftRowsButton = document.querySelector("#import-shift-rows");
 const shiftImportResult = document.querySelector("#shift-import-result");
 const shiftImportDate = document.querySelector("#shift-import-date");
-const shiftImportEndDate = document.querySelector("#shift-import-end-date");
 const shiftImportIgnoreSheetDate = document.querySelector("#shift-import-ignore-sheet-date");
 let loadedShiftImportRows = [];
 const dailyRosterDate = document.querySelector("#daily-roster-date");
@@ -184,7 +183,6 @@ let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let openShiftChatThreadId = "";
-let shiftPageDepartment = localStorage.getItem("staffsync.shiftPageDepartment") || "All";
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -923,31 +921,21 @@ function renderAttendanceReport() {
 
 function renderShifts() {
   const today = todayLocalKey();
-  const dates = nextDateKeys(today, 3);
-  const activeStaff = activeStaffForCurrentLogin();
-  const departments = [...new Set(staff.map((person) => person.department || "General"))]
-    .sort((a, b) => a.localeCompare(b));
-
-  if (!departments.includes(shiftPageDepartment)) {
-    shiftPageDepartment = departments.includes(activeStaff?.department)
-      ? activeStaff.department
-      : (departments[0] || "General");
-    localStorage.setItem("staffsync.shiftPageDepartment", shiftPageDepartment);
-  }
-
-  const visibleStaff = sortStaffByEmployeeCode(staff.filter((person) =>
-    normalizeDepartment(person.department) === normalizeDepartment(shiftPageDepartment)
-  ));
-
-  const staffRows = visibleStaff.map((person) => `
-    <div class="shift-calendar-row">
-      <span class="shift-calendar-person">
-        <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-        <small>${person.role || "Staff"}</small>
-      </span>
-      ${dates.map((dateValue) => shiftOverviewCell(person, dateValue)).join("")}
-    </div>
-  `).join("");
+  const staffRows = sortStaffByEmployeeCode(staff).map((person) => {
+    const entry = dailyRosterEntryFor(person, today);
+    const plan = activeShiftPlanFor(person, today);
+    return `
+      <article class="shift-card staff-shift-card">
+        <div class="shift-top">
+          <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+          <span class="pill ${entry.status === "Leave" ? "red" : entry.status === "Weekly off" ? "amber" : "green"}">${entry.status}</span>
+        </div>
+        <small>${person.department || "General"} - ${person.role || "Staff"}</small>
+        <small>${normalizeShiftLabel(entry.shift) || defaultShiftName}: ${rosterTimeLabel(entry)}${extraShiftLabels(entry).length ? ` | ${extraShiftLabels(entry).join(" | ")}` : ""}</small>
+        <small>${plan ? `Saved from ${formatDate(plan.effectiveDate || today)} until changed` : "Default shift shown until changed"}</small>
+      </article>
+    `;
+  }).join("");
 
   const planRows = shiftPlans.length ? shiftPlans.map((plan) => {
     const person = staff.find((item) => sameId(item.id, plan.staffId) || sameId(item.cloudId, plan.staffId));
@@ -970,53 +958,24 @@ function renderShifts() {
     <div class="shift-list-section">
       <div class="box-title-row">
         <div>
-          <strong>${shiftPageDepartment} department shifts</strong>
-          <small>Today, tomorrow, and the following day. The selected department stays open during live updates.</small>
+          <strong>All staff shifts today</strong>
+          <small>Every staff member is listed here. Saved shifts continue until changed.</small>
         </div>
-        <label class="shift-department-picker">
-          Department
-          <select id="shift-page-department">
-            ${departments.map((department) => `<option value="${escapeAttribute(department)}" ${department === shiftPageDepartment ? "selected" : ""}>${department}</option>`).join("")}
-          </select>
-        </label>
       </div>
-      <div class="three-day-shift-grid">
-        <div class="shift-calendar-row shift-calendar-header">
-          <span>Staff</span>
-          ${dates.map((dateValue, index) => `<span>${index === 0 ? "Today" : index === 1 ? "Tomorrow" : "Day after tomorrow"}<small>${formatDate(dateValue)} - ${shortDayName(dateValue)}</small></span>`).join("")}
-        </div>
-        <section class="shift-calendar-department ${departmentColorClass(shiftPageDepartment)}">
-          ${staffRows || `<div class="mini-empty">No staff found in this department.</div>`}
-        </section>
-      </div>
+      ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
     </div>
-    ${currentRole === "staff" ? "" : `
-      <div class="shift-list-section">
-        <div class="box-title-row">
-          <div>
-            <strong>Saved shift plans</strong>
-            <small>Edit or remove long-running shift allocations.</small>
-          </div>
+    <div class="shift-list-section">
+      <div class="box-title-row">
+        <div>
+          <strong>Saved shift plans</strong>
+          <small>Edit or remove long-running shift allocations.</small>
         </div>
-        ${planRows}
       </div>
-    `}
+      ${planRows}
+    </div>
   `;
 }
 
-function shiftOverviewCell(person, dateValue) {
-  const entry = dailyRosterEntryFor(person, dateValue);
-  const status = entry.status || "Working";
-  const statusClass = status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working";
-  return `
-    <div class="shift-calendar-cell ${statusClass}">
-      <b>${normalizeShiftLabel(entry.shift) || defaultShiftName}</b>
-      <small>${rosterTimeLabel(entry)}</small>
-      ${extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("")}
-      <span class="pill ${status === "Leave" ? "red" : status === "Weekly off" ? "amber" : "green"}">${status}</span>
-    </div>
-  `;
-}
 function shiftPlanTimeSummary(plan) {
   return [
     `${normalizeTime24(plan.inTime)} - ${normalizeTime24(plan.outTime)}`,
@@ -1077,13 +1036,13 @@ function activeStaffForCurrentLogin() {
     staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 }
-function activeStaffForCurrentLogin() {
-  return staff.find((person) => sameId(person.id, activeStaffId)) ||
-    staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
-    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-}
+
 function renderShiftCalendar() {
   if (!shiftCalendar || !shiftCalendarStart) return;
+
+  const normalizeKey = (value) => String(value || "General").trim().toLowerCase();
+  const staffCodeNumber = (person) => Number(String(person.employeeCode || "").replace(/\D/g, "")) || 9999;
+  const safeTime = (value, fallback = "") => normalizeTime24(value || fallback || "00:00");
 
   try {
     if (!shiftCalendarStart.value) {
@@ -1092,12 +1051,9 @@ function renderShiftCalendar() {
 
     const selectedDate = shiftCalendarStart.value;
     const dates = nextDateKeys(selectedDate, 7);
-    const activeStaffForCalendar =
-      staff.find((person) => sameId(person.id, activeStaffId)) ||
-      staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
-      staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+    const activeStaffForCalendar = activeStaffForCurrentLogin();
 
-    const calendarDepartments = currentRole === "staff" && activeStaffForCalendar
+    const departments = currentRole === "staff" && activeStaffForCalendar
       ? [activeStaffForCalendar.department || "General"]
       : shiftCalendarDepartments();
 
@@ -1108,29 +1064,40 @@ function renderShiftCalendar() {
       </div>
     `;
 
-    const sections = calendarDepartments.map((department) => {
+    const sections = departments.map((department) => {
       const safeDepartment = department || "General";
-      const departmentStaff = sortStaffByEmployeeCode(staff.filter((person) =>
-        normalizeDepartment(person.department || "General") === normalizeDepartment(safeDepartment)
-      ));
+      const people = staff
+        .filter((person) => normalizeKey(person.department) === normalizeKey(safeDepartment))
+        .sort((a, b) => staffCodeNumber(a) - staffCodeNumber(b));
 
-      if (!departmentStaff.length) return "";
+      if (!people.length) return "";
 
       return `
         <section class="shift-calendar-department ${departmentColorClass(safeDepartment)}">
           <h3>${safeDepartment}</h3>
-          ${departmentStaff.map((person) => `
+          ${people.map((person) => `
             <div class="shift-calendar-row">
               <span class="shift-calendar-person">
                 <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
                 <small>${person.role || "Staff"}</small>
               </span>
               ${dates.map((dateValue) => {
-                try {
-                  return shiftCalendarCell(person, dateValue);
-                } catch (error) {
-                  return `<div class="shift-calendar-cell off"><b>Shift</b><small>Could not load</small></div>`;
-                }
+                const entry = dailyRosterEntryFor(person, dateValue) || {};
+                const status = entry.status || "Working";
+                const shiftName = normalizeShiftLabel(entry.shift || person.shift || defaultShiftName || "10 hours") || "10 hours";
+                const cellClass = status === "Leave" ? "leave" : status === "Weekly off" ? "off" : "working";
+                const mainTime = status === "Working" || status === "Extra shift"
+                  ? `${safeTime(entry.inTime, defaultShiftStart)} - ${safeTime(entry.outTime, defaultShiftEnd)}`
+                  : status;
+                const extra = extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("");
+
+                return `
+                  <div class="shift-calendar-cell ${cellClass}">
+                    <b>${shiftName}</b>
+                    <small>${mainTime}</small>
+                    ${extra}
+                  </div>
+                `;
               }).join("")}
             </div>
           `).join("")}
@@ -1140,7 +1107,7 @@ function renderShiftCalendar() {
 
     shiftCalendar.innerHTML = header + (sections || `<div class="mini-empty">No shifts found for this week.</div>`);
   } catch (error) {
-    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. Please check staff department and shift data.</div>`;
+    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load. ${error?.message || "Please check staff department and shift data."}</div>`;
   }
 }
 function renderShiftTimeline(dateValue, calendarDepartments) {
@@ -1494,6 +1461,7 @@ function renderRoleDemo() {
   const monthlyBalance = monthlyLeaveBalance(activeStaff, todayKey);
   const lowBalance = monthlyBalance <= 2;
   const departmentShiftRows = staff
+    .filter((person) => normalizeDepartment(person.department) === normalizeDepartment(activeStaff.department))
     .map((person) => {
       const entry = dailyRosterEntryFor(person, todayKey);
       const shiftLabel = normalizeShiftLabel(entry.shift) || "Shift";
@@ -1611,7 +1579,7 @@ function renderRoleDemo() {
         `}
       </div>
       <div class="staff-message-box">
-        <strong>All department shifts today</strong>
+        <strong>${activeStaff.department} department shifts today</strong>
         ${departmentShiftRows || `<div class="mini-empty">No department shifts found for today.</div>`}
       </div>
     </div>
@@ -3055,14 +3023,6 @@ function bindEvents() {
   if (shiftImportDate && !shiftImportDate.value) {
     shiftImportDate.value = todayLocalKey();
   }
-  if (shiftImportEndDate && !shiftImportEndDate.value) {
-    shiftImportEndDate.value = shiftImportDate?.value || todayLocalKey();
-  }
-  shiftImportDate?.addEventListener("change", () => {
-    if (shiftImportEndDate && (!shiftImportEndDate.value || shiftImportEndDate.value < shiftImportDate.value)) {
-      shiftImportEndDate.value = shiftImportDate.value;
-    }
-  });
   shiftCalendarStart?.addEventListener("change", renderShiftCalendar);
   shiftCalendarToday?.addEventListener("click", () => {
     shiftCalendarStart.value = todayLocalKey();
@@ -3096,19 +3056,10 @@ function bindEvents() {
     importShiftRowsButton.classList.add("action-success");
     importShiftRowsButton.disabled = true;
     try {
-      const overrideStartDate = shiftImportIgnoreSheetDate?.checked
+      const overrideDate = shiftImportIgnoreSheetDate?.checked
         ? (shiftImportDate?.value || todayLocalKey())
         : "";
-      const overrideEndDate = shiftImportIgnoreSheetDate?.checked
-        ? (shiftImportEndDate?.value || overrideStartDate)
-        : "";
-      if (overrideStartDate && overrideEndDate < overrideStartDate) {
-        throw new Error("The shift import end date must be the same as or later than the start date.");
-      }
-      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, {
-        overrideStartDate,
-        overrideEndDate
-      });
+      const result = await importShiftRows(loadedShiftImportRows.length ? loadedShiftImportRows : text, { overrideDate });
       if (result.dates.length) {
         const firstDate = result.dates.sort()[0];
         if (shiftCalendarStart) shiftCalendarStart.value = firstDate;
@@ -3196,12 +3147,6 @@ function bindEvents() {
     showToast("Shift plan removed.");
   });
 
-  shiftList.addEventListener("change", (event) => {
-    if (event.target?.id !== "shift-page-department") return;
-    shiftPageDepartment = event.target.value || "All";
-    localStorage.setItem("staffsync.shiftPageDepartment", shiftPageDepartment);
-    renderShifts();
-  });
   if (shiftClearForm) {
     shiftClearForm.addEventListener("click", clearShiftPlannerForm);
   }
@@ -4586,13 +4531,9 @@ async function importShiftRows(source, options = {}) {
   const rows = Array.isArray(source)
     ? source.map(cleanImportRow).filter((row) => row.some(Boolean))
     : parseDelimitedRows(source);
-  const overrideStartDate = parseShiftImportDate(options.overrideStartDate || options.overrideDate || "") || "";
-  const overrideEndDate = parseShiftImportDate(options.overrideEndDate || overrideStartDate) || overrideStartDate;
-  if (overrideStartDate && overrideEndDate < overrideStartDate) {
-    throw new Error("The shift import end date must be the same as or later than the start date.");
-  }
-  const overrideDates = overrideStartDate ? dateKeysInRange(overrideStartDate, overrideEndDate) : [];
+  const overrideDate = parseShiftImportDate(options.overrideDate || "") || "";
   const touchedDates = new Set();
+  const importedTargets = new Set();
   let updated = 0;
   let skipped = 0;
   const skipReasons = {};
@@ -4601,8 +4542,7 @@ async function importShiftRows(source, options = {}) {
   const headerIndex = findShiftHeaderIndex(rows);
   const header = headerIndex >= 0 ? rows[headerIndex] : [];
   const headerMap = buildShiftImportHeaderMap(header);
-  const sheetWideDateColumns = header.length ? shiftWideDateColumns(header) : [];
-  const wideDateColumns = !overrideDates.length ? sheetWideDateColumns : [];
+  const wideDateColumns = header.length && !overrideDate ? shiftWideDateColumns(header) : [];
   const dataRows = header.length ? rows.slice(headerIndex + 1) : rows;
 
   for (const columns of dataRows) {
@@ -4623,6 +4563,19 @@ async function importShiftRows(source, options = {}) {
           countSkipReason(skipReasons, "empty shift cell");
           continue;
         }
+        const targetKey = `${person.id}|${dateColumn.dateValue}`;
+        if (importedTargets.has(targetKey)) {
+          skipped += 1;
+          countSkipReason(skipReasons, "duplicate employee/date row");
+          continue;
+        }
+        const validationError = validateImportedShiftEntry(entry);
+        if (validationError) {
+          skipped += 1;
+          countSkipReason(skipReasons, validationError);
+          continue;
+        }
+        importedTargets.add(targetKey);
         saveImportedShiftEntry(person, dateColumn.dateValue, entry);
         touchedDates.add(dateColumn.dateValue);
         updated += 1;
@@ -4634,11 +4587,18 @@ async function importShiftRows(source, options = {}) {
     const sheetDate = headerMap.date !== undefined
       ? valueByShiftHeader(columns, headerMap, "date", 1)
       : (header.length ? "" : columns[1]);
-    const dateValue = parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
+    const dateValue = overrideDate || parseShiftImportDate(sheetDate) || dailyRosterDate?.value || todayLocalKey();
     const person = findStaffForShiftImport(valueByShiftHeader(columns, headerMap, "employeeCode", 0));
     if (!person || !dateValue) {
       skipped += 1;
       countSkipReason(skipReasons, !person ? (employeeCode ? "employee code not found" : "missing employee code") : "missing date");
+      continue;
+    }
+
+    const targetKey = `${person.id}|${dateValue}`;
+    if (importedTargets.has(targetKey)) {
+      skipped += 1;
+      countSkipReason(skipReasons, "duplicate employee/date row");
       continue;
     }
 
@@ -4666,12 +4626,16 @@ async function importShiftRows(source, options = {}) {
       entry.outTime3 = normalizeImportTime(outTime3 || "");
       entry.status3 = valueByShiftHeader(columns, headerMap, "status3", 13) || "Working";
     }
-    const targetDates = overrideDates.length ? overrideDates : [dateValue];
-    for (const targetDate of targetDates) {
-      saveImportedShiftEntry(person, targetDate, entry);
-      touchedDates.add(targetDate);
-      updated += 1;
+    const validationError = validateImportedShiftEntry(entry);
+    if (validationError) {
+      skipped += 1;
+      countSkipReason(skipReasons, validationError);
+      continue;
     }
+    importedTargets.add(targetKey);
+    saveImportedShiftEntry(person, dateValue, entry);
+    touchedDates.add(dateValue);
+    updated += 1;
   }
 
   if (isCloudReady()) {
@@ -4685,18 +4649,21 @@ async function importShiftRows(source, options = {}) {
   return { updated, skipped, dates: Array.from(touchedDates), skipReasons };
 }
 
-function countSkipReason(reasons, key) {
-  reasons[key] = (reasons[key] || 0) + 1;
+function validateImportedShiftEntry(entry) {
+  if (isOffShiftLabel(entry.shift) || entry.status === "Weekly off") return "";
+  if (!isValidImportTime(entry.inTime) || !isValidImportTime(entry.outTime)) return "invalid primary shift time";
+  if ((entry.shift2 || entry.inTime2 || entry.outTime2) && (!isValidImportTime(entry.inTime2) || !isValidImportTime(entry.outTime2))) return "invalid second shift time";
+  if ((entry.shift3 || entry.inTime3 || entry.outTime3) && (!isValidImportTime(entry.inTime3) || !isValidImportTime(entry.outTime3))) return "invalid third shift time";
+  return "";
 }
 
-function dateKeysInRange(startDate, endDate) {
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-  const dates = [];
-  for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-    dates.push(localDateKey(date.getFullYear(), date.getMonth(), date.getDate()));
-  }
-  return dates;
+function isValidImportTime(value) {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+  return Boolean(match && Number(match[1]) <= 23 && Number(match[2]) <= 59);
+}
+
+function countSkipReason(reasons, key) {
+  reasons[key] = (reasons[key] || 0) + 1;
 }
 
 function findStaffForShiftImport(value) {
@@ -6071,15 +6038,6 @@ async function openDemoRole(role) {
     return;
   }
 
-  if (currentRole === "staff" && isCloudReady()) {
-    try {
-      await loadCloudStaffProfiles();
-      await loadCloudDailyRosterData();
-    } catch {
-      // The background sync retries if the full directory is temporarily unavailable.
-    }
-  }
-
   sessionStorage.setItem("staffsync.role", currentRole);
   sessionStorage.removeItem("staffsync.cloudEmail");
   if (currentRole === "staff" && currentAppUserId) {
@@ -7308,7 +7266,7 @@ async function syncCloudDashboard() {
     }
 
     try {
-      if (currentRole === "staff" && staff.length <= 1) await loadCloudStaffProfiles();
+      if (currentRole === staff && staff.length <= 1) await loadCloudStaffProfiles();
       shouldRender = true;
     } catch {
       // Keep the signed-in profile if the full staff directory cannot refresh.

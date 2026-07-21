@@ -1201,14 +1201,9 @@ body[data-role="staff"] nav a[data-page-link="staff"],
 body[data-role="staff"] nav a[data-page-link="location"],
 body[data-role="staff"] nav a[data-page-link="reports"],
 body[data-role="staff"] .leave-staff-field,
+body[data-role="staff"] #schedule,
 body[data-role="staff"] #leave-organizer {
   display: none;
-}
-
-body[data-role="staff"] #shift-form,
-body[data-role="staff"] .shift-import-box,
-body[data-role="staff"] .daily-roster-editor {
-  display: none !important;
 }
 
 .shift-planner-form {
@@ -1683,26 +1678,6 @@ body[data-role="staff"] .role-grid {
   gap: 0.45rem;
   min-width: 1120px;
   align-items: stretch;
-}
-.three-day-shift-grid {
-  display: grid;
-  gap: 0.45rem;
-  overflow-x: auto;
-  padding-bottom: 0.35rem;
-}
-
-.three-day-shift-grid .shift-calendar-row {
-  grid-template-columns: minmax(190px, 1.25fr) repeat(3, minmax(145px, 1fr));
-  min-width: 680px;
-}
-
-.shift-department-picker {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 190px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
 }
 
 .shift-calendar-header {

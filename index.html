@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="StaffSync Beach & Bliss Mirissa">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=165">
+  <link rel="stylesheet" href="style.css?v=169">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -61,7 +61,7 @@
         <button id="login-submit" type="button">Sign in</button>
         <button class="ghost install-button" id="install-app" type="button" hidden>Install app</button>
         <small class="login-note">Staff first login uses a temporary password, then they choose a new password.</small>
-        <small class="login-note">Running version 1.0.2</small>
+        <small class="login-note">Running StaffSync v169</small>
       </div>
     </div>
   </section>
@@ -95,7 +95,7 @@
         <div>
           <p class="eyebrow">Hotel staff operations</p>
           <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Version 1.0.2</p>
+          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Build v169</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose role">
@@ -698,27 +698,36 @@
               Upload completed Excel or CSV file
               <input id="shift-import-file" type="file" accept=".xlsx,.xls,.xlsm,.csv,text/csv">
             </label>
-            <div class="form-row">
-              <label>
-                Apply shifts from
-                <input id="shift-import-date" type="date">
-              </label>
-              <label>
-                Apply shifts through
-                <input id="shift-import-end-date" type="date">
-              </label>
-            </div>
+            <label>
+              Apply uploaded shifts to this date
+              <input id="shift-import-date" type="date">
+            </label>
             <label class="checkbox-line">
               <input id="shift-import-ignore-sheet-date" type="checkbox" checked>
-              Ignore sheet dates and use the date range above
+              Ignore sheet date and use the date above
             </label>
             <textarea id="shift-import-text" hidden></textarea>
             <div class="form-actions">
               <button id="import-shift-rows" type="button">Import uploaded shifts</button>
             </div>
-            <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies every uploaded shift to each day in the selected date range.</small>
+            <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies it to the date selected above, even if the sheet has an old date.</small>
           </div>
-          <div class="shift-list" id="shift-list"></div>
+          <div class="shift-calendar-card">
+            <div class="panel-header compact">
+              <div>
+                <p class="eyebrow">Shift calendar</p>
+                <h3>Department weekly shifts</h3>
+              </div>
+              <div class="report-controls">
+                <label>
+                  Calendar from
+                  <input id="shift-calendar-start" type="date">
+                </label>
+                <button class="ghost" id="shift-calendar-today" type="button">Today</button>
+              </div>
+            </div>
+            <div class="shift-calendar" id="shift-calendar"></div>
+          </div>          <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
             <div class="panel-header compact">
               <div>
@@ -898,11 +907,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=164"></script>
-  <script src="app.js?v=1.0.2"></script>
+  <script src="staffsync-data-service.js?v=169"></script>
+  <script src="app.js?v=169"></script>
 </body>
 </html>
-
-
-
 
