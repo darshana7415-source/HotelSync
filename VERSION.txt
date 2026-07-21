@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v179 - bulk shift repeat copies saved base date roster.
+StaffSync Beach & Bliss Mirissa build v182 - staff login reloads full directory for dashboard and shift views.

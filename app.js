@@ -7764,7 +7764,25 @@ document.addEventListener("click", async (event) => {
   }
 }, true);
 
+// staff-full-directory-refresh-v182
+async function refreshStaffDirectoryForShiftViews() {
+  if (currentRole !== "staff" || !isCloudReady()) return;
+  if (staff.length > 1) return;
+
+  try {
+    await loadCloudStaffProfiles();
+    await loadCloudDailyRosterData();
+    if (typeof renderAll === "function") renderAll();
+  } catch {
+    // Keep the current staff login active if the full directory is temporarily unavailable.
+  }
+}
+
+setTimeout(refreshStaffDirectoryForShiftViews, 1500);
+setInterval(refreshStaffDirectoryForShiftViews, 8000);
+
 init();
+
 
 
 
