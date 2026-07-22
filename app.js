@@ -8336,7 +8336,10 @@ setTimeout(staffsyncWakeShiftPageV196, 2500);
 function staffsyncVisibleShiftPanelV197() {
   const hashPage = String(location.hash || "").replace("#", "") || "dashboard";
   const isShiftPage = hashPage === "shifts" || hashPage === "schedule";
-  if (!isShiftPage) return;
+  if (!isShiftPage) {
+    document.querySelector("#staffsync-visible-shift-panel-v197")?.remove();
+    return;
+  }
 
   const oldPanel = document.querySelector("#staffsync-visible-shift-panel-v197");
   if (oldPanel) oldPanel.remove();
@@ -8408,12 +8411,16 @@ function staffsyncVisibleShiftPanelV197() {
 window.addEventListener("hashchange", () => {
   setTimeout(staffsyncVisibleShiftPanelV197, 300);
   setTimeout(staffsyncVisibleShiftPanelV197, 1500);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
 });
 document.addEventListener("click", (event) => {
   if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
     setTimeout(staffsyncVisibleShiftPanelV197, 300);
     setTimeout(staffsyncVisibleShiftPanelV197, 1500);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
   }
 });
 setTimeout(staffsyncVisibleShiftPanelV197, 1500);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
+
 

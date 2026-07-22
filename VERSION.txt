@@ -1,2 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - stable working release
-
+StaffSync Beach & Bliss Mirissa Version 1.0 - fixed Shift page panel cleanup.
