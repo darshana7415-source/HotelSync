@@ -1,1 +1,2 @@
-StaffSync Beach & Bliss Mirissa build v198 - Shift page reads all saved shift time fields.
+StaffSync Beach & Bliss Mirissa Version 1.0 - stable working release
+
