@@ -1043,55 +1043,69 @@ function activeStaffForCurrentLogin() {
 function renderShiftCalendar() {
   if (!shiftCalendar) return;
 
-  const startDate = shiftCalendarStart?.value || todayLocalKey();
-  if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
+  try {
+    const startDate = shiftCalendarStart?.value || todayLocalKey();
+    if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
 
-  const dates = nextDateKeys(startDate, 3);
-
-  const activePerson =
-    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
-    staff.find((person) => sameId(person.id, activeStaffId)) ||
-    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-
-  const departments = Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
-
-  const sections = departments.map((department) => {
-    const people = sortStaffByEmployeeCode(staff.filter((person) =>
-      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    const dates = nextDateKeys(startDate, 3);
+    const activeStaff = sortStaffByEmployeeCode((staff || []).filter((person) =>
+      person && !String(person.employeeCode || "").includes("-removed-")
     ));
 
-    if (!people.length) return "";
+    const departments = Array.from(new Set(activeStaff.map((person) => person.department || "General"))).sort();
 
-    return `
-      <details class="shift-dept-fold" open>
-        <summary>${department || "General"}</summary>
-        <div class="shift-simple-grid">
-          <div class="shift-simple-head">Staff</div>
-          ${dates.map((dateValue) => `
-            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
-          `).join("")}
+    if (!activeStaff.length || !departments.length) {
+      shiftCalendar.innerHTML = `<div class="mini-empty">No staff found for the Shift page.</div>`;
+      return;
+    }
 
-          ${people.map((person) => `
-            <div class="shift-simple-staff">
-              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-              <small>${person.role || "Staff"}</small>
-            </div>
-            ${dates.map((dateValue) => shiftSimpleCell(person, dateValue)).join("")}
-          `).join("")}
-        </div>
-      </details>
-    `;
-  }).join("");
+    const sections = departments.map((department) => {
+      const people = sortStaffByEmployeeCode(activeStaff.filter((person) =>
+        normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+      ));
 
-  shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for this department.</div>`;
+      if (!people.length) return "";
+
+      return `
+        <section class="shift-page-department">
+          <h3>${department || "General"}</h3>
+          <div class="shift-simple-grid">
+            <div class="shift-simple-head">Staff</div>
+            ${dates.map((dateValue) => `
+              <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
+            `).join("")}
+
+            ${people.map((person) => `
+              <div class="shift-simple-staff">
+                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+                <small>${person.role || "Staff"}</small>
+              </div>
+              ${dates.map((dateValue) => shiftSimpleCell(person, dateValue)).join("")}
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
+
+    shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
+  } catch (error) {
+    console.error("Shift page render failed", error);
+    shiftCalendar.innerHTML = `<div class="mini-empty">Shift page could not load: ${error?.message || "unknown error"}</div>`;
+  }
 }
 
 function shiftSimpleCell(person, dateValue) {
-  const entry = dailyRosterEntryFor(person, dateValue) || {};
+  let entry = {};
+  try {
+    entry = dailyRosterEntryFor(person, dateValue) || {};
+  } catch (error) {
+    entry = {};
+  }
+
   const status = String(entry.status || "").toLowerCase();
   const isLeave = status.includes("leave");
   const name = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-  const time = staffsyncShiftTimeTextV190(entry);
+  const time = staffsyncShiftPageTimeTextV195(entry, person);
 
   return `
     <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
@@ -1099,6 +1113,18 @@ function shiftSimpleCell(person, dateValue) {
       <span>${time}</span>
     </div>
   `;
+}
+
+function staffsyncShiftPageTimeTextV195(entry, person) {
+  const start = entry.startTime || entry.start || entry.from || entry.inTime || "";
+  const end = entry.endTime || entry.end || entry.to || entry.outTime || "";
+
+  if (start && end) return `${start} - ${end}`;
+  if (start) return `${start} start`;
+  if (entry.hours) return `${entry.hours} hours`;
+  if (entry.durationHours) return `${entry.durationHours} hours`;
+  if (String(person?.shift || "").toLowerCase().includes("10")) return "10 hours";
+  return "10 hours";
 }
 function renderShiftTimeline(dateValue, calendarDepartments) {
   const departments = (calendarDepartments || [])
@@ -8244,6 +8270,7 @@ document.addEventListener("click", (event) => {
 }, true);
 
 init();
+
 
 
 
