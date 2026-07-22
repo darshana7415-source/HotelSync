@@ -8388,9 +8388,10 @@ function staffsyncVisibleShiftPanelV197() {
                   const status = String(entry.status || "").toLowerCase();
                   const isLeave = status.includes("leave");
                   const label = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-                  const start = entry.startTime || entry.start || entry.from || "";
-                  const end = entry.endTime || entry.end || entry.to || "";
-                  const time = start && end ? `${start} - ${end}` : (start || "10 hours");
+                  const start = entry.startTime || entry.start_time || entry.start || entry.from || entry.in || entry.inTime || entry.clockIn || entry.clock_in || entry.shiftStart || entry.shift_start || "";
+                  const end = entry.endTime || entry.end_time || entry.end || entry.to || entry.out || entry.outTime || entry.clockOut || entry.clock_out || entry.shiftEnd || entry.shift_end || "";
+                  const timeText = entry.time || entry.shiftTime || entry.shift_time || entry.timeRange || entry.time_range || entry.hoursText || "";
+                  const time = timeText || (start && end ? `${start} - ${end}` : (start || "10 hours"));
                   return `<div class="shift-simple-cell ${isLeave ? "is-leave" : ""}"><strong>${label}</strong><span>${time}</span></div>`;
                 }).join("")}
               `).join("")}
@@ -8415,3 +8416,4 @@ document.addEventListener("click", (event) => {
   }
 });
 setTimeout(staffsyncVisibleShiftPanelV197, 1500);
+

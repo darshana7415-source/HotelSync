@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v197 - visible Shift page panel added.
+StaffSync Beach & Bliss Mirissa build v198 - Shift page reads all saved shift time fields.
