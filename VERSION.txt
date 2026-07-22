@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v196 - fixed Shift page schedule/shifts navigation mismatch.
+StaffSync Beach & Bliss Mirissa build v197 - visible Shift page panel added.
