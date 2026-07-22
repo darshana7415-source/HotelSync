@@ -374,7 +374,7 @@ function renderAll() {
 function applyPageFromHash() {
   const hash = (window.location.hash || "#dashboard").replace("#", "");
   let page = pageSections[hash] ? hash : (pageAliases[hash] || "dashboard");
-  if (currentRole === "staff" && !["dashboard", "shifts", "leave"].includes(page)) {
+  if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave"].includes(page)) {
     page = "dashboard";
     if (window.location.hash !== "#dashboard") window.location.hash = "dashboard";
   }
@@ -8289,3 +8289,44 @@ init();
 
 
 
+
+
+// shift-page-navigation-v196
+function staffsyncWakeShiftPageV196() {
+  const page = String(location.hash || "").replace("#", "") || "dashboard";
+  const wantsShiftPage = page === "shifts" || page === "schedule";
+
+  if (!wantsShiftPage) return;
+
+  const calendar = document.querySelector("#shift-calendar");
+  if (!calendar) return;
+
+  const startInput = document.querySelector("#shift-calendar-start");
+  if (startInput && !startInput.value && typeof todayLocalKey === "function") {
+    startInput.value = todayLocalKey();
+  }
+
+  if (typeof renderShiftCalendar === "function") {
+    renderShiftCalendar();
+  }
+
+  if (!calendar.innerHTML.trim()) {
+    calendar.innerHTML = `<div class="mini-empty">Shift page loaded, but no shift rows were found. Please check staff profiles and saved shifts.</div>`;
+  }
+}
+
+window.addEventListener("hashchange", () => {
+  setTimeout(staffsyncWakeShiftPageV196, 100);
+  setTimeout(staffsyncWakeShiftPageV196, 700);
+});
+
+document.addEventListener("click", (event) => {
+  const shiftClick = event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]');
+  if (shiftClick) {
+    setTimeout(staffsyncWakeShiftPageV196, 100);
+    setTimeout(staffsyncWakeShiftPageV196, 700);
+  }
+});
+
+setTimeout(staffsyncWakeShiftPageV196, 1000);
+setTimeout(staffsyncWakeShiftPageV196, 2500);

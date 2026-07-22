@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v195 - clean Shift page renderer for all employees, 3-day view.
+StaffSync Beach & Bliss Mirissa build v196 - fixed Shift page schedule/shifts navigation mismatch.
