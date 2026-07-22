@@ -6517,8 +6517,8 @@ function getCurrentPositionSafe() {
       () => resolve(null),
       {
         enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
+        timeout: 2500,
+        maximumAge: 60000
       }
     );
   });
@@ -6565,8 +6565,8 @@ function watchCurrentPosition(onPosition) {
     () => {},
     {
       enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 15000
+      maximumAge: 60000,
+      timeout: 2500
     }
   );
 }
@@ -8144,6 +8144,7 @@ document.addEventListener("click", (event) => {
 }, true);
 
 init();
+
 
 
 

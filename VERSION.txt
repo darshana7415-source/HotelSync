@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa build v192 - clock in no longer blocked when GPS is slow.
+StaffSync Beach & Bliss Mirissa build v193 - faster clock in/out GPS wait.
