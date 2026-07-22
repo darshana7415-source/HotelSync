@@ -8143,7 +8143,108 @@ document.addEventListener("click", (event) => {
   }
 }, true);
 
+// staff-shift-page-viewer-v194
+function staffsyncShiftTimeTextV194(entry) {
+  const start = entry?.start || entry?.startTime || entry?.start_time || entry?.from || entry?.fromTime || entry?.inTime || "";
+  const end = entry?.end || entry?.endTime || entry?.end_time || entry?.to || entry?.toTime || entry?.outTime || "";
+  if (start && end) return `${start} - ${end}`;
+  return entry?.time || entry?.timeText || entry?.hours || entry?.note || "Time not set";
+}
+
+function staffsyncShiftCellV194(person, dateValue) {
+  const entry = dailyRosterEntryFor(person, dateValue) || {};
+  const status = String(entry.status || "").toLowerCase();
+  const isLeave = status.includes("leave");
+  const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+  const time = staffsyncShiftTimeTextV194(entry);
+
+  return `
+    <div class="shift-v194-cell ${isLeave ? "is-leave" : ""}">
+      <strong>${shiftName}</strong>
+      <span>${time}</span>
+    </div>
+  `;
+}
+
+function staffsyncShiftDepartmentsV194() {
+  return Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
+}
+
+function staffsyncRenderShiftViewV194() {
+  const dates = nextDateKeys(todayLocalKey(), 3);
+  const departments = staffsyncShiftDepartmentsV194();
+
+  const sections = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(staff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
+
+    if (!people.length) return "";
+
+    return `
+      <details class="shift-v194-dept" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-v194-grid">
+          <div class="shift-v194-head">Staff</div>
+          ${dates.map((dateValue) => `
+            <div class="shift-v194-head">
+              ${formatDate(dateValue)}
+              <small>${shortDayName(dateValue)}</small>
+            </div>
+          `).join("")}
+
+          ${people.map((person) => `
+            <div class="shift-v194-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => staffsyncShiftCellV194(person, dateValue)).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  return sections || `<div class="mini-empty">No shifts found for the next 3 days.</div>`;
+}
+
+function staffsyncOpenShiftViewV194() {
+  let modal = document.querySelector("#staffsync-shift-view-v194");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "staffsync-shift-view-v194";
+    modal.className = "shift-v194-modal";
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="shift-v194-card">
+      <div class="box-title-row">
+        <div>
+          <strong>3-Day Shift View</strong>
+          <small>All employees grouped department-wise.</small>
+        </div>
+        <button id="staffsync-close-shift-view-v194" class="ghost" type="button">Close</button>
+      </div>
+      ${staffsyncRenderShiftViewV194()}
+    </div>
+  `;
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.("#open-shift-modal-view-top")) {
+    event.preventDefault();
+    staffsyncOpenShiftViewV194();
+  }
+
+  if (event.target?.closest?.("#staffsync-close-shift-view-v194")) {
+    event.preventDefault();
+    document.querySelector("#staffsync-shift-view-v194")?.remove();
+  }
+}, true);
+
 init();
+
 
 
 
