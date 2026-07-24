@@ -2546,3 +2546,14 @@ button.danger {
     display: none;
   }
 }
+
+
+/* remove-old-three-day-shift-ui-v201 */
+#staffsync-visible-shift-panel-v197,
+#shift-modal-view,
+#open-shift-modal-view,
+#open-shift-modal-view-top,
+#floating-shift-view-button,
+.shift-calendar-card {
+  display: none !important;
+}

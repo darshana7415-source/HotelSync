@@ -721,23 +721,7 @@
             </div>
             <small class="form-note" id="shift-import-result">Upload Excel or CSV. By default, StaffSync applies it to the date selected above, even if the sheet has an old date.</small>
           </div>
-          <div class="shift-calendar-card">
-            <button id="open-shift-modal-view-top" class="primary-action shift-page-open-button" type="button">Open 3-Day Shift View</button>
-            <div class="panel-header compact">
-              <div>
-                <p class="eyebrow">Shift calendar</p>
-                <h3>Department weekly shifts</h3>
-              </div>
-              <div class="report-controls">
-                <label>
-                  Calendar from
-                  <input id="shift-calendar-start" type="date">
-                </label>
-                <button class="ghost" id="shift-calendar-today" type="button">Today</button>
-              </div>
-            </div>
-            <div class="shift-calendar" id="shift-calendar"></div>
-          </div>          <div class="shift-list" id="shift-list"></div>
+                    <div class="shift-list" id="shift-list"></div>
           <div class="daily-roster-editor">
             <div class="panel-header compact">
               <div>
@@ -918,9 +902,10 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
   <script src="staffsync-data-service.js?v=194"></script>
-  <script src="app.js?v=199"></script>
+  <script src="app.js?v=201"></script>
 </body>
 </html>
+
 
 
 

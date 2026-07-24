@@ -8332,99 +8332,20 @@ setTimeout(staffsyncWakeShiftPageV196, 1000);
 setTimeout(staffsyncWakeShiftPageV196, 2500);
 
 
-// shift-visible-panel-v197
-function staffsyncVisibleShiftPanelV197() {
-  const hashPage = String(location.hash || "").replace("#", "") || "dashboard";
-  const isShiftPage = hashPage === "shifts" || hashPage === "schedule";
-  if (!isShiftPage) {
-    document.querySelector("#staffsync-visible-shift-panel-v197")?.remove();
-    return;
-  }
 
-  const oldPanel = document.querySelector("#staffsync-visible-shift-panel-v197");
-  if (oldPanel) oldPanel.remove();
 
-  const pages = Array.from(document.querySelectorAll("[data-view], .view, section, main"));
-  const visiblePage = pages.find((page) => {
-    const rect = page.getBoundingClientRect();
-    const style = getComputedStyle(page);
-    return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
-  }) || document.querySelector("main") || document.body;
 
-  const dates = typeof nextDateKeys === "function" ? nextDateKeys(typeof todayLocalKey === "function" ? todayLocalKey() : new Date().toISOString().slice(0, 10), 3) : [];
-  const activeStaff = typeof sortStaffByEmployeeCode === "function"
-    ? sortStaffByEmployeeCode((staff || []).filter((person) => person && !String(person.employeeCode || "").includes("-removed-")))
-    : (staff || []);
-
-  const departments = Array.from(new Set(activeStaff.map((person) => person.department || "General"))).sort();
-
-  const panel = document.createElement("section");
-  panel.id = "staffsync-visible-shift-panel-v197";
-  panel.className = "staffsync-visible-shift-panel-v197";
-
-  if (!activeStaff.length) {
-    panel.innerHTML = `<h2>Shift view</h2><div class="mini-empty">No staff loaded yet. Please wait a few seconds and reopen Shifts.</div>`;
-  } else {
-    panel.innerHTML = `
-      <h2>Shift view - next 3 days</h2>
-      <p class="form-note">All employees are shown department wise.</p>
-      ${departments.map((department) => {
-        const people = activeStaff.filter((person) =>
-          (typeof normalizeDepartment === "function"
-            ? normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
-            : (person.department || "General") === (department || "General"))
-        );
-        return `
-          <details class="shift-dept-fold" open>
-            <summary>${department || "General"}</summary>
-            <div class="shift-simple-grid">
-              <div class="shift-simple-head">Staff</div>
-              ${dates.map((dateValue) => `<div class="shift-simple-head">${typeof formatDate === "function" ? formatDate(dateValue) : dateValue}</div>`).join("")}
-              ${people.map((person) => `
-                <div class="shift-simple-staff">
-                  <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-                  <small>${person.role || "Staff"}</small>
-                </div>
-                ${dates.map((dateValue) => {
-                  let entry = {};
-                  try { entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {}; } catch (error) {}
-                  const status = String(entry.status || "").toLowerCase();
-                  const isLeave = status.includes("leave");
-                  const label = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-                  const start = entry.startTime || entry.start_time || entry.start || entry.from || entry.in || entry.inTime || entry.clockIn || entry.clock_in || entry.shiftStart || entry.shift_start || "";
-                  const end = entry.endTime || entry.end_time || entry.end || entry.to || entry.out || entry.outTime || entry.clockOut || entry.clock_out || entry.shiftEnd || entry.shift_end || "";
-                  const timeText = entry.time || entry.shiftTime || entry.shift_time || entry.timeRange || entry.time_range || entry.hoursText || "";
-                  const time = timeText || (start && end ? `${start} - ${end}` : (start || "10 hours"));
-                  return `<div class="shift-simple-cell ${isLeave ? "is-leave" : ""}"><strong>${label}</strong><span>${time}</span></div>`;
-                }).join("")}
-              `).join("")}
-            </div>
-          </details>
-        `;
-      }).join("")}
-    `;
-  }
-
-  visiblePage.prepend(panel);
+// remove-old-three-day-shift-ui-v201
+function staffsyncRemoveOldThreeDayShiftUiV201() {
+  [
+    "#staffsync-visible-shift-panel-v197",
+    "#shift-modal-view",
+    "#open-shift-modal-view",
+    "#open-shift-modal-view-top",
+    "#floating-shift-view-button",
+    ".shift-calendar-card"
+  ].forEach((selector) => document.querySelectorAll(selector).forEach((item) => item.remove()));
 }
-
-window.addEventListener("hashchange", () => {
-  setTimeout(staffsyncVisibleShiftPanelV197, 300);
-  setTimeout(staffsyncVisibleShiftPanelV197, 1500);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-});
-document.addEventListener("click", (event) => {
-  if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
-    setTimeout(staffsyncVisibleShiftPanelV197, 300);
-    setTimeout(staffsyncVisibleShiftPanelV197, 1500);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-  }
-});
-setTimeout(staffsyncVisibleShiftPanelV197, 1500);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-setInterval(staffsyncVisibleShiftPanelV197, 1200);
-
-
-
+document.addEventListener("DOMContentLoaded", staffsyncRemoveOldThreeDayShiftUiV201);
+window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 100));
+setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 1000);
