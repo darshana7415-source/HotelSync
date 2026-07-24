@@ -2,7 +2,7 @@
   "name": "StaffSync Beach & Bliss Mirissa",
   "short_name": "StaffSync",
   "description": "Beach & Bliss Mirissa staff shifts, leave, attendance, and location check app.",
-  "start_url": "./index.html?v=202",
+  "start_url": "./index.html?v=203",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eef3f6",
@@ -16,6 +16,7 @@
     }
   ]
 }
+
 
 
 

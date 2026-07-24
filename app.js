@@ -958,12 +958,6 @@ function renderShifts() {
   }).join("") : `<div class="mini-empty">No manual saved shift plans yet. Current default shifts are still shown above.</div>`;
 
   shiftList.innerHTML = `
-    <div class="shift-list-section">
-      <div class="box-title-row">
-        <div>
-          <strong>All staff shifts today</strong>
-          <small>Every staff member is listed here. Saved shifts continue until changed.</small>
-        </div>
       </div>
       ${staffRows || `<div class="mini-empty">No staff loaded yet.</div>`}
     </div>
@@ -8348,5 +8342,6 @@ function staffsyncRemoveOldThreeDayShiftUiV201() {
 }
 document.addEventListener("DOMContentLoaded", staffsyncRemoveOldThreeDayShiftUiV201);
 window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 100));
-setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 1000);
+
+
 
