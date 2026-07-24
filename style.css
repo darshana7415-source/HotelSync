@@ -2595,3 +2595,14 @@ button.danger {
 .department-shift-fold[open] > summary::after {
   content: "Close";
 }
+
+
+/* remove-shift-staff-list-v205 */
+#staffsync-visible-shift-panel-v197,
+#shift-modal-view,
+#floating-shift-view-button,
+#open-shift-modal-view,
+#open-shift-modal-view-top,
+.shift-calendar-card {
+  display: none !important;
+}
