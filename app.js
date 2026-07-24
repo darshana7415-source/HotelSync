@@ -7786,7 +7786,6 @@ async function refreshStaffDirectoryForShiftViews() {
 }
 
 setTimeout(refreshStaffDirectoryForShiftViews, 1500);
-setInterval(refreshStaffDirectoryForShiftViews, 8000);
 
 // shift-page-direct-render-v185
 function renderShiftPageDirectly() {
@@ -7870,7 +7869,6 @@ function wakeShiftPageDirectRender() {
 document.addEventListener("click", () => setTimeout(wakeShiftPageDirectRender, 250), true);
 window.addEventListener("hashchange", () => setTimeout(wakeShiftPageDirectRender, 250));
 document.addEventListener("DOMContentLoaded", () => setTimeout(wakeShiftPageDirectRender, 1000));
-setInterval(wakeShiftPageDirectRender, 5000);
 
 // shift-page-force-render-v186
 function forceShiftPageRender() {
@@ -7888,7 +7886,6 @@ document.addEventListener("click", () => setTimeout(forceShiftPageRender, 400), 
 window.addEventListener("hashchange", () => setTimeout(forceShiftPageRender, 400));
 setTimeout(forceShiftPageRender, 1500);
 setTimeout(forceShiftPageRender, 4000);
-setInterval(forceShiftPageRender, 6000);
 
 // shift-visible-rescue-panel-v187
 function isShiftScreenActive() {
@@ -7926,88 +7923,11 @@ function ensureShiftRescuePanel() {
   return panel;
 }
 
-function renderVisibleShiftRescuePanel() {
-  const panel = ensureShiftRescuePanel();
-  if (!panel) return;
-
-  if (!isShiftScreenActive()) {
-    panel.style.display = "none";
-    return;
-  }
-
-  panel.style.display = "block";
-
-  const activePerson =
-    (typeof activeStaffForCurrentLogin === "function" ? activeStaffForCurrentLogin() : null) ||
-    staff.find((person) => sameId(person.id, activeStaffId)) ||
-    staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
-
-  if (!staff.length) {
-    panel.innerHTML = `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`;
-    return;
-  }
-
-  const startDate = todayLocalKey();
-  const dates = nextDateKeys(startDate, 3);
-
-  const departments = Array.from(new Set(staff.map((person) => person.department || "General"))).sort();
-
-  const sections = departments.map((department) => {
-    const people = sortStaffByEmployeeCode(staff.filter((person) =>
-      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
-    ));
-
-    if (!people.length) return "";
-
-    return `
-      <details class="shift-dept-fold">
-        <summary>${department || "General"}</summary>
-        <div class="shift-simple-grid">
-          <div class="shift-simple-head">Staff</div>
-          ${dates.map((dateValue) => `
-            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
-          `).join("")}
-
-          ${people.map((person) => `
-            <div class="shift-simple-staff">
-              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-              <small>${person.role || "Staff"}</small>
-            </div>
-            ${dates.map((dateValue) => {
-              const entry = dailyRosterEntryFor(person, dateValue) || {};
-              const status = String(entry.status || "").toLowerCase();
-              const isLeave = status.includes("leave");
-              const shiftName = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
-              const time = staffsyncShiftTimeTextV190(entry);
-
-              return `
-                <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
-                  <strong>${shiftName}</strong>
-                  <span>${time}</span>
-                </div>
-              `;
-            }).join("")}
-          `).join("")}
-        </div>
-      </details>
-    `;
-  }).join("");
-
-  panel.innerHTML = `
-    <div class="box-title-row">
-      <div>
-        <strong>Department shifts - next 3 days</strong>
-        <small>Staff can see same department shifts. Admin and manager can see all departments.</small>
-      </div>
-    </div>
-    ${sections || `<div class="mini-empty">No shifts found for the next 3 days.</div>`}
-  `;
-}
+function renderVisibleShiftRescuePanel() {}
 
 document.addEventListener("click", () => setTimeout(renderVisibleShiftRescuePanel, 300), true);
 window.addEventListener("hashchange", () => setTimeout(renderVisibleShiftRescuePanel, 300));
 setTimeout(renderVisibleShiftRescuePanel, 1500);
-setInterval(renderVisibleShiftRescuePanel, 5000);
 
 // shift-modal-view-v188
 function shiftModalDepartments() {
@@ -8094,22 +8014,7 @@ function openShiftModalView() {
   `;
 }
 
-function ensureShiftModalButton() {
-  if (document.querySelector("#open-shift-modal-view")) return;
-
-  const button = document.createElement("button");
-  button.id = "open-shift-modal-view";
-  button.className = "primary-action shift-modal-open";
-  button.type = "button";
-  button.textContent = "Open 3-Day Shift View";
-
-  const target =
-    document.querySelector("#dashboard") ||
-    document.querySelector("main") ||
-    document.body;
-
-  target.prepend(button);
-}
+function ensureShiftModalButton() {}
 
 document.addEventListener("click", (event) => {
   if (event.target?.closest?.("#open-shift-modal-view")) {
@@ -8124,31 +8029,12 @@ document.addEventListener("click", (event) => {
 }, true);
 
 setTimeout(ensureShiftModalButton, 1500);
-setInterval(ensureShiftModalButton, 5000);
 
 // shift-floating-button-v189
-function ensureFloatingShiftButton() {
-  if (document.querySelector("#floating-shift-view-button")) return;
-
-  const button = document.createElement("button");
-  button.id = "floating-shift-view-button";
-  button.type = "button";
-  button.textContent = "3-Day Shifts";
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    if (typeof openShiftModalView === "function") {
-      openShiftModalView();
-    } else {
-      alert("Shift view is still loading. Please wait a few seconds and try again.");
-    }
-  });
-
-  document.body.appendChild(button);
-}
+function ensureFloatingShiftButton() {}
 
 document.addEventListener("DOMContentLoaded", () => setTimeout(ensureFloatingShiftButton, 1000));
 setTimeout(ensureFloatingShiftButton, 2000);
-setInterval(ensureFloatingShiftButton, 5000);
 
 // shift-top-button-click-v191
 document.addEventListener("click", (event) => {
@@ -8319,3 +8205,4 @@ document.addEventListener("click", (event) => {
     setTimeout(staffsyncRemoveShiftPageStaffListV206, 400);
   }
 });
+

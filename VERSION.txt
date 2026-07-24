@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - removed Shift page staff list and stopped dropdown flashing.
+StaffSync Beach & Bliss Mirissa Version 1.0 - removed old shift rescue timers causing flashing.
