@@ -8349,3 +8349,57 @@ document.addEventListener("click", (event) => {
     setTimeout(staffsyncAdminThreeDayShiftPageV210, 500);
   }
 });
+
+
+// remove-headingless-bottom-shift-list-v212
+function staffsyncRemoveHeadinglessBottomShiftListV212() {
+  const page = String(location.hash || "").replace("#", "") || "dashboard";
+  const isShiftPage = page === "shifts" || page === "schedule";
+  if (!isShiftPage) return;
+
+  [
+    "#daily-roster-body",
+    "#daily-roster-table",
+    "#daily-roster-date",
+    "#save-daily-roster",
+    "#clear-daily-roster",
+    "[data-roster-staff]"
+  ].forEach((selector) => {
+    document.querySelectorAll(selector).forEach((item) => {
+      const box = item.closest("section, .card, .panel, .table-wrap, table, tbody, tr") || item;
+      if (!box.closest("#staffsync-admin-three-day-shifts-v210")) {
+        box.remove();
+      }
+    });
+  });
+
+  document.querySelectorAll("table, tbody, .table-wrap, section, .card, .panel").forEach((box) => {
+    if (box.closest("#staffsync-admin-three-day-shifts-v210")) return;
+    const text = (box.innerText || "").trim();
+
+    const hasManyStaffCodes =
+      (text.match(/\b0[1-9]\b|\b1[0-9]\b|\b2[0-7]\b/g) || []).length >= 8;
+
+    const looksLikeShiftList =
+      hasManyStaffCodes &&
+      (
+        text.includes("Morning") ||
+        text.includes("Evening") ||
+        text.includes("10h") ||
+        text.includes("10 hours") ||
+        text.includes("Time not set")
+      );
+
+    if (looksLikeShiftList) {
+      box.remove();
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncRemoveHeadinglessBottomShiftListV212, 900));
+window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveHeadinglessBottomShiftListV212, 900));
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
+    setTimeout(staffsyncRemoveHeadinglessBottomShiftListV212, 900);
+  }
+});

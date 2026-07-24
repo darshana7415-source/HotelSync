@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - single 3-day shift panel with actual shift times.
+StaffSync Beach & Bliss Mirissa Version 1.0 - removed headingless bottom shift staff list.

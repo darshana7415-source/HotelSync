@@ -2671,3 +2671,14 @@ body.staffsync-admin-shift-v209 .staff-list {
   font-weight: 800;
   color: #064f52;
 }
+
+
+/* remove-headingless-bottom-shift-list-v212 */
+body.staffsync-admin-shift-v210 #daily-roster-body,
+body.staffsync-admin-shift-v210 #daily-roster-table,
+body.staffsync-admin-shift-v210 #daily-roster-date,
+body.staffsync-admin-shift-v210 #save-daily-roster,
+body.staffsync-admin-shift-v210 #clear-daily-roster,
+body.staffsync-admin-shift-v210 [data-roster-staff] {
+  display: none !important;
+}
