@@ -8285,130 +8285,37 @@ init();
 
 
 
-// shift-page-navigation-v196
-function staffsyncWakeShiftPageV196() {
-  const page = String(location.hash || "").replace("#", "") || "dashboard";
-  const wantsShiftPage = page === "shifts" || page === "schedule";
-
-  if (!wantsShiftPage) return;
-
-  const calendar = document.querySelector("#shift-calendar");
-  if (!calendar) return;
-
-  const startInput = document.querySelector("#shift-calendar-start");
-  if (startInput && !startInput.value && typeof todayLocalKey === "function") {
-    startInput.value = todayLocalKey();
-  }
-
-  if (typeof renderShiftCalendar === "function") {
-    renderShiftCalendar();
-  }
-
-  if (!calendar.innerHTML.trim()) {
-    calendar.innerHTML = `<div class="mini-empty">Shift page loaded, but no shift rows were found. Please check staff profiles and saved shifts.</div>`;
-  }
-}
-
-window.addEventListener("hashchange", () => {
-  setTimeout(staffsyncWakeShiftPageV196, 100);
-  setTimeout(staffsyncWakeShiftPageV196, 700);
-});
-
-document.addEventListener("click", (event) => {
-  const shiftClick = event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]');
-  if (shiftClick) {
-    setTimeout(staffsyncWakeShiftPageV196, 100);
-    setTimeout(staffsyncWakeShiftPageV196, 700);
-  }
-});
-
-setTimeout(staffsyncWakeShiftPageV196, 1000);
-setTimeout(staffsyncWakeShiftPageV196, 2500);
 
 
 
-
-
-// remove-old-three-day-shift-ui-v201
-function staffsyncRemoveOldThreeDayShiftUiV201() {
-  [
-    "#staffsync-visible-shift-panel-v197",
-    "#shift-modal-view",
-    "#open-shift-modal-view",
-    "#open-shift-modal-view-top",
-    "#floating-shift-view-button",
-    ".shift-calendar-card"
-  ].forEach((selector) => document.querySelectorAll(selector).forEach((item) => item.remove()));
-}
-document.addEventListener("DOMContentLoaded", staffsyncRemoveOldThreeDayShiftUiV201);
-window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 100));
-
-
-
-
-
-// admin-shift-cleanup-v204
-const staffsyncShiftDropdownStateV204 = {};
-
-function staffsyncCleanAdminShiftUiV204() {
-  document.querySelectorAll("section, .card, .mini-card, .panel, div").forEach((box) => {
-    const text = (box.innerText || "").trim();
-    if (text.includes("All staff shifts today")) {
-      box.remove();
-    }
-  });
-
-  document.querySelectorAll("details.shift-dept-fold, details.shift-page-department, details.department-shift-fold").forEach((details) => {
-    const key = (details.querySelector("summary")?.innerText || "").trim();
-    if (!key) return;
-    if (staffsyncShiftDropdownStateV204[key] === true) details.open = true;
-    if (staffsyncShiftDropdownStateV204[key] === false) details.open = false;
-  });
-}
-
-document.addEventListener("toggle", (event) => {
-  const details = event.target;
-  if (!details?.matches?.("details.shift-dept-fold, details.shift-page-department, details.department-shift-fold")) return;
-  const key = (details.querySelector("summary")?.innerText || "").trim();
-  if (key) staffsyncShiftDropdownStateV204[key] = details.open;
-}, true);
-
-document.addEventListener("DOMContentLoaded", staffsyncCleanAdminShiftUiV204);
-window.addEventListener("hashchange", () => {
-  setTimeout(staffsyncCleanAdminShiftUiV204, 100);
-  setTimeout(staffsyncCleanAdminShiftUiV204, 800);
-});
-document.addEventListener("click", () => {
-  setTimeout(staffsyncCleanAdminShiftUiV204, 100);
-  setTimeout(staffsyncCleanAdminShiftUiV204, 800);
-});
-
-
-
-// remove-shift-staff-list-v205
-function staffsyncRemoveShiftStaffListV205() {
+// remove-shift-page-staff-list-v206
+function staffsyncRemoveShiftPageStaffListV206() {
   const page = String(location.hash || "").replace("#", "") || "dashboard";
   const isShiftPage = page === "shifts" || page === "schedule";
-
-  document.querySelectorAll("#staffsync-visible-shift-panel-v197, #shift-modal-view, #floating-shift-view-button, #open-shift-modal-view, #open-shift-modal-view-top, .shift-calendar-card").forEach((item) => item.remove());
-
   if (!isShiftPage) return;
 
-  document.querySelectorAll("section, .card, .mini-card, .panel, div").forEach((box) => {
+  document.querySelectorAll(
+    ".shift-calendar-card, #staffsync-visible-shift-panel-v197, #shift-modal-view, #floating-shift-view-button, #open-shift-modal-view, #open-shift-modal-view-top"
+  ).forEach((item) => item.remove());
+
+  document.querySelectorAll("section, .card, .panel, .mini-card").forEach((box) => {
     const text = (box.innerText || "").trim();
     if (
       text.includes("All staff shifts today") ||
-      text.includes("All employee shifts") ||
       text.includes("Every staff member is listed here") ||
       text.includes("Department shifts - next 3 days") ||
-      text.includes("Shift view - next 3 days")
+      text.includes("Shift view - next 3 days") ||
+      text.includes("All employee shifts")
     ) {
       box.remove();
     }
   });
 }
 
-document.addEventListener("DOMContentLoaded", staffsyncRemoveShiftStaffListV205);
-window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveShiftStaffListV205, 200));
-document.addEventListener("click", () => setTimeout(staffsyncRemoveShiftStaffListV205, 200));
-setTimeout(staffsyncRemoveShiftStaffListV205, 1000);
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncRemoveShiftPageStaffListV206, 400));
+window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveShiftPageStaffListV206, 400));
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
+    setTimeout(staffsyncRemoveShiftPageStaffListV206, 400);
+  }
+});

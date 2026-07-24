@@ -2606,3 +2606,14 @@ button.danger {
 .shift-calendar-card {
   display: none !important;
 }
+
+
+/* remove-shift-page-staff-list-v206 */
+.shift-calendar-card,
+#staffsync-visible-shift-panel-v197,
+#shift-modal-view,
+#floating-shift-view-button,
+#open-shift-modal-view,
+#open-shift-modal-view-top {
+  display: none !important;
+}
