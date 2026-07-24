@@ -1035,133 +1035,6 @@ function activeStaffForCurrentLogin() {
 }
 
 // shift-calendar-clean-v218
-// shift-calendar-data-fix-v219
-function staffsyncAllStaffForShiftV219() {
-  const found = [];
-
-  function addPeople(list) {
-    if (!Array.isArray(list)) return;
-    list.forEach((person) => {
-      if (!person || !person.name) return;
-      if (String(person.employeeCode || "").includes("-removed-")) return;
-      const key = person.id || person.cloudId || person.employeeCode || person.name;
-      if (!found.some((item) => (item.id || item.cloudId || item.employeeCode || item.name) === key)) {
-        found.push(person);
-      }
-    });
-  }
-
-  addPeople(typeof staff !== "undefined" ? staff : []);
-
-  try {
-    Object.keys(localStorage).forEach((key) => {
-      const value = JSON.parse(localStorage.getItem(key) || "null");
-      if (Array.isArray(value) && value.some((item) => item && item.employeeCode && item.name)) {
-        addPeople(value);
-      }
-    });
-  } catch (error) {}
-
-  return typeof sortStaffByEmployeeCode === "function" ? sortStaffByEmployeeCode(found) : found;
-}
-
-function staffsyncRosterEntryV219(person, dateValue) {
-  let entry = {};
-  try {
-    entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {};
-  } catch (error) {}
-
-  try {
-    const roster = typeof dailyRosters !== "undefined" ? (dailyRosters[dateValue] || {}) : {};
-    const keys = [person.id, person.cloudId, person.appUserId, person.employeeCode].filter(Boolean);
-    const matchedKey = Object.keys(roster).find((key) => keys.some((personKey) => String(personKey) === String(key)));
-    if (matchedKey) entry = { ...entry, ...roster[matchedKey] };
-  } catch (error) {}
-
-  return entry;
-}
-
-function staffsyncRosterTimeV219(entry) {
-  if (!entry) return "Time not set";
-
-  const parts = entry.segments || entry.parts || entry.shifts || entry.shiftParts || entry.shift_parts;
-  if (Array.isArray(parts) && parts.length) {
-    return parts.map((part) => {
-      const start = part.startTime || part.start_time || part.inTime || part.in_time || part.start || part.from || "";
-      const end = part.endTime || part.end_time || part.outTime || part.out_time || part.end || part.to || "";
-      return start && end ? `${start} - ${end}` : "";
-    }).filter(Boolean).join(", ");
-  }
-
-  const start = entry.startTime || entry.start_time || entry.inTime || entry.in_time ||
-    entry.fromTime || entry.from_time || entry.from || entry.start || entry.shiftStart ||
-    entry.shift_start || entry.shiftStartTime || entry.shift_start_time || "";
-
-  const end = entry.endTime || entry.end_time || entry.outTime || entry.out_time ||
-    entry.toTime || entry.to_time || entry.to || entry.end || entry.shiftEnd ||
-    entry.shift_end || entry.shiftEndTime || entry.shift_end_time || "";
-
-  if (start && end) return `${start} - ${end}`;
-
-  const direct = [entry.shiftTime, entry.shift_time, entry.timeRange, entry.time_range, entry.time]
-    .find((value) => value && !String(value).toLowerCase().includes("hour"));
-  if (direct) return String(direct);
-
-  return "Time not set";
-}
-
-function staffsyncShiftCellV218(person, dateValue) {
-  const entry = staffsyncRosterEntryV219(person, dateValue);
-  const status = String(entry.status || "").toLowerCase();
-  const isLeave = status.includes("leave");
-  const label = isLeave ? "Leave" : (entry.shiftName || entry.shift_name || entry.shift || person.shift || "10h shift");
-
-  return `
-    <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
-      <strong>${label}</strong>
-      <span>${staffsyncRosterTimeV219(entry)}</span>
-    </div>
-  `;
-}
-
-function renderShiftCalendar() {
-  if (!shiftCalendar) return;
-
-  const startDate = shiftCalendarStart?.value || todayLocalKey();
-  if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
-
-  const dates = nextDateKeys(startDate, 3);
-  const cleanStaff = staffsyncAllStaffForShiftV219();
-  const departments = Array.from(new Set(cleanStaff.map((person) => person.department || "General"))).sort();
-
-  const sections = departments.map((department) => {
-    const people = sortStaffByEmployeeCode(cleanStaff.filter((person) =>
-      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
-    ));
-
-    if (!people.length) return "";
-
-    return `
-      <details class="shift-dept-fold" open>
-        <summary>${department || "General"}</summary>
-        <div class="shift-simple-grid">
-          <div class="shift-simple-head">Staff</div>
-          ${dates.map((dateValue) => `<div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>`).join("")}
-          ${people.map((person) => `
-            <div class="shift-simple-staff">
-              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
-              <small>${person.role || "Staff"}</small>
-            </div>
-            ${dates.map((dateValue) => staffsyncShiftCellV218(person, dateValue)).join("")}
-          `).join("")}
-        </div>
-      </details>
-    `;
-  }).join("");
-
-  shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
-}
-// end-shift-calendar-data-fix-v219
 function renderShiftTimeline(dateValue, calendarDepartments) {
   const departments = (calendarDepartments || [])
     .map((department) => {
@@ -8926,3 +8799,209 @@ window.addEventListener("hashchange", () => setTimeout(staffsyncRenderStaffShift
 document.addEventListener("click", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
 
 
+
+// shift-cloud-direct-v220
+let staffsyncShiftCloudLoadingV220 = false;
+let staffsyncShiftCloudLoadedV220 = false;
+let staffsyncShiftCloudStaffV220 = [];
+let staffsyncShiftCloudRostersV220 = {};
+
+function staffsyncSupabaseClientV220() {
+  try {
+    if (typeof supabaseClient !== "undefined" && supabaseClient?.from) return supabaseClient;
+  } catch (error) {}
+
+  try {
+    if (typeof client !== "undefined" && client?.from) return client;
+  } catch (error) {}
+
+  try {
+    if (typeof db !== "undefined" && db?.from) return db;
+  } catch (error) {}
+
+  try {
+    const cfg = window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+    const url = cfg.supabaseUrl || cfg.SUPABASE_URL || cfg.url || window.SUPABASE_URL || "";
+    const key = cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || cfg.anonKey || window.SUPABASE_ANON_KEY || "";
+    if (url && key && window.supabase?.createClient) {
+      return window.supabase.createClient(url, key);
+    }
+  } catch (error) {}
+
+  return null;
+}
+
+function staffsyncMapCloudStaffV220(row) {
+  return {
+    id: row.id,
+    cloudId: row.id,
+    appUserId: row.app_user_id || row.appUserId || row.auth_user_id || "",
+    employeeCode: row.employee_code || row.employeeCode || "",
+    name: row.full_name || row.fullName || row.name || "",
+    department: row.department || "General",
+    role: row.job_title || row.jobTitle || row.role || "Staff",
+    shift: row.default_shift_type || row.defaultShiftType || row.shift || "10 hours"
+  };
+}
+
+function staffsyncMapCloudRosterV220(row) {
+  return {
+    staffId: row.staff_profile_id || row.staff_id || row.employee_id || row.profile_id || row.staffProfileId || "",
+    date: row.roster_date || row.shift_date || row.date || row.work_date || "",
+    status: row.status || "Working",
+    shiftName: row.shift_name || row.shiftName || row.shift || row.shift_type || "10h shift",
+    shift: row.shift || row.shift_name || row.shift_type || "10h shift",
+    startTime: row.start_time || row.startTime || row.in_time || row.inTime || row.clock_in || "",
+    endTime: row.end_time || row.endTime || row.out_time || row.outTime || row.clock_out || "",
+    shiftTime: row.shift_time || row.shiftTime || row.time_range || row.timeRange || ""
+  };
+}
+
+async function staffsyncLoadShiftCloudV220(startDate) {
+  if (staffsyncShiftCloudLoadingV220) return;
+  staffsyncShiftCloudLoadingV220 = true;
+
+  try {
+    const client = staffsyncSupabaseClientV220();
+    if (!client?.from) return;
+
+    const staffResult = await client
+      .from("staff_profiles")
+      .select("*")
+      .order("employee_code", { ascending: true });
+
+    if (!staffResult.error && Array.isArray(staffResult.data)) {
+      staffsyncShiftCloudStaffV220 = staffResult.data
+        .map(staffsyncMapCloudStaffV220)
+        .filter((person) => person.name && !String(person.employeeCode || "").includes("-removed-"));
+    }
+
+    const dates = nextDateKeys(startDate || todayLocalKey(), 3);
+    const fromDate = dates[0];
+    const toDate = dates[dates.length - 1];
+
+    const rosterResult = await client
+      .from("daily_rosters")
+      .select("*")
+      .gte("roster_date", fromDate)
+      .lte("roster_date", toDate);
+
+    if (!rosterResult.error && Array.isArray(rosterResult.data)) {
+      staffsyncShiftCloudRostersV220 = {};
+      rosterResult.data.map(staffsyncMapCloudRosterV220).forEach((entry) => {
+        if (!entry.date || !entry.staffId) return;
+        staffsyncShiftCloudRostersV220[entry.date] = staffsyncShiftCloudRostersV220[entry.date] || {};
+        staffsyncShiftCloudRostersV220[entry.date][entry.staffId] = entry;
+      });
+    }
+
+    staffsyncShiftCloudLoadedV220 = true;
+  } catch (error) {
+    console.warn("StaffSync shift cloud load failed", error);
+  } finally {
+    staffsyncShiftCloudLoadingV220 = false;
+  }
+}
+
+function staffsyncAllStaffForShiftV219() {
+  const source = staffsyncShiftCloudStaffV220.length ? staffsyncShiftCloudStaffV220 : (staff || []);
+  const clean = source.filter((person) =>
+    person && person.name && !String(person.employeeCode || "").includes("-removed-")
+  );
+  return typeof sortStaffByEmployeeCode === "function" ? sortStaffByEmployeeCode(clean) : clean;
+}
+
+function staffsyncRosterEntryV219(person, dateValue) {
+  let entry = {};
+
+  try {
+    const cloudDay = staffsyncShiftCloudRostersV220[dateValue] || {};
+    const keys = [person.id, person.cloudId, person.appUserId, person.employeeCode].filter(Boolean);
+    const matchedKey = Object.keys(cloudDay).find((key) => keys.some((personKey) => String(personKey) === String(key)));
+    if (matchedKey) entry = { ...entry, ...cloudDay[matchedKey] };
+  } catch (error) {}
+
+  try {
+    const localEntry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {};
+    entry = { ...localEntry, ...entry };
+  } catch (error) {}
+
+  return entry;
+}
+
+function staffsyncRosterTimeV219(entry) {
+  if (!entry) return "Time not set";
+
+  const start = entry.startTime || entry.start_time || entry.inTime || entry.in_time ||
+    entry.fromTime || entry.from_time || entry.from || entry.start || entry.shiftStart ||
+    entry.shift_start || entry.shiftStartTime || entry.shift_start_time || "";
+
+  const end = entry.endTime || entry.end_time || entry.outTime || entry.out_time ||
+    entry.toTime || entry.to_time || entry.to || entry.end || entry.shiftEnd ||
+    entry.shift_end || entry.shiftEndTime || entry.shift_end_time || "";
+
+  if (start && end) return `${start} - ${end}`;
+
+  const direct = [entry.shiftTime, entry.shift_time, entry.timeRange, entry.time_range, entry.time]
+    .find((value) => value && !String(value).toLowerCase().includes("hour"));
+  if (direct) return String(direct);
+
+  return "Time not set";
+}
+
+function staffsyncShiftCellV218(person, dateValue) {
+  const entry = staffsyncRosterEntryV219(person, dateValue);
+  const status = String(entry.status || "").toLowerCase();
+  const isLeave = status.includes("leave");
+  const label = isLeave ? "Leave" : (entry.shiftName || entry.shift_name || entry.shift || person.shift || "10h shift");
+
+  return `
+    <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
+      <strong>${label}</strong>
+      <span>${staffsyncRosterTimeV219(entry)}</span>
+    </div>
+  `;
+}
+
+function renderShiftCalendar() {
+  if (!shiftCalendar) return;
+
+  const startDate = shiftCalendarStart?.value || todayLocalKey();
+  if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
+
+  if (!staffsyncShiftCloudLoadedV220 && !staffsyncShiftCloudLoadingV220) {
+    staffsyncLoadShiftCloudV220(startDate).then(() => renderShiftCalendar());
+  }
+
+  const dates = nextDateKeys(startDate, 3);
+  const cleanStaff = staffsyncAllStaffForShiftV219();
+  const departments = Array.from(new Set(cleanStaff.map((person) => person.department || "General"))).sort();
+
+  const sections = departments.map((department) => {
+    const people = sortStaffByEmployeeCode(cleanStaff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
+
+    if (!people.length) return "";
+
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `<div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>`).join("")}
+          ${people.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => staffsyncShiftCellV218(person, dateValue)).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  shiftCalendar.innerHTML = sections || `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`;
+}
+// end-shift-cloud-direct-v220

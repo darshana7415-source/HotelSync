@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - shift page uses all staff and saved shift times.
+StaffSync Beach & Bliss Mirissa Version 1.0 - shift page loads all staff and roster times directly from cloud.
