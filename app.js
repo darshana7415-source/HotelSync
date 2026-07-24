@@ -9138,3 +9138,106 @@ function renderShiftCalendar() {
   shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
 }
 // end-shift-safe-view-loader-v221
+
+// simple-shift-creator-v223
+(function () {
+  if (window.staffsyncSimpleShiftCreatorV223) return;
+  window.staffsyncSimpleShiftCreatorV223 = true;
+
+  function qs(s) { return document.querySelector(s); }
+  function todayKey(d) { return d.toISOString().slice(0, 10); }
+  function tomorrowKey() { var d = new Date(); d.setDate(d.getDate() + 1); return todayKey(d); }
+  function addDays(k, n) { var d = new Date(k + "T00:00:00"); d.setDate(d.getDate() + n); return todayKey(d); }
+  function dayName(k) { try { return shortDayName(k); } catch (e) { return new Date(k + "T00:00:00").toLocaleDateString("en", { weekday: "short" }); } }
+  function plus10(t) {
+    var p = String(t || "07:00").split(":").map(Number);
+    var d = new Date(); d.setHours(p[0] || 7, p[1] || 0, 0, 0); d.setHours(d.getHours() + 10);
+    return d.toTimeString().slice(0, 5);
+  }
+  function people() {
+    var list = Array.isArray(staff) ? staff : [];
+    list = list.filter(function (p) { return p && p.name && !String(p.employeeCode || "").includes("-removed-"); });
+    return typeof sortStaffByEmployeeCode === "function" ? sortStaffByEmployeeCode(list) : list;
+  }
+  function datesFromStart() {
+    var start = qs("#simple-shift-date-v223")?.value || tomorrowKey();
+    return Array.from({ length: 7 }, function (_, i) { return addDays(start, i); });
+  }
+  function renderDates() {
+    var box = qs("#simple-shift-repeat-v223");
+    if (!box) return;
+    box.innerHTML = datesFromStart().map(function (d, i) {
+      return '<label class="simple-shift-day-v223"><input type="checkbox" value="' + d + '" ' + (i === 0 ? "checked" : "") + '><strong>' + new Date(d + "T00:00:00").getDate() + '</strong><span>' + dayName(d) + '</span></label>';
+    }).join("");
+  }
+  function render() {
+    if (!["admin", "manager"].includes(currentRole)) return qs("#simple-shift-creator-v223")?.remove();
+    var page = String(location.hash || "#dashboard").replace("#", "");
+    if (page !== "shifts" && page !== "schedule") return;
+    var area = qs("#shifts");
+    if (!area || qs("#simple-shift-creator-v223")) return;
+
+    var opts = people().map(function (p) {
+      return '<option value="' + (p.id || p.cloudId) + '">' + (p.employeeCode || "") + " - " + p.name + '</option>';
+    }).join("");
+
+    var panel = document.createElement("section");
+    panel.id = "simple-shift-creator-v223";
+    panel.className = "simple-shift-creator-v223";
+    panel.innerHTML =
+      '<p class="eyebrow">Shift creator</p><h2>Set staff shift</h2>' +
+      '<div class="simple-shift-grid-v223">' +
+      '<label>Staff member<select id="simple-shift-staff-v223">' + opts + '</select></label>' +
+      '<label>Shift starting day<input id="simple-shift-date-v223" type="date" value="' + tomorrowKey() + '"></label>' +
+      '<label>Shift name<input id="simple-shift-name-v223" value="10 hours"></label>' +
+      '<label>In time<input id="simple-shift-in-v223" type="time" value="07:00"></label>' +
+      '<label>Out time<input id="simple-shift-out-v223" type="time" value="17:00"></label>' +
+      '</div><fieldset><legend>Apply to dates</legend><div id="simple-shift-repeat-v223"></div></fieldset>' +
+      '<button id="simple-shift-save-v223" class="primary-action" type="button">Save shift</button>' +
+      '<small id="simple-shift-result-v223" class="form-note"></small>';
+    area.prepend(panel);
+    renderDates();
+  }
+  async function save() {
+    var id = qs("#simple-shift-staff-v223")?.value;
+    var p = people().find(function (x) { return String(x.id || x.cloudId) === String(id); });
+    var result = qs("#simple-shift-result-v223");
+    if (!p) { if (result) result.textContent = "Choose staff member."; return; }
+
+    var name = qs("#simple-shift-name-v223")?.value || "10 hours";
+    var inn = qs("#simple-shift-in-v223")?.value || "07:00";
+    var out = qs("#simple-shift-out-v223")?.value || plus10(inn);
+    var dates = Array.from(document.querySelectorAll("#simple-shift-repeat-v223 input:checked")).map(function (x) { return x.value; });
+    if (!dates.length) { if (result) result.textContent = "Choose at least one date."; return; }
+
+    dates.forEach(function (d) {
+      dailyRosters[d] = dailyRosters[d] || {};
+      dailyRosters[d][p.id || p.cloudId] = {
+        status: "Working", dayStatus: "Working", day_status: "Working",
+        shiftName: name, shift_name: name, shift: name,
+        startTime: inn, start_time: inn, inTime: inn, in_time: inn,
+        endTime: out, end_time: out, outTime: out, out_time: out,
+        shiftTime: inn + " - " + out, shift_time: inn + " - " + out,
+        hours: 10
+      };
+    });
+
+    localStorage.setItem("staffsync.dailyRosters", JSON.stringify(dailyRosters));
+    for (var i = 0; i < dates.length; i++) {
+      try { if (typeof saveDailyRosterToCloud === "function") await saveDailyRosterToCloud(dates[i]); } catch (e) {}
+    }
+    try { if (typeof renderDailyRoster === "function") renderDailyRoster(); if (typeof renderShiftCalendar === "function") renderShiftCalendar(); } catch (e) {}
+    if (result) result.textContent = "Saved shift for " + (p.employeeCode || "") + " " + p.name + " on " + dates.length + " date(s).";
+  }
+
+  document.addEventListener("DOMContentLoaded", function () { setTimeout(render, 800); });
+  window.addEventListener("hashchange", function () { setTimeout(render, 500); });
+  document.addEventListener("change", function (e) {
+    if (e.target?.id === "simple-shift-in-v223") qs("#simple-shift-out-v223").value = plus10(e.target.value);
+    if (e.target?.id === "simple-shift-date-v223") renderDates();
+  });
+  document.addEventListener("click", function (e) {
+    if (e.target?.closest?.("#simple-shift-save-v223")) save();
+  });
+})();
+// end-simple-shift-creator-v223

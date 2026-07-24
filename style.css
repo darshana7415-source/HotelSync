@@ -2792,3 +2792,30 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
 .shift-dept-fold .shift-simple-grid {
   padding: 0 12px 12px;
 }
+
+/* simple-shift-creator-v223 */
+.simple-shift-creator-v223 {
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #fff;
+}
+.simple-shift-grid-v223 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.simple-shift-day-v223 {
+  display: inline-grid;
+  place-items: center;
+  min-width: 58px;
+  margin: 4px;
+  padding: 8px;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #f7fbfb;
+}
+@media (max-width: 720px) {
+  .simple-shift-grid-v223 { grid-template-columns: 1fr; }
+}
