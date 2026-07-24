@@ -8345,3 +8345,41 @@ window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveOldThreeDa
 
 
 
+
+
+// admin-shift-cleanup-v204
+const staffsyncShiftDropdownStateV204 = {};
+
+function staffsyncCleanAdminShiftUiV204() {
+  document.querySelectorAll("section, .card, .mini-card, .panel, div").forEach((box) => {
+    const text = (box.innerText || "").trim();
+    if (text.includes("All staff shifts today")) {
+      box.remove();
+    }
+  });
+
+  document.querySelectorAll("details.shift-dept-fold, details.shift-page-department, details.department-shift-fold").forEach((details) => {
+    const key = (details.querySelector("summary")?.innerText || "").trim();
+    if (!key) return;
+    if (staffsyncShiftDropdownStateV204[key] === true) details.open = true;
+    if (staffsyncShiftDropdownStateV204[key] === false) details.open = false;
+  });
+}
+
+document.addEventListener("toggle", (event) => {
+  const details = event.target;
+  if (!details?.matches?.("details.shift-dept-fold, details.shift-page-department, details.department-shift-fold")) return;
+  const key = (details.querySelector("summary")?.innerText || "").trim();
+  if (key) staffsyncShiftDropdownStateV204[key] = details.open;
+}, true);
+
+document.addEventListener("DOMContentLoaded", staffsyncCleanAdminShiftUiV204);
+window.addEventListener("hashchange", () => {
+  setTimeout(staffsyncCleanAdminShiftUiV204, 100);
+  setTimeout(staffsyncCleanAdminShiftUiV204, 800);
+});
+document.addEventListener("click", () => {
+  setTimeout(staffsyncCleanAdminShiftUiV204, 100);
+  setTimeout(staffsyncCleanAdminShiftUiV204, 800);
+});
+setInterval(staffsyncCleanAdminShiftUiV204, 1200);

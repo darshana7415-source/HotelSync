@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - fixed shift dropdown collapse and removed all staff shifts today.
+StaffSync Beach & Bliss Mirissa Version 1.0 - removed all staff shifts today and fixed dropdown state.
