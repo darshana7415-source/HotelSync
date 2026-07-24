@@ -2772,3 +2772,23 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   border-radius: 8px;
   background: #ffffff;
 }
+
+
+/* shift-calendar-clean-v218 */
+#staffsync-staff-three-day-shifts-v217 {
+  display: none !important;
+}
+.shift-dept-fold {
+  margin: 10px 0;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #fff;
+}
+.shift-dept-fold summary {
+  cursor: pointer;
+  padding: 12px;
+  font-weight: 800;
+}
+.shift-dept-fold .shift-simple-grid {
+  padding: 0 12px 12px;
+}
