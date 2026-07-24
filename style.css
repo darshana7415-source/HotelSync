@@ -2682,3 +2682,66 @@ body.staffsync-admin-shift-v210 #clear-daily-roster,
 body.staffsync-admin-shift-v210 [data-roster-staff] {
   display: none !important;
 }
+
+
+/* shift-creator-v213 */
+.staffsync-shift-creator-v213 {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shift-creator-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+.shift-creator-controls label {
+  display: grid;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.shift-creator-department {
+  margin: 10px 0;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.shift-creator-department > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  background: #eef8f8;
+  font-weight: 800;
+  color: #064f52;
+}
+
+.shift-creator-staff-list {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.shift-creator-staff-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #edf2f2;
+}
+
+.shift-creator-staff-row span {
+  display: grid;
+}
+
+@media (max-width: 760px) {
+  .shift-creator-controls {
+    grid-template-columns: 1fr;
+  }
+}

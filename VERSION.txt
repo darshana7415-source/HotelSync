@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - removed headingless bottom shift staff list.
+StaffSync Beach & Bliss Mirissa Version 1.0 - added SHIFT CREATOR manual shift loader.
