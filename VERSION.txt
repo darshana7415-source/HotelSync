@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - simple shift creator added.
+StaffSync Beach & Bliss Mirissa Version 1.0 - shift creator forced on admin manager shift page.
