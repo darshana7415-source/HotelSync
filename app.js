@@ -9005,3 +9005,136 @@ function renderShiftCalendar() {
   shiftCalendar.innerHTML = sections || `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`;
 }
 // end-shift-cloud-direct-v220
+
+// shift-safe-view-loader-v221
+let staffsyncShiftViewPeopleV221 = [];
+let staffsyncShiftViewRosterV221 = {};
+let staffsyncShiftViewLoadedV221 = false;
+let staffsyncShiftViewLoadingV221 = false;
+
+function staffsyncTimeCleanV221(value) {
+  if (!value) return "";
+  return String(value).slice(0, 5);
+}
+
+function staffsyncShiftTimeV221(entry) {
+  const start = staffsyncTimeCleanV221(entry?.start_time || entry?.startTime || entry?.in_time || entry?.inTime);
+  const end = staffsyncTimeCleanV221(entry?.end_time || entry?.endTime || entry?.out_time || entry?.outTime);
+  if (start && end) return `${start} - ${end}`;
+  return "Time not set";
+}
+
+function staffsyncSafeShiftClientV221() {
+  try {
+    if (typeof supabaseClient !== "undefined" && supabaseClient?.from) return supabaseClient;
+    if (typeof client !== "undefined" && client?.from) return client;
+    if (typeof db !== "undefined" && db?.from) return db;
+  } catch (error) {}
+  return null;
+}
+
+async function staffsyncLoadSafeShiftViewsV221(startDate) {
+  if (staffsyncShiftViewLoadingV221) return;
+  staffsyncShiftViewLoadingV221 = true;
+
+  try {
+    const client = staffsyncSafeShiftClientV221();
+    if (!client?.from) return;
+
+    const peopleResult = await client
+      .from("staff_shift_people_view")
+      .select("*")
+      .order("employee_code", { ascending: true });
+
+    if (!peopleResult.error && Array.isArray(peopleResult.data)) {
+      staffsyncShiftViewPeopleV221 = peopleResult.data.map((row) => ({
+        id: row.staff_id,
+        cloudId: row.staff_id,
+        employeeCode: row.employee_code || "",
+        name: row.full_name || "",
+        department: row.department || "General",
+        role: row.job_title || "Staff",
+        shift: row.default_shift_type || "10 hours"
+      })).filter((person) => person.name);
+    }
+
+    const dates = nextDateKeys(startDate || todayLocalKey(), 3);
+    const rosterResult = await client
+      .from("staff_shift_roster_view")
+      .select("*")
+      .gte("roster_date", dates[0])
+      .lte("roster_date", dates[dates.length - 1]);
+
+    if (!rosterResult.error && Array.isArray(rosterResult.data)) {
+      staffsyncShiftViewRosterV221 = {};
+      rosterResult.data.forEach((row) => {
+        const dateValue = row.roster_date;
+        const staffId = row.staff_id;
+        if (!dateValue || !staffId) return;
+        staffsyncShiftViewRosterV221[dateValue] = staffsyncShiftViewRosterV221[dateValue] || {};
+        staffsyncShiftViewRosterV221[dateValue][staffId] = row;
+      });
+    }
+
+    staffsyncShiftViewLoadedV221 = true;
+  } catch (error) {
+    console.warn("StaffSync safe shift view load failed", error);
+  } finally {
+    staffsyncShiftViewLoadingV221 = false;
+  }
+}
+
+function renderShiftCalendar() {
+  if (!shiftCalendar) return;
+
+  const startDate = shiftCalendarStart?.value || todayLocalKey();
+  if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
+
+  if (!staffsyncShiftViewLoadedV221 && !staffsyncShiftViewLoadingV221) {
+    shiftCalendar.innerHTML = `<div class="mini-empty">Loading shift calendar...</div>`;
+    staffsyncLoadSafeShiftViewsV221(startDate).then(() => renderShiftCalendar());
+    return;
+  }
+
+  const dates = nextDateKeys(startDate, 3);
+  const people = staffsyncShiftViewPeopleV221.length ? staffsyncShiftViewPeopleV221 : (staff || []);
+  const cleanStaff = sortStaffByEmployeeCode(people.filter((person) =>
+    person && person.name && !String(person.employeeCode || "").includes("-removed-")
+  ));
+
+  const departments = Array.from(new Set(cleanStaff.map((person) => person.department || "General"))).sort();
+
+  const sections = departments.map((department) => {
+    const departmentStaff = sortStaffByEmployeeCode(cleanStaff.filter((person) =>
+      normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General")
+    ));
+
+    if (!departmentStaff.length) return "";
+
+    return `
+      <details class="shift-dept-fold" open>
+        <summary>${department || "General"}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((dateValue) => `<div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>`).join("")}
+          ${departmentStaff.map((person) => `
+            <div class="shift-simple-staff">
+              <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+              <small>${person.role || "Staff"}</small>
+            </div>
+            ${dates.map((dateValue) => {
+              const entry = staffsyncShiftViewRosterV221[dateValue]?.[person.id] || {};
+              const status = String(entry.status || "").toLowerCase();
+              const isLeave = status.includes("leave");
+              const label = isLeave ? "Leave" : (entry.shift_name || entry.shiftName || person.shift || "10 hours");
+              return `<div class="shift-simple-cell ${isLeave ? "is-leave" : ""}"><strong>${label}</strong><span>${staffsyncShiftTimeV221(entry)}</span></div>`;
+            }).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
+}
+// end-shift-safe-view-loader-v221
