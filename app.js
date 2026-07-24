@@ -7826,7 +7826,7 @@ function renderShiftPageDirectly() {
     if (!people.length) return "";
 
     return `
-      <details class="shift-dept-fold" open>
+      <details class="shift-dept-fold">
         <summary>${department || "General"}</summary>
         <div class="shift-simple-grid">
           <div class="shift-simple-head">Staff</div>
@@ -7966,7 +7966,7 @@ function renderVisibleShiftRescuePanel() {
     if (!people.length) return "";
 
     return `
-      <details class="shift-dept-fold" open>
+      <details class="shift-dept-fold">
         <summary>${department || "General"}</summary>
         <div class="shift-simple-grid">
           <div class="shift-simple-head">Staff</div>
@@ -8054,7 +8054,7 @@ function renderShiftModalView() {
     if (!people.length) return "";
 
     return `
-      <details class="shift-dept-fold" open>
+      <details class="shift-dept-fold">
         <summary>${department || "General"}</summary>
         <div class="shift-simple-grid">
           <div class="shift-simple-head">Staff</div>
@@ -8349,3 +8349,4 @@ function staffsyncRemoveOldThreeDayShiftUiV201() {
 document.addEventListener("DOMContentLoaded", staffsyncRemoveOldThreeDayShiftUiV201);
 window.addEventListener("hashchange", () => setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 100));
 setTimeout(staffsyncRemoveOldThreeDayShiftUiV201, 1000);
+

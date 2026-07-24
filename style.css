@@ -2557,3 +2557,41 @@ button.danger {
 .shift-calendar-card {
   display: none !important;
 }
+
+
+/* department-shift-dropdown-v202 */
+.shift-dept-fold,
+.shift-page-department,
+.department-shift-fold {
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  margin: 10px 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.shift-dept-fold > summary,
+.shift-page-department > summary,
+.department-shift-fold > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 800;
+  color: #064f52;
+  background: #eef8f8;
+}
+
+.shift-dept-fold > summary::after,
+.shift-page-department > summary::after,
+.department-shift-fold > summary::after {
+  content: "Open";
+  float: right;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b6d70;
+}
+
+.shift-dept-fold[open] > summary::after,
+.shift-page-department[open] > summary::after,
+.department-shift-fold[open] > summary::after {
+  content: "Close";
+}

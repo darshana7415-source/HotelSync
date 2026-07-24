@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - hard removed 3-day shift calendar.
+StaffSync Beach & Bliss Mirissa Version 1.0 - department shift employee names collapsed by default.
