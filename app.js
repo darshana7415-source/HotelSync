@@ -1035,15 +1035,63 @@ function activeStaffForCurrentLogin() {
 }
 
 // shift-calendar-clean-v218
-function staffsyncRosterTimeV218(entry) {
+// shift-calendar-data-fix-v219
+function staffsyncAllStaffForShiftV219() {
+  const found = [];
+
+  function addPeople(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((person) => {
+      if (!person || !person.name) return;
+      if (String(person.employeeCode || "").includes("-removed-")) return;
+      const key = person.id || person.cloudId || person.employeeCode || person.name;
+      if (!found.some((item) => (item.id || item.cloudId || item.employeeCode || item.name) === key)) {
+        found.push(person);
+      }
+    });
+  }
+
+  addPeople(typeof staff !== "undefined" ? staff : []);
+
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      const value = JSON.parse(localStorage.getItem(key) || "null");
+      if (Array.isArray(value) && value.some((item) => item && item.employeeCode && item.name)) {
+        addPeople(value);
+      }
+    });
+  } catch (error) {}
+
+  return typeof sortStaffByEmployeeCode === "function" ? sortStaffByEmployeeCode(found) : found;
+}
+
+function staffsyncRosterEntryV219(person, dateValue) {
+  let entry = {};
+  try {
+    entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {};
+  } catch (error) {}
+
+  try {
+    const roster = typeof dailyRosters !== "undefined" ? (dailyRosters[dateValue] || {}) : {};
+    const keys = [person.id, person.cloudId, person.appUserId, person.employeeCode].filter(Boolean);
+    const matchedKey = Object.keys(roster).find((key) => keys.some((personKey) => String(personKey) === String(key)));
+    if (matchedKey) entry = { ...entry, ...roster[matchedKey] };
+  } catch (error) {}
+
+  return entry;
+}
+
+function staffsyncRosterTimeV219(entry) {
   if (!entry) return "Time not set";
 
-  const direct = [
-    entry.shiftTime, entry.shift_time, entry.timeRange, entry.time_range,
-    entry.time, entry.hoursText, entry.displayTime
-  ].find((value) => value && !String(value).toLowerCase().includes("hour"));
-
-  if (direct) return String(direct);
+  const parts = entry.segments || entry.parts || entry.shifts || entry.shiftParts || entry.shift_parts;
+  if (Array.isArray(parts) && parts.length) {
+    return parts.map((part) => {
+      const start = part.startTime || part.start_time || part.inTime || part.in_time || part.start || part.from || "";
+      const end = part.endTime || part.end_time || part.outTime || part.out_time || part.end || part.to || "";
+      return start && end ? `${start} - ${end}` : "";
+    }).filter(Boolean).join(", ");
+  }
 
   const start = entry.startTime || entry.start_time || entry.inTime || entry.in_time ||
     entry.fromTime || entry.from_time || entry.from || entry.start || entry.shiftStart ||
@@ -1055,34 +1103,23 @@ function staffsyncRosterTimeV218(entry) {
 
   if (start && end) return `${start} - ${end}`;
 
-  const text = JSON.stringify(entry);
-  const match = text.match(/\b([01]\d|2[0-3]):[0-5]\d\b.*?\b([01]\d|2[0-3]):[0-5]\d\b/);
-  if (match) return match[0].replace(/["{},]/g, " ").replace(/\s+/g, " ").trim();
+  const direct = [entry.shiftTime, entry.shift_time, entry.timeRange, entry.time_range, entry.time]
+    .find((value) => value && !String(value).toLowerCase().includes("hour"));
+  if (direct) return String(direct);
 
   return "Time not set";
 }
 
-function staffsyncRosterLabelV218(entry, person) {
-  const status = String(entry?.status || "").toLowerCase();
-  if (status.includes("leave")) return "Leave";
-  return entry?.shiftName || entry?.shift_name || entry?.shift || person?.shift || "10h shift";
-}
-
 function staffsyncShiftCellV218(person, dateValue) {
-  let entry = {};
-  try {
-    entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {};
-  } catch (error) {
-    entry = {};
-  }
-
+  const entry = staffsyncRosterEntryV219(person, dateValue);
   const status = String(entry.status || "").toLowerCase();
   const isLeave = status.includes("leave");
+  const label = isLeave ? "Leave" : (entry.shiftName || entry.shift_name || entry.shift || person.shift || "10h shift");
 
   return `
     <div class="shift-simple-cell ${isLeave ? "is-leave" : ""}">
-      <strong>${staffsyncRosterLabelV218(entry, person)}</strong>
-      <span>${staffsyncRosterTimeV218(entry)}</span>
+      <strong>${label}</strong>
+      <span>${staffsyncRosterTimeV219(entry)}</span>
     </div>
   `;
 }
@@ -1090,16 +1127,11 @@ function staffsyncShiftCellV218(person, dateValue) {
 function renderShiftCalendar() {
   if (!shiftCalendar) return;
 
-  document.querySelectorAll("#staffsync-staff-three-day-shifts-v217").forEach((item) => item.remove());
-
   const startDate = shiftCalendarStart?.value || todayLocalKey();
   if (shiftCalendarStart && !shiftCalendarStart.value) shiftCalendarStart.value = startDate;
 
   const dates = nextDateKeys(startDate, 3);
-  const cleanStaff = (staff || []).filter((person) =>
-    person && !String(person.employeeCode || "").includes("-removed-")
-  );
-
+  const cleanStaff = staffsyncAllStaffForShiftV219();
   const departments = Array.from(new Set(cleanStaff.map((person) => person.department || "General"))).sort();
 
   const sections = departments.map((department) => {
@@ -1114,10 +1146,7 @@ function renderShiftCalendar() {
         <summary>${department || "General"}</summary>
         <div class="shift-simple-grid">
           <div class="shift-simple-head">Staff</div>
-          ${dates.map((dateValue) => `
-            <div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>
-          `).join("")}
-
+          ${dates.map((dateValue) => `<div class="shift-simple-head">${formatDate(dateValue)}<small>${shortDayName(dateValue)}</small></div>`).join("")}
           ${people.map((person) => `
             <div class="shift-simple-staff">
               <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
@@ -1132,7 +1161,7 @@ function renderShiftCalendar() {
 
   shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
 }
-// end-shift-calendar-clean-v218
+// end-shift-calendar-data-fix-v219
 function renderShiftTimeline(dateValue, calendarDepartments) {
   const departments = (calendarDepartments || [])
     .map((department) => {
@@ -8895,4 +8924,5 @@ function staffsyncRenderStaffShiftsV217() {
 document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
 window.addEventListener("hashchange", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
 document.addEventListener("click", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
+
 

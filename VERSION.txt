@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - fixed one 3-day shift calendar, all departments, actual saved shift times.
+StaffSync Beach & Bliss Mirissa Version 1.0 - shift page uses all staff and saved shift times.
