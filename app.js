@@ -8405,14 +8405,16 @@ document.addEventListener("click", (event) => {
 });
 
 
-// shift-creator-v213
-function staffsyncDatePlusDaysV213(days) {
+
+
+// shift-creator-admin-manager-v214
+function staffsyncDatePlusDaysV214(days) {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
-function staffsyncAddHoursV213(timeValue, hours) {
+function staffsyncAddHoursV214(timeValue, hours) {
   const parts = String(timeValue || "07:00").split(":").map(Number);
   const total = ((parts[0] || 0) * 60) + (parts[1] || 0) + (hours * 60);
   const hh = Math.floor((total / 60) % 24).toString().padStart(2, "0");
@@ -8420,15 +8422,27 @@ function staffsyncAddHoursV213(timeValue, hours) {
   return `${hh}:${mm}`;
 }
 
-function staffsyncEnsureShiftCreatorV213() {
+function staffsyncRepeatDatesV214() {
+  const labels = [];
+  for (let i = 1; i <= 7; i += 1) {
+    const dateValue = staffsyncDatePlusDaysV214(i);
+    const d = new Date(`${dateValue}T00:00:00`);
+    labels.push({ dateValue, day: d.toLocaleDateString(undefined, { weekday: "short" }), dayNo: d.getDate() });
+  }
+  return labels;
+}
+
+function staffsyncEnsureShiftCreatorV214() {
   const page = String(location.hash || "").replace("#", "") || "dashboard";
   const isShiftPage = page === "shifts" || page === "schedule";
-  if (!isShiftPage) {
-    document.querySelector("#staffsync-shift-creator-v213")?.remove();
+  const canManage = currentRole === "admin" || currentRole === "manager";
+
+  if (!isShiftPage || !canManage) {
+    document.querySelector("#staffsync-shift-creator-v214")?.remove();
     return;
   }
 
-  if (document.querySelector("#staffsync-shift-creator-v213")) return;
+  if (document.querySelector("#staffsync-shift-creator-v214")) return;
 
   const holder =
     document.querySelector('[data-view="shifts"]') ||
@@ -8441,33 +8455,44 @@ function staffsyncEnsureShiftCreatorV213() {
     : (staff || []);
 
   const departments = Array.from(new Set(people.map((person) => person.department || "General"))).sort();
+  const repeatDates = staffsyncRepeatDatesV214();
 
   const panel = document.createElement("section");
-  panel.id = "staffsync-shift-creator-v213";
+  panel.id = "staffsync-shift-creator-v214";
   panel.className = "staffsync-shift-creator-v213";
 
   panel.innerHTML = `
     <div class="box-title-row">
       <div>
         <strong>SHIFT CREATOR</strong>
-        <small>Create 10-hour shifts by department. Default date is tomorrow.</small>
+        <small>Create 10-hour shifts by department. Select one or more dates.</small>
       </div>
     </div>
 
     <div class="shift-creator-controls">
       <label>
         Shift starting day
-        <input id="shift-creator-date-v213" type="date" value="${staffsyncDatePlusDaysV213(1)}">
+        <input id="shift-creator-date-v214" type="date" value="${staffsyncDatePlusDaysV214(1)}">
       </label>
       <label>
         Starting time
-        <input id="shift-creator-start-v213" type="time" value="07:00">
+        <input id="shift-creator-start-v214" type="time" value="07:00">
       </label>
       <label>
         End time
-        <input id="shift-creator-end-v213" type="time" value="17:00" readonly>
+        <input id="shift-creator-end-v214" type="time" value="17:00" readonly>
       </label>
-      <button id="shift-creator-save-v213" class="primary-action" type="button">Save selected shifts</button>
+      <button id="shift-creator-save-v214" class="primary-action" type="button">Save selected shifts</button>
+    </div>
+
+    <div class="shift-repeat-row">
+      <strong>Apply to selected dates</strong>
+      ${repeatDates.map((item, index) => `
+        <label class="shift-repeat-chip">
+          <input type="checkbox" data-shift-repeat-date="${item.dateValue}" ${index === 0 ? "checked" : ""}>
+          <span>${item.dayNo}<small>${item.day}</small></span>
+        </label>
+      `).join("")}
     </div>
 
     <div class="shift-creator-departments">
@@ -8495,75 +8520,76 @@ function staffsyncEnsureShiftCreatorV213() {
       }).join("")}
     </div>
 
-    <div id="shift-creator-result-v213" class="form-note"></div>
+    <div id="shift-creator-result-v214" class="form-note"></div>
   `;
 
   holder.prepend(panel);
 
-  const startInput = panel.querySelector("#shift-creator-start-v213");
-  const endInput = panel.querySelector("#shift-creator-end-v213");
+  const startInput = panel.querySelector("#shift-creator-start-v214");
+  const endInput = panel.querySelector("#shift-creator-end-v214");
   startInput?.addEventListener("input", () => {
-    endInput.value = staffsyncAddHoursV213(startInput.value, 10);
+    endInput.value = staffsyncAddHoursV214(startInput.value, 10);
   });
 
-  panel.querySelector("#shift-creator-save-v213")?.addEventListener("click", async () => {
-    const dateValue = panel.querySelector("#shift-creator-date-v213")?.value || staffsyncDatePlusDaysV213(1);
-    const startTime = panel.querySelector("#shift-creator-start-v213")?.value || "07:00";
-    const endTime = staffsyncAddHoursV213(startTime, 10);
+  panel.querySelector("#shift-creator-save-v214")?.addEventListener("click", async () => {
+    const baseDate = panel.querySelector("#shift-creator-date-v214")?.value || staffsyncDatePlusDaysV214(1);
+    const selectedDates = Array.from(panel.querySelectorAll("[data-shift-repeat-date]:checked")).map((item) => item.dataset.shiftRepeatDate);
+    const datesToSave = selectedDates.length ? selectedDates : [baseDate];
+
+    const startTime = panel.querySelector("#shift-creator-start-v214")?.value || "07:00";
+    const endTime = staffsyncAddHoursV214(startTime, 10);
     const checkedIds = Array.from(panel.querySelectorAll("[data-shift-creator-staff]:checked")).map((item) => item.dataset.shiftCreatorStaff);
-    const result = panel.querySelector("#shift-creator-result-v213");
+    const result = panel.querySelector("#shift-creator-result-v214");
 
     if (!checkedIds.length) {
       if (result) result.textContent = "Choose at least one staff member.";
       return;
     }
 
-    dailyRosters[dateValue] = dailyRosters[dateValue] || (typeof buildRosterEntriesForDate === "function" ? buildRosterEntriesForDate(dateValue) : {});
+    datesToSave.forEach((dateValue) => {
+      dailyRosters[dateValue] = dailyRosters[dateValue] || (typeof buildRosterEntriesForDate === "function" ? buildRosterEntriesForDate(dateValue) : {});
+      checkedIds.forEach((staffId) => {
+        const person = people.find((item) => item.id === staffId);
+        if (!person) return;
 
-    checkedIds.forEach((staffId) => {
-      const person = people.find((item) => item.id === staffId);
-      if (!person) return;
-
-      dailyRosters[dateValue][person.id] = {
-        ...(dailyRosters[dateValue][person.id] || {}),
-        staffId: person.id,
-        status: "Working",
-        shiftName: "10h shift",
-        shift: "10h shift",
-        startTime,
-        endTime,
-        shiftTime: `${startTime} - ${endTime}`,
-        hours: 10
-      };
+        dailyRosters[dateValue][person.id] = {
+          ...(dailyRosters[dateValue][person.id] || {}),
+          staffId: person.id,
+          status: "Working",
+          shiftName: "10h shift",
+          shift: "10h shift",
+          startTime,
+          endTime,
+          shiftTime: `${startTime} - ${endTime}`,
+          hours: 10
+        };
+      });
     });
 
     try {
       localStorage.setItem("staffsync.dailyRosters", JSON.stringify(dailyRosters));
     } catch (error) {}
 
-    if (typeof saveDailyRosterToCloud === "function") {
-      try { await saveDailyRosterToCloud(dateValue); } catch (error) { console.warn(error); }
-    }
-
-    if (typeof persistCloudDailyRoster === "function") {
-      try { await persistCloudDailyRoster(); } catch (error) { console.warn(error); }
+    for (const dateValue of datesToSave) {
+      if (typeof saveDailyRosterToCloud === "function") {
+        try { await saveDailyRosterToCloud(dateValue); } catch (error) { console.warn(error); }
+      }
     }
 
     if (typeof renderDailyRoster === "function") renderDailyRoster();
-    if (typeof renderShiftCalendar === "function") renderShiftCalendar();
     if (typeof staffsyncAdminThreeDayShiftPageV210 === "function") {
       document.querySelector("#staffsync-admin-three-day-shifts-v210")?.remove();
       staffsyncAdminThreeDayShiftPageV210();
     }
 
-    if (result) result.textContent = `Saved ${checkedIds.length} shift${checkedIds.length === 1 ? "" : "s"} for ${dateValue}, ${startTime} - ${endTime}.`;
+    if (result) result.textContent = `Saved ${checkedIds.length} staff shift${checkedIds.length === 1 ? "" : "s"} to ${datesToSave.length} date${datesToSave.length === 1 ? "" : "s"}, ${startTime} - ${endTime}.`;
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncEnsureShiftCreatorV213, 700));
-window.addEventListener("hashchange", () => setTimeout(staffsyncEnsureShiftCreatorV213, 700));
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncEnsureShiftCreatorV214, 700));
+window.addEventListener("hashchange", () => setTimeout(staffsyncEnsureShiftCreatorV214, 700));
 document.addEventListener("click", (event) => {
   if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
-    setTimeout(staffsyncEnsureShiftCreatorV213, 700);
+    setTimeout(staffsyncEnsureShiftCreatorV214, 700);
   }
 });
