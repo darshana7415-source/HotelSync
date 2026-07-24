@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - shift page reads safe Supabase shift views.
+StaffSync Beach & Bliss Mirissa Version 1.0 - simple admin shift creator with staff dropdown.
