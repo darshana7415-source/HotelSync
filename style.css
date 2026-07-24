@@ -2752,3 +2752,13 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v213,
 body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   display: none !important;
 }
+
+
+/* staff-shift-view-v216 */
+.staffsync-staff-three-day-shifts-v216 {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+}
