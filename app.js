@@ -8593,3 +8593,43 @@ document.addEventListener("click", (event) => {
     setTimeout(staffsyncEnsureShiftCreatorV214, 700);
   }
 });
+
+
+// restore-staff-dashboard-v215
+function staffsyncRestoreStaffDashboardV215() {
+  const page = String(location.hash || "").replace("#", "") || "dashboard";
+  const isStaff = currentRole === "staff";
+
+  if (!isStaff) return;
+
+  // Staff must not see admin shift creator / admin shift panels.
+  document.querySelectorAll(
+    "#staffsync-shift-creator-v213, #staffsync-shift-creator-v214, #staffsync-admin-three-day-shifts-v210, #staffsync-three-day-shift-v208, #staffsync-admin-three-day-shifts-v209"
+  ).forEach((item) => item.remove());
+
+  document.body.classList.remove("staffsync-admin-shift-v210", "staffsync-admin-shift-v209");
+
+  if (page === "dashboard") {
+    const dashboard = document.querySelector('[data-view="dashboard"], #dashboard, .dashboard-view');
+    if (dashboard) {
+      dashboard.style.display = "";
+      dashboard.hidden = false;
+    }
+
+    if (typeof renderStaffDashboard === "function") {
+      try { renderStaffDashboard(); } catch (error) { console.warn(error); }
+    }
+
+    if (typeof renderDashboard === "function") {
+      try { renderDashboard(); } catch (error) { console.warn(error); }
+    }
+
+    if (typeof updateDashboard === "function") {
+      try { updateDashboard(); } catch (error) { console.warn(error); }
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncRestoreStaffDashboardV215, 800));
+window.addEventListener("hashchange", () => setTimeout(staffsyncRestoreStaffDashboardV215, 800));
+document.addEventListener("click", () => setTimeout(staffsyncRestoreStaffDashboardV215, 800));

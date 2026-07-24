@@ -2745,3 +2745,10 @@ body.staffsync-admin-shift-v210 [data-roster-staff] {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* restore-staff-dashboard-v215 */
+body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v213,
+body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
+  display: none !important;
+}
