@@ -8776,3 +8776,109 @@ function staffsyncStaffShiftRefreshV216() {
 document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncStaffShiftRefreshV216, 900));
 window.addEventListener("hashchange", () => setTimeout(staffsyncStaffShiftRefreshV216, 900));
 document.addEventListener("click", () => setTimeout(staffsyncStaffShiftRefreshV216, 900));
+
+
+// staff-shifts-section-v217
+function staffsyncCurrentStaffV217() {
+  return (staff || []).find((person) => sameId(person.id, activeStaffId)) ||
+    (staff || []).find((person) => sameId(person.cloudId, activeStaffId)) ||
+    (staff || []).find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+}
+
+function staffsyncShiftTimeV217(entry) {
+  const start = entry.startTime || entry.start_time || entry.start || entry.from || entry.shiftStart || entry.shift_start || "";
+  const end = entry.endTime || entry.end_time || entry.end || entry.to || entry.shiftEnd || entry.shift_end || "";
+  const timeText = entry.shiftTime || entry.shift_time || entry.timeRange || entry.time_range || entry.time || "";
+  if (timeText && !String(timeText).toLowerCase().includes("hour")) return timeText;
+  if (start && end) return `${start} - ${end}`;
+  return "Time not set";
+}
+
+function staffsyncRenderStaffShiftsV217() {
+  const page = String(location.hash || "").replace("#", "") || "dashboard";
+  const isStaff = currentRole === "staff";
+
+  document.querySelector("#staffsync-staff-three-day-shifts-v217")?.remove();
+  document.querySelector("#staffsync-staff-dashboard-dept-shifts-v217")?.remove();
+
+  if (!isStaff) return;
+
+  // Staff must not see admin shift tools.
+  document.querySelectorAll("#staffsync-shift-creator-v213, #staffsync-shift-creator-v214").forEach((item) => item.remove());
+
+  const activePerson = staffsyncCurrentStaffV217();
+  const department = activePerson?.department || "General";
+
+  const people = typeof sortStaffByEmployeeCode === "function"
+    ? sortStaffByEmployeeCode((staff || []).filter((person) =>
+        person &&
+        !String(person.employeeCode || "").includes("-removed-") &&
+        (typeof normalizeDepartment === "function"
+          ? normalizeDepartment(person.department || "General") === normalizeDepartment(department)
+          : (person.department || "General") === department)
+      ))
+    : [];
+
+  const today = typeof todayLocalKey === "function" ? todayLocalKey() : new Date().toISOString().slice(0, 10);
+
+  if (page === "dashboard") {
+    const rows = people.map((person) => {
+      let entry = {};
+      try { entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, today) || {}) : {}; } catch (error) {}
+      const status = String(entry.status || "").toLowerCase();
+      const isLeave = status.includes("leave");
+      const label = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "Shift");
+      return `<div class="mini-row"><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><span>${label} - ${staffsyncShiftTimeV217(entry)}</span></div>`;
+    }).join("");
+
+    const panel = document.createElement("section");
+    panel.id = "staffsync-staff-dashboard-dept-shifts-v217";
+    panel.className = "mini-card";
+    panel.innerHTML = `<strong>${department} department shifts today</strong>${rows || `<div class="mini-empty">No department shifts found for today.</div>`}`;
+
+    const dashboard = document.querySelector("#dashboard") || document.querySelector("main") || document.body;
+    dashboard.appendChild(panel);
+    return;
+  }
+
+  if (page === "shifts" || page === "schedule") {
+    const dates = typeof nextDateKeys === "function" ? nextDateKeys(today, 3) : [today];
+    const panel = document.createElement("section");
+    panel.id = "staffsync-staff-three-day-shifts-v217";
+    panel.className = "staffsync-staff-three-day-shifts-v217";
+
+    panel.innerHTML = `
+      <div class="box-title-row">
+        <div>
+          <strong>Coming 3 days shifts</strong>
+          <small>${department} department shift calendar.</small>
+        </div>
+      </div>
+      <div class="shift-simple-grid">
+        <div class="shift-simple-head">Staff</div>
+        ${dates.map((dateValue) => `<div class="shift-simple-head">${typeof formatDate === "function" ? formatDate(dateValue) : dateValue}</div>`).join("")}
+        ${people.map((person) => `
+          <div class="shift-simple-staff">
+            <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+            <small>${person.role || "Staff"}</small>
+          </div>
+          ${dates.map((dateValue) => {
+            let entry = {};
+            try { entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {}; } catch (error) {}
+            const status = String(entry.status || "").toLowerCase();
+            const isLeave = status.includes("leave");
+            const label = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "Shift");
+            return `<div class="shift-simple-cell ${isLeave ? "is-leave" : ""}"><strong>${label}</strong><span>${staffsyncShiftTimeV217(entry)}</span></div>`;
+          }).join("")}
+        `).join("")}
+      </div>
+    `;
+
+    const shiftsSection = document.querySelector("#shifts") || document.querySelector("main") || document.body;
+    shiftsSection.prepend(panel);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
+window.addEventListener("hashchange", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));
+document.addEventListener("click", () => setTimeout(staffsyncRenderStaffShiftsV217, 900));

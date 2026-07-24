@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - restored staff department shifts on dashboard and 3-day Shift page.
+StaffSync Beach & Bliss Mirissa Version 1.0 - staff shifts attached to real dashboard and shifts sections.
