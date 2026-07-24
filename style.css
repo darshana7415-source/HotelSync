@@ -2617,3 +2617,25 @@ button.danger {
 #open-shift-modal-view-top {
   display: none !important;
 }
+
+
+/* three-day-shift-dropdown-v208 */
+.staffsync-three-day-shift-v208 {
+  margin: 14px 0;
+}
+
+.staffsync-three-day-shift-v208 .department-shift-fold {
+  margin: 10px 0;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.staffsync-three-day-shift-v208 .department-shift-fold > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  background: #eef8f8;
+  font-weight: 800;
+  color: #064f52;
+}
