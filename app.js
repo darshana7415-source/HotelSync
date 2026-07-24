@@ -8412,15 +8412,19 @@ window.addEventListener("hashchange", () => {
   setTimeout(staffsyncVisibleShiftPanelV197, 300);
   setTimeout(staffsyncVisibleShiftPanelV197, 1500);
 setInterval(staffsyncVisibleShiftPanelV197, 1200);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
 });
 document.addEventListener("click", (event) => {
   if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
     setTimeout(staffsyncVisibleShiftPanelV197, 300);
     setTimeout(staffsyncVisibleShiftPanelV197, 1500);
 setInterval(staffsyncVisibleShiftPanelV197, 1200);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
   }
 });
 setTimeout(staffsyncVisibleShiftPanelV197, 1500);
 setInterval(staffsyncVisibleShiftPanelV197, 1200);
+setInterval(staffsyncVisibleShiftPanelV197, 1200);
+
 
 
