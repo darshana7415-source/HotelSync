@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - admin Shift page shows only 3-day department dropdown.
+StaffSync Beach & Bliss Mirissa Version 1.0 - single 3-day shift panel with actual shift times.
