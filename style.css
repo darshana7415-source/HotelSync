@@ -2639,3 +2639,35 @@ button.danger {
   font-weight: 800;
   color: #064f52;
 }
+
+
+/* admin-shift-page-only-three-days-v209 */
+body.staffsync-admin-shift-v209 .shift-calendar-card,
+body.staffsync-admin-shift-v209 #daily-roster-body,
+body.staffsync-admin-shift-v209 #daily-roster-table,
+body.staffsync-admin-shift-v209 .daily-roster-table,
+body.staffsync-admin-shift-v209 .shift-roster-list,
+body.staffsync-admin-shift-v209 .shift-list,
+body.staffsync-admin-shift-v209 .staff-list {
+  display: none !important;
+}
+
+.staffsync-admin-three-day-shifts-v209 {
+  margin: 14px 0;
+}
+
+.staffsync-admin-three-day-shifts-v209 .department-shift-fold {
+  margin: 10px 0;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.staffsync-admin-three-day-shifts-v209 .department-shift-fold > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  background: #eef8f8;
+  font-weight: 800;
+  color: #064f52;
+}

@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - restored coming 3 days shifts department dropdown.
+StaffSync Beach & Bliss Mirissa Version 1.0 - admin Shift page shows only 3-day department dropdown.

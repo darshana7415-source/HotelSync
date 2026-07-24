@@ -8295,3 +8295,96 @@ document.addEventListener("click", (event) => {
     setTimeout(staffsyncThreeDayShiftDropdownV208, 500);
   }
 });
+
+
+// admin-shift-page-only-three-days-v209
+function staffsyncAdminThreeDayShiftPageV209() {
+  const page = String(location.hash || "").replace("#", "") || "dashboard";
+  const isShiftPage = page === "shifts" || page === "schedule";
+  if (!isShiftPage) {
+    document.body.classList.remove("staffsync-admin-shift-v209");
+    document.querySelector("#staffsync-admin-three-day-shifts-v209")?.remove();
+    return;
+  }
+
+  document.body.classList.add("staffsync-admin-shift-v209");
+
+  const existing = document.querySelector("#staffsync-admin-three-day-shifts-v209");
+  if (existing) return;
+
+  const holder =
+    document.querySelector('[data-view="shifts"]') ||
+    document.querySelector('[data-view="schedule"]') ||
+    document.querySelector("#shift-calendar") ||
+    document.querySelector("main") ||
+    document.body;
+
+  const baseDate = typeof todayLocalKey === "function" ? todayLocalKey() : new Date().toISOString().slice(0, 10);
+  const dates = typeof nextDateKeys === "function" ? nextDateKeys(baseDate, 3) : [baseDate];
+
+  const people = typeof sortStaffByEmployeeCode === "function"
+    ? sortStaffByEmployeeCode((staff || []).filter((person) => person && !String(person.employeeCode || "").includes("-removed-")))
+    : (staff || []);
+
+  const departments = Array.from(new Set(people.map((person) => person.department || "General"))).sort();
+
+  const panel = document.createElement("section");
+  panel.id = "staffsync-admin-three-day-shifts-v209";
+  panel.className = "staffsync-admin-three-day-shifts-v209";
+
+  panel.innerHTML = `
+    <div class="box-title-row">
+      <div>
+        <strong>Coming 3 days shifts</strong>
+        <small>Department wise shift view. Open a department to see employee shifts.</small>
+      </div>
+    </div>
+    ${departments.map((department) => {
+      const rows = people.filter((person) => {
+        if (typeof normalizeDepartment === "function") {
+          return normalizeDepartment(person.department || "General") === normalizeDepartment(department || "General");
+        }
+        return (person.department || "General") === (department || "General");
+      });
+
+      return `
+        <details class="department-shift-fold">
+          <summary>${department || "General"}</summary>
+          <div class="shift-simple-grid">
+            <div class="shift-simple-head">Staff</div>
+            ${dates.map((dateValue) => `<div class="shift-simple-head">${typeof formatDate === "function" ? formatDate(dateValue) : dateValue}</div>`).join("")}
+            ${rows.map((person) => `
+              <div class="shift-simple-staff">
+                <strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong>
+                <small>${person.role || "Staff"}</small>
+              </div>
+              ${dates.map((dateValue) => {
+                let entry = {};
+                try {
+                  entry = typeof dailyRosterEntryFor === "function" ? (dailyRosterEntryFor(person, dateValue) || {}) : {};
+                } catch (error) {}
+                const status = String(entry.status || "").toLowerCase();
+                const isLeave = status.includes("leave");
+                const label = isLeave ? "Leave" : (entry.shiftName || entry.shift || person.shift || "10h shift");
+                const start = entry.startTime || entry.start_time || entry.start || entry.from || entry.shiftStart || entry.shift_start || "";
+                const end = entry.endTime || entry.end_time || entry.end || entry.to || entry.shiftEnd || entry.shift_end || "";
+                const time = entry.shiftTime || entry.shift_time || entry.timeRange || entry.time_range || (start && end ? `${start} - ${end}` : (start || "10 hours"));
+                return `<div class="shift-simple-cell ${isLeave ? "is-leave" : ""}"><strong>${label}</strong><span>${time}</span></div>`;
+              }).join("")}
+            `).join("")}
+          </div>
+        </details>
+      `;
+    }).join("")}
+  `;
+
+  holder.prepend(panel);
+}
+
+document.addEventListener("DOMContentLoaded", () => setTimeout(staffsyncAdminThreeDayShiftPageV209, 500));
+window.addEventListener("hashchange", () => setTimeout(staffsyncAdminThreeDayShiftPageV209, 500));
+document.addEventListener("click", (event) => {
+  if (event.target?.closest?.('[data-page="shifts"], [data-page="schedule"], [href="#shifts"], [href="#schedule"]')) {
+    setTimeout(staffsyncAdminThreeDayShiftPageV209, 500);
+  }
+});
