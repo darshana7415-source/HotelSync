@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Shift Allocation - StaffSync</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="env.js"></script>
+  <style>
+    body { margin:0; background:#f6faf9; color:#102026; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    .shell { max-width:920px; margin:0 auto; padding:18px; }
+    .top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
+    .top h1 { margin:0; font-size:24px; }
+    .top a { color:#075f63; font-weight:800; text-decoration:none; }
+    .card { background:#fff; border:1px solid #dbe8e5; border-radius:10px; padding:16px; box-shadow:0 8px 24px rgba(16,32,38,.06); }
+    label { display:grid; gap:6px; font-weight:700; margin:12px 0; }
+    select,input,button { font:inherit; padding:11px; border-radius:8px; border:1px solid #cfe0dd; }
+    button { background:#075f63; color:white; font-weight:800; border:0; cursor:pointer; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .dates { display:grid; grid-template-columns:repeat(auto-fit,minmax(92px,1fr)); gap:8px; margin-top:8px; }
+    .datebox { display:flex; gap:8px; align-items:center; border:1px solid #dbe8e5; border-radius:8px; padding:10px; background:#fbfefd; font-weight:700; }
+    .message { margin-top:12px; padding:12px; border-radius:8px; background:#eaf7f2; color:#075f63; font-weight:800; }
+    .error { background:#fff0f0; color:#9d1c1c; }
+    @media (max-width:720px) { .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="top">
+      <div>
+        <h1>Shift Allocation</h1>
+        <small>StaffSync Beach & Bliss Mirissa</small>
+      </div>
+      <a href="index.html#dashboard">Back to dashboard</a>
+    </div>
+
+    <section class="card">
+      <label>
+        Staff member
+        <select id="staff-select"><option>Loading staff...</option></select>
+      </label>
+
+      <div class="grid">
+        <label>
+          Starting date
+          <input id="start-date" type="date">
+        </label>
+        <label>
+          Shift name
+          <select id="shift-name">
+            <option>Morning</option>
+            <option>Evening</option>
+            <option>Night</option>
+            <option>10h shift</option>
+          </select>
+        </label>
+        <label>
+          In time
+          <input id="in-time" type="time" value="07:00">
+        </label>
+        <label>
+          Out time
+          <input id="out-time" type="time" value="17:00">
+        </label>
+      </div>
+
+      <label>
+        Apply to dates, maximum 7 days
+        <div id="date-options" class="dates"></div>
+      </label>
+
+      <button id="save-shift" type="button">Save shift allocation</button>
+      <div id="message" class="message" hidden></div>
+    </section>
+  </main>
+
+<script>
+(function () {
+  const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || {};
+  const db = window.supabase?.createClient?.(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+  const hotelId = cfg.HOTEL_ID || "00000000-0000-0000-0000-000000000001";
+
+  const staffSelect = document.querySelector("#staff-select");
+  const startDate = document.querySelector("#start-date");
+  const inTime = document.querySelector("#in-time");
+  const outTime = document.querySelector("#out-time");
+  const shiftName = document.querySelector("#shift-name");
+  const dateOptions = document.querySelector("#date-options");
+  const saveButton = document.querySelector("#save-shift");
+  const message = document.querySelector("#message");
+
+  function show(text, isError) {
+    message.hidden = false;
+    message.textContent = text;
+    message.className = isError ? "message error" : "message";
+  }
+
+  function keyFromDate(date) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function addDays(key, days) {
+    const d = new Date(key + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return keyFromDate(d);
+  }
+
+  function labelDate(key) {
+    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { day:"2-digit", weekday:"short" });
+  }
+
+  function plusTenHours(time) {
+    const parts = time.split(":").map(Number);
+    const end = new Date(2000, 0, 1, parts[0] || 0, parts[1] || 0);
+    end.setHours(end.getHours() + 10);
+    return String(end.getHours()).padStart(2, "0") + ":" + String(end.getMinutes()).padStart(2, "0");
+  }
+
+  function buildDates() {
+    dateOptions.innerHTML = "";
+    for (let i = 0; i < 7; i++) {
+      const key = addDays(startDate.value, i);
+      dateOptions.insertAdjacentHTML("beforeend", `
+        <label class="datebox">
+          <input type="checkbox" value="${key}" ${i === 0 ? "checked" : ""}>
+          <span>${labelDate(key)}</span>
+        </label>
+      `);
+    }
+  }
+
+  async function loadStaff() {
+    if (!db) {
+      show("Supabase settings not loaded. Check env.js.", true);
+      return;
+    }
+
+    const result = await db
+      .from("staff_shift_people_view")
+      .select("*")
+      .order("employee_code", { ascending: true });
+
+    if (result.error) {
+      show(result.error.message, true);
+      return;
+    }
+
+    staffSelect.innerHTML = (result.data || []).map((p) =>
+      `<option value="${p.staff_id}">${p.employee_code} - ${p.full_name} - ${p.department}</option>`
+    ).join("");
+  }
+
+  async function saveOne(staffId, date) {
+    const row = {
+      hotel_id: hotelId,
+      staff_profile_id: staffId,
+      roster_date: date,
+      shift_name: shiftName.value,
+      in_time: inTime.value,
+      out_time: outTime.value,
+      day_status: "Working"
+    };
+
+    const existing = await db
+      .from("daily_rosters")
+      .select("id")
+      .eq("staff_profile_id", staffId)
+      .eq("roster_date", date)
+      .maybeSingle();
+
+    if (existing.data && existing.data.id) {
+      return db.from("daily_rosters").update(row).eq("id", existing.data.id);
+    }
+
+    return db.from("daily_rosters").insert(row);
+  }
+
+  async function saveShift() {
+    const staffId = staffSelect.value;
+    const dates = Array.from(dateOptions.querySelectorAll("input:checked")).map((box) => box.value);
+
+    if (!staffId) return show("Choose a staff member.", true);
+    if (!dates.length) return show("Choose at least one date.", true);
+
+    saveButton.disabled = true;
+    saveButton.textContent = "Saving...";
+
+    try {
+      for (const date of dates) {
+        const result = await saveOne(staffId, date);
+        if (result.error) throw result.error;
+      }
+      show(`Shift saved for ${dates.length} day${dates.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      show(error.message || "Shift save failed.", true);
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = "Save shift allocation";
+    }
+  }
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  startDate.value = keyFromDate(tomorrow);
+  buildDates();
+
+  inTime.addEventListener("change", function () {
+    outTime.value = plusTenHours(inTime.value);
+  });
+  startDate.addEventListener("change", buildDates);
+  saveButton.addEventListener("click", saveShift);
+
+  loadStaff();
+})();
+</script>
+</body>
+</html>
