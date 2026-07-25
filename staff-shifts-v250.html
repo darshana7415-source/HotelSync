@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>StaffSync Shifts</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="env.js"></script>
   <style>
     body { background:#f6faf9; color:#102026; margin:0; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
@@ -65,11 +65,13 @@
   const url = configValue("SUPABASE_URL", "supabaseUrl", "url", "STAFFSYNC_SUPABASE_URL", "projectUrl");
   const key = configValue("SUPABASE_ANON_KEY", "supabaseAnonKey", "anonKey", "STAFFSYNC_SUPABASE_ANON_KEY", "anon");
 
-    if (!url || !key || !window.supabase?.createClient) {
-    setTimeout(function () {
-      location.reload();
-    }, 1000);
-    board.textContent = "Loading Supabase settings...";
+      if (!url || !key) {
+    board.textContent = "Supabase env settings not found.";
+    return;
+  }
+
+  if (!window.supabase?.createClient) {
+    board.textContent = "Supabase library did not load. Please refresh once.";
     return;
   }
 
@@ -170,6 +172,7 @@
 </script>
 </body>
 </html>
+
 
 
 
