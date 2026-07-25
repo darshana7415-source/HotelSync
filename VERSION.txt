@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - blocked old staff-only shift renderer.
+StaffSync Beach & Bliss Mirissa Version 1.0 - removed old same-department staff shift renderers.
