@@ -55,7 +55,7 @@
     for (const name of names) {
       if (window[name]) return window[name];
     }
-    const cfg = window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+    const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
     for (const name of names) {
       if (cfg[name]) return cfg[name];
     }
@@ -167,4 +167,5 @@
 </script>
 </body>
 </html>
+
 
