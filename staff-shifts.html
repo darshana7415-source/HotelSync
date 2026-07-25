@@ -65,8 +65,11 @@
   const url = configValue("SUPABASE_URL", "supabaseUrl", "url", "STAFFSYNC_SUPABASE_URL", "projectUrl");
   const key = configValue("SUPABASE_ANON_KEY", "supabaseAnonKey", "anonKey", "STAFFSYNC_SUPABASE_ANON_KEY", "anon");
 
-  if (!url || !key || !window.supabase?.createClient) {
-    board.textContent = "Supabase settings not found. Check env.js.";
+    if (!url || !key || !window.supabase?.createClient) {
+    setTimeout(function () {
+      location.reload();
+    }, 1000);
+    board.textContent = "Loading Supabase settings...";
     return;
   }
 
@@ -167,5 +170,6 @@
 </script>
 </body>
 </html>
+
 
 
