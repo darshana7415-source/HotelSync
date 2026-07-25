@@ -9198,3 +9198,51 @@ function renderShiftCalendar() {
 })();
 // end-block-old-staff-shift-renderer-v240
 
+
+// restore-navigation-after-shift-v242
+(function () {
+  if (window.restoreNavigationAfterShiftV242) return;
+  window.restoreNavigationAfterShiftV242 = true;
+
+  function currentPage() {
+    return String(location.hash || "#dashboard").replace("#", "") || "dashboard";
+  }
+
+  function restoreNavigation() {
+    var page = currentPage();
+
+    ["dashboard", "shifts", "leave", "setup", "location", "reports"].forEach(function (id) {
+      var section = document.querySelector("#" + id);
+      if (!section) return;
+
+      var shouldShow = id === page || (page === "schedule" && id === "shifts");
+      section.hidden = false;
+      section.style.display = shouldShow ? "" : "none";
+    });
+
+    if (page !== "shifts" && page !== "schedule") {
+      document.querySelector("#staff-shift-board-stable-v239")?.remove();
+
+      var oldCalendar = document.querySelector("#shift-calendar");
+      if (oldCalendar) oldCalendar.style.display = "";
+    }
+  }
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(restoreNavigation, 50);
+    setTimeout(restoreNavigation, 300);
+    setTimeout(restoreNavigation, 900);
+  });
+
+  document.addEventListener("click", function (event) {
+    if (event.target?.closest?.("[data-page-link], a[href^='#']")) {
+      setTimeout(restoreNavigation, 100);
+      setTimeout(restoreNavigation, 500);
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(restoreNavigation, 1000);
+  });
+})();
+// end-restore-navigation-after-shift-v242

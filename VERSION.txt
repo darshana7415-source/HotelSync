@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - removed old same-department staff shift renderers.
+StaffSync Beach & Bliss Mirissa Version 1.0 - restored dashboard navigation after shift page.
