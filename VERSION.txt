@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - stable all-staff shift board for staff view.
+StaffSync Beach & Bliss Mirissa Version 1.0 - blocked old staff-only shift renderer.

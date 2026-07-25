@@ -9324,3 +9324,126 @@ function renderShiftCalendar() {
   });
 })();
 // end-staff-shift-board-stable-v239
+
+// block-old-staff-shift-renderer-v240
+(function () {
+  if (window.blockOldStaffShiftRendererV240) return;
+  window.blockOldStaffShiftRendererV240 = true;
+
+  var originalRenderShiftCalendarV240 = null;
+
+  function isStaffShiftPageV240() {
+    return String(currentRole || "").toLowerCase() === "staff" &&
+      String(location.hash || "").toLowerCase().includes("shifts");
+  }
+
+  function removeOldSameDepartmentPanelV240() {
+    if (!isStaffShiftPageV240()) return;
+
+    var oldCalendar = document.querySelector("#shift-calendar");
+    if (oldCalendar) oldCalendar.style.display = "none";
+
+    document.querySelectorAll("#staffsync-staff-three-day-shifts-v217,#staffsync-staff-dashboard-dept-shifts-v217").forEach(function (el) {
+      el.remove();
+    });
+
+    Array.from(document.querySelectorAll("section,div,article")).forEach(function (el) {
+      var text = el.textContent || "";
+      if (
+        text.includes("Coming 3 days shifts") &&
+        text.includes("department shift calendar") &&
+        !text.includes("All staff shifts - coming 3 days")
+      ) {
+        el.remove();
+      }
+    });
+  }
+
+  function protectShiftDropdownClicksV240() {
+    document.addEventListener("click", function (event) {
+      if (event.target && event.target.closest && event.target.closest("#staff-shift-board-stable-v239 details")) {
+        event.stopPropagation();
+      }
+    }, true);
+  }
+
+  function patchOldRendererV240() {
+    try {
+      if (!originalRenderShiftCalendarV240 && typeof renderShiftCalendar === "function") {
+        originalRenderShiftCalendarV240 = renderShiftCalendar;
+      }
+
+      if (originalRenderShiftCalendarV240) {
+        var patched = function () {
+          if (isStaffShiftPageV240()) {
+            removeOldSameDepartmentPanelV240();
+            return;
+          }
+          return originalRenderShiftCalendarV240.apply(this, arguments);
+        };
+
+        window.renderShiftCalendar = patched;
+        try { renderShiftCalendar = patched; } catch (error) {}
+      }
+    } catch (error) {}
+
+    [
+      "staffsyncRenderStaffShiftsV217",
+      "staffsyncStaffThreeDayShiftsV216",
+      "renderVisibleShiftRescuePanel",
+      "wakeShiftPageDirectRender",
+      "forceShiftPageRender"
+    ].forEach(function (name) {
+      try { window[name] = function () {}; } catch (error) {}
+    });
+  }
+
+  function fixAfterNavigationV240() {
+    patchOldRendererV240();
+
+    if (isStaffShiftPageV240()) {
+      removeOldSameDepartmentPanelV240();
+
+      var board = document.querySelector("#staff-shift-board-stable-v239");
+      if (!board && typeof window.staffShiftBoardStableV239 !== "undefined") {
+        // v239 renders itself on hash change; this cleanup waits for it, then removes the old panel.
+        setTimeout(removeOldSameDepartmentPanelV240, 300);
+        setTimeout(removeOldSameDepartmentPanelV240, 900);
+      }
+    } else {
+      var oldCalendar = document.querySelector("#shift-calendar");
+      if (oldCalendar) oldCalendar.style.display = "";
+
+      var dashboard = document.querySelector("#dashboard");
+      if (dashboard) {
+        dashboard.hidden = false;
+        dashboard.style.display = "";
+      }
+
+      var leave = document.querySelector("#leave");
+      if (leave) {
+        leave.hidden = false;
+        leave.style.display = "";
+      }
+    }
+  }
+
+  protectShiftDropdownClicksV240();
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(fixAfterNavigationV240, 800);
+    setTimeout(fixAfterNavigationV240, 1800);
+  });
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(fixAfterNavigationV240, 200);
+    setTimeout(fixAfterNavigationV240, 800);
+    setTimeout(fixAfterNavigationV240, 1500);
+  });
+
+  setInterval(function () {
+    patchOldRendererV240();
+    removeOldSameDepartmentPanelV240();
+  }, 1000);
+})();
+// end-block-old-staff-shift-renderer-v240
