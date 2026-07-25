@@ -2792,3 +2792,12 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
 .shift-dept-fold .shift-simple-grid {
   padding: 0 12px 12px;
 }
+
+/* staff-shift-board-stable-v239 */
+.staff-shift-board-stable-v239 {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid #d9e5e5;
+  border-radius: 8px;
+  background: #ffffff;
+}

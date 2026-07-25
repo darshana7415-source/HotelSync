@@ -9138,3 +9138,189 @@ function renderShiftCalendar() {
   shiftCalendar.innerHTML = sections || `<div class="mini-empty">No shifts found for the selected dates.</div>`;
 }
 // end-shift-safe-view-loader-v221
+
+
+// staff-shift-board-stable-v239
+(function () {
+  if (window.staffShiftBoardStableV239) return;
+  window.staffShiftBoardStableV239 = true;
+
+  var renderedKey = "";
+
+  function isStaff() {
+    return String(currentRole || "").toLowerCase() === "staff";
+  }
+
+  function isShiftPage() {
+    return String(location.hash || "").toLowerCase().includes("shifts");
+  }
+
+  function db() {
+    return window.staffSyncSupabase?.from ? window.staffSyncSupabase : window.staffSyncDb;
+  }
+
+  function todayKey() {
+    try { return todayLocalKey(); } catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+
+  function addDays(key, n) {
+    var d = new Date(key + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function dateLabel(key) {
+    try { return formatDate(key); } catch (e) {
+      return new Date(key + "T00:00:00").toLocaleDateString("en", { month: "short", day: "numeric" });
+    }
+  }
+
+  function dayLabel(key) {
+    try { return shortDayName(key); } catch (e) {
+      return new Date(key + "T00:00:00").toLocaleDateString("en", { weekday: "short" });
+    }
+  }
+
+  function shortTime(value) {
+    return value ? String(value).slice(0, 5) : "";
+  }
+
+  function getBoard() {
+    var shifts = document.querySelector("#shifts");
+    if (!shifts) return null;
+
+    var board = document.querySelector("#staff-shift-board-stable-v239");
+    if (!board) {
+      board = document.createElement("section");
+      board.id = "staff-shift-board-stable-v239";
+      board.className = "mini-card staff-shift-board-stable-v239";
+      shifts.prepend(board);
+    }
+    return board;
+  }
+
+  function hideOldStaffShiftBox() {
+    var oldCalendar = document.querySelector("#shift-calendar");
+    if (oldCalendar) oldCalendar.style.display = "none";
+
+    document.querySelectorAll("#staffsync-staff-three-day-shifts-v217,#staffsync-staff-dashboard-dept-shifts-v217").forEach(function (x) {
+      x.style.display = "none";
+    });
+  }
+
+  function restorePages() {
+    var oldCalendar = document.querySelector("#shift-calendar");
+    if (oldCalendar) oldCalendar.style.display = "";
+
+    document.querySelector("#staff-shift-board-stable-v239")?.remove();
+    renderedKey = "";
+
+    var dashboard = document.querySelector("#dashboard");
+    if (dashboard) {
+      dashboard.style.display = "";
+      dashboard.hidden = false;
+    }
+
+    var leave = document.querySelector("#leave");
+    if (leave) {
+      leave.style.display = "";
+    }
+  }
+
+  async function render(force) {
+    if (!isStaff() || !isShiftPage()) {
+      restorePages();
+      return;
+    }
+
+    hideOldStaffShiftBox();
+
+    var board = getBoard();
+    if (!board) return;
+
+    var start = todayKey();
+    if (renderedKey === start && !force) return;
+
+    var conn = db();
+    if (!conn?.from) {
+      board.innerHTML = "<strong>Shift board cannot load</strong><small>Cloud connection is not ready. Please wait after login and open Shifts again.</small>";
+      return;
+    }
+
+    board.innerHTML = "<strong>Loading all staff shifts...</strong>";
+
+    var dates = [start, addDays(start, 1), addDays(start, 2)];
+
+    var staffResult = await conn.from("staff_shift_people_view").select("*").order("employee_code", { ascending: true });
+    if (staffResult.error) {
+      board.innerHTML = "<strong>Cannot load staff</strong><small>" + staffResult.error.message + "</small>";
+      return;
+    }
+
+    var rosterResult = await conn.from("staff_shift_roster_view").select("*").gte("roster_date", dates[0]).lte("roster_date", dates[2]);
+    if (rosterResult.error) {
+      board.innerHTML = "<strong>Cannot load shifts</strong><small>" + rosterResult.error.message + "</small>";
+      return;
+    }
+
+    var people = (staffResult.data || []).filter(function (p) {
+      return p.full_name && !String(p.employee_code || "").includes("-removed-");
+    });
+
+    people.sort(function (a, b) {
+      return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
+    });
+
+    var roster = {};
+    (rosterResult.data || []).forEach(function (r) {
+      roster[r.roster_date] = roster[r.roster_date] || {};
+      roster[r.roster_date][r.staff_id] = r;
+    });
+
+    var departments = Array.from(new Set(people.map(function (p) {
+      return p.department || "General";
+    }))).sort();
+
+    var html = "<strong>All staff shifts - coming 3 days</strong><small>Open a department to see staff shifts.</small>";
+
+    departments.forEach(function (department) {
+      var members = people.filter(function (p) {
+        return String(p.department || "General") === String(department || "General");
+      });
+
+      html += '<details class="shift-dept-fold"><summary>' + department + '</summary>';
+      html += '<div class="shift-simple-grid"><div class="shift-simple-head">Staff</div>';
+
+      dates.forEach(function (d) {
+        html += '<div class="shift-simple-head">' + dateLabel(d) + '<small>' + dayLabel(d) + '</small></div>';
+      });
+
+      members.forEach(function (p) {
+        html += '<div class="shift-simple-staff"><strong>' + (p.employee_code || "") + " - " + (p.full_name || "") + '</strong><small>' + (p.job_title || "Staff") + '</small></div>';
+
+        dates.forEach(function (d) {
+          var r = roster[d]?.[p.staff_id] || {};
+          var startTime = shortTime(r.start_time || r.in_time);
+          var endTime = shortTime(r.end_time || r.out_time);
+          var timeText = startTime && endTime ? startTime + " - " + endTime : "Time not set";
+          var shiftName = r.shift_name || p.default_shift_type || "10h shift";
+          html += '<div class="shift-simple-cell"><strong>' + shiftName + '</strong><span>' + timeText + '</span></div>';
+        });
+      });
+
+      html += "</div></details>";
+    });
+
+    board.innerHTML = html;
+    renderedKey = start;
+  }
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(function () { render(true); }, 500);
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () { render(true); }, 1200);
+  });
+})();
+// end-staff-shift-board-stable-v239
