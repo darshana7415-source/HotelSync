@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - restored dashboard navigation after shift page.
+StaffSync Beach & Bliss Mirissa Version 1.0 - safer all staff 3 day shift page.

@@ -9246,3 +9246,158 @@ function renderShiftCalendar() {
   });
 })();
 // end-restore-navigation-after-shift-v242
+
+
+// staffsync-shift-page-v244
+(function () {
+  if (window.staffsyncShiftPageV244) return;
+  window.staffsyncShiftPageV244 = true;
+
+  let peopleCache = [];
+  let rosterCache = [];
+  let loading = false;
+
+  function isShiftPage() {
+    return String(location.hash || "").toLowerCase().includes("shifts");
+  }
+
+  function todayKey(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function labelDate(key) {
+    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function staffCode(person) {
+    return String(person.employee_code || person.employeeCode || "").trim();
+  }
+
+  function staffName(person) {
+    return person.full_name || person.fullName || person.name || "Staff";
+  }
+
+  function staffJob(person) {
+    return person.job_title || person.jobTitle || person.role || "Staff";
+  }
+
+  function staffDept(person) {
+    return person.department || "General";
+  }
+
+  function sortByCode(list) {
+    return [...list].sort((a, b) => staffCode(a).localeCompare(staffCode(b), undefined, { numeric: true }));
+  }
+
+  function entryFor(person, date) {
+    const id = String(person.staff_id || person.id || person.cloudId || "");
+    return rosterCache.find((row) =>
+      String(row.staff_id || row.staff_profile_id || "") === id &&
+      String(row.roster_date || row.date || "").slice(0, 10) === date
+    ) || null;
+  }
+
+  function shiftText(person, date) {
+    const entry = entryFor(person, date);
+    const name = entry?.shift_name || entry?.shiftName || person.default_shift_type || person.defaultShiftType || "10h shift";
+    const status = String(entry?.status || entry?.day_status || "").toLowerCase();
+
+    if (status.includes("leave")) {
+      return `<strong>Leave</strong><span>${entry?.day_status || entry?.status || "On leave"}</span>`;
+    }
+
+    const start = String(entry?.start_time || entry?.in_time || "").slice(0, 5);
+    const end = String(entry?.end_time || entry?.out_time || "").slice(0, 5);
+    const time = start && end ? `${start} - ${end}` : "Time not set";
+
+    return `<strong>${name}</strong><span>${time}</span>`;
+  }
+
+  async function loadShiftData() {
+    if (loading) return;
+    loading = true;
+
+    try {
+      const db = window.staffSyncSupabase || window.staffSyncDb;
+      if (!db?.from) return;
+
+      const fromDate = todayKey(0);
+      const toDate = todayKey(2);
+
+      const peopleResult = await db
+        .from("staff_shift_people_view")
+        .select("*")
+        .order("employee_code", { ascending: true });
+
+      const rosterResult = await db
+        .from("staff_shift_roster_view")
+        .select("*")
+        .gte("roster_date", fromDate)
+        .lte("roster_date", toDate);
+
+      if (!peopleResult.error && Array.isArray(peopleResult.data)) peopleCache = peopleResult.data;
+      if (!rosterResult.error && Array.isArray(rosterResult.data)) rosterCache = rosterResult.data;
+    } finally {
+      loading = false;
+    }
+  }
+
+  function render() {
+    if (!isShiftPage()) return;
+
+    const host = document.querySelector("#shift-calendar");
+    if (!host) return;
+
+    const dates = [todayKey(0), todayKey(1), todayKey(2)];
+    const groups = {};
+
+    sortByCode(peopleCache).forEach((person) => {
+      const dept = staffDept(person);
+      groups[dept] = groups[dept] || [];
+      groups[dept].push(person);
+    });
+
+    host.innerHTML = `
+      <div class="shift-clean-board-v244">
+        <h3>Coming 3 days shifts</h3>
+        <small>Open a department to see staff names and shift times.</small>
+        ${Object.keys(groups).sort().map((dept) => `
+          <details class="shift-dept-fold">
+            <summary>${dept}</summary>
+            <div class="shift-simple-grid">
+              <div class="shift-simple-head">Staff</div>
+              ${dates.map((date) => `<div class="shift-simple-head">${labelDate(date)}</div>`).join("")}
+              ${groups[dept].map((person) => `
+                <div class="shift-simple-staff">
+                  <strong>${staffCode(person)} - ${staffName(person)}</strong>
+                  <small>${staffJob(person)}</small>
+                </div>
+                ${dates.map((date) => `<div class="shift-simple-cell">${shiftText(person, date)}</div>`).join("")}
+              `).join("")}
+            </div>
+          </details>
+        `).join("") || `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`}
+      </div>
+    `;
+  }
+
+  async function refreshShiftPage() {
+    if (!isShiftPage()) return;
+    await loadShiftData();
+    render();
+  }
+
+  window.addEventListener("hashchange", () => setTimeout(refreshShiftPage, 300));
+  document.addEventListener("DOMContentLoaded", () => setTimeout(refreshShiftPage, 1200));
+
+  document.addEventListener("click", (event) => {
+    if (event.target?.closest?.("a[href='#shifts'], [data-page-link='shifts']")) {
+      setTimeout(refreshShiftPage, 600);
+    }
+  });
+
+  setInterval(refreshShiftPage, 15000);
+})();
+// end-staffsync-shift-page-v244
