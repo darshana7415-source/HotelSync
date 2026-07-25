@@ -1,4 +1,4 @@
-const CACHE_NAME = "staffsync-beach-bliss-v243";
+const CACHE_NAME = "staffsync-beach-bliss-v242";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -45,7 +45,6 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request).then((response) => response || caches.match("./index.html")))
   );
 });
-
 
 
 
