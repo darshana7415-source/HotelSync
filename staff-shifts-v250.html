@@ -110,7 +110,7 @@
     const leave = leaveFor(leaves, person, date);
     if (leave) {
       const leaveType = leave.leave_type || "Leave";
-      return `<td class="leave-cell"><span class="shift-name">${leaveType}</span><span class="shift-time">On leave</span></td>`;
+      return `<td class="leave-cell"><span class="shift-name">${leaveType}</span><span class="shift-time">${String(leaveType).toUpperCase()}</span></td>`;
     }
 
     const r = entryFor(rosters, person, date);
@@ -175,3 +175,4 @@
 </script>
 </body>
 </html>
+
