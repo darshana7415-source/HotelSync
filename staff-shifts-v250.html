@@ -12,7 +12,7 @@
     .shift-page-shell { max-width:1100px; margin:0 auto; padding:18px; }
     .shift-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
     .shift-top h1 { margin:0; font-size:24px; }
-    .shift-top a { color:#075f63; font-weight:700; text-decoration:none; }
+    .shift-top a { color:#075f63; font-weight:800; text-decoration:none; }
     .shift-card { background:white; border:1px solid #dbe8e5; border-radius:10px; padding:14px; box-shadow:0 8px 24px rgba(16,32,38,.06); }
     .shift-card h2 { margin:0 0 4px; font-size:18px; }
     .shift-card small { color:#667; }
@@ -24,33 +24,28 @@
     .shift-simple-staff strong, .shift-simple-cell strong { display:block; }
     .shift-simple-staff small, .shift-simple-cell span { display:block; color:#667; margin-top:3px; }
     .mini-empty { padding:16px; background:white; border:1px solid #dbe8e5; border-radius:8px; color:#667; }
-    @media (max-width: 720px) {
+    @media (max-width:720px) {
       .shift-page-shell { padding:8px; }
+      .shift-dept-fold { overflow-x:auto; }
       .shift-simple-grid {
-        grid-template-columns: 34% repeat(3, 22%);
+        grid-template-columns: 38% repeat(3, 20.66%);
+        min-width: 0;
         width: 100%;
-        overflow: visible;
         font-size: 10.5px;
       }
       .shift-simple-head, .shift-simple-staff, .shift-simple-cell {
-        padding: 6px 4px;
-        min-height: 46px;
-        overflow-wrap: anywhere;
-      }
-      .shift-simple-staff {
-        grid-column: 1;
+        padding:6px 4px;
+        min-height:48px;
+        overflow-wrap:anywhere;
       }
       .shift-simple-staff strong, .shift-simple-cell strong {
-        font-size: 10.5px;
-        line-height: 1.1;
+        font-size:10.5px;
+        line-height:1.1;
       }
       .shift-simple-staff small, .shift-simple-cell span {
-        font-size: 9.5px;
-        line-height: 1.1;
+        font-size:9.5px;
+        line-height:1.1;
       }
-      .shift-dept-fold { overflow: visible; }
-    }
-      .shift-dept-fold { overflow:auto; }
     }
   </style>
 </head>
@@ -74,33 +69,13 @@
 <script>
 (function () {
   const board = document.querySelector("#shift-board");
+  const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || {};
+  const db = window.supabase?.createClient?.(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
-  function configValue(...names) {
-    for (const name of names) {
-      if (window[name]) return window[name];
-    }
-    const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
-    for (const name of names) {
-      if (cfg[name]) return cfg[name];
-    }
-    return "";
-  }
-
-  const url = configValue("SUPABASE_URL", "supabaseUrl", "url", "STAFFSYNC_SUPABASE_URL", "projectUrl");
-  const key = configValue("SUPABASE_ANON_KEY", "supabaseAnonKey", "anonKey", "STAFFSYNC_SUPABASE_ANON_KEY", "anon");
-
-      if (!url || !key) {
-    board.textContent = "Supabase env settings not found.";
+  if (!db) {
+    board.textContent = "Supabase settings not loaded. Check env.js.";
     return;
   }
-
-  if (!window.supabase?.createClient) {
-    board.textContent = "Supabase library did not load. Please refresh once.";
-    return;
-  }
-
-  const db = window.supabase.createClient(url, key);
-  let leaveRows = [];
 
   function dateKey(offset) {
     const d = new Date();
@@ -109,7 +84,7 @@
   }
 
   function labelDate(key) {
-    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" });
   }
 
   function code(p) { return String(p.employee_code || "").trim(); }
@@ -118,7 +93,7 @@
   function dept(p) { return p.department || "General"; }
 
   function sortPeople(list) {
-    return [...list].sort((a, b) => code(a).localeCompare(code(b), undefined, { numeric: true }));
+    return [...list].sort((a, b) => code(a).localeCompare(code(b), undefined, { numeric:true }));
   }
 
   function entryFor(rosters, person, date) {
@@ -128,25 +103,7 @@
     );
   }
 
-
-  function leaveKind(row) {
-    const raw = String(row.leave_type || "Leave").toLowerCase();
-    if (raw.includes("short")) return "Short leave";
-    if (raw.includes("half")) return "Half day";
-    if (raw.includes("no pay") || raw.includes("nopay")) return "No pay leave";
-    return "Leave";
-  }
-
-  function leaveFor(person, date) {
-    return leaveRows.find((row) => {
-      const start = String(row.start_date || "").slice(0, 10);
-      const end = String(row.end_date || row.start_date || "").slice(0, 10);
-      return String(row.staff_id) === String(person.staff_id) && start && date >= start && date <= end;
-    });
-  }
   function shiftCell(rosters, person, date) {
-    const leave = leaveFor(person, date);
-    if (leave) return `<strong>${leaveKind(leave)}</strong><span>On leave</span>`;
     const r = entryFor(rosters, person, date);
     const status = String(r?.status || "").toLowerCase();
 
@@ -168,7 +125,7 @@
     const peopleResult = await db
       .from("staff_shift_people_view")
       .select("*")
-      .order("employee_code", { ascending: true });
+      .order("employee_code", { ascending:true });
 
     const rosterResult = await db
       .from("staff_shift_roster_view")
@@ -176,24 +133,13 @@
       .gte("roster_date", dates[0])
       .lte("roster_date", dates[2]);
 
-    const leaveResult = await db
-      .from("staff_shift_leave_view")
-      .select("*")
-      .lte("start_date", dates[2])
-      .gte("end_date", dates[0]);
-
-    leaveRows = leaveResult.error ? [] : (leaveResult.data || []);
-
-    const leaveResult = await db
-      .from("leave_requests")
-      .select("*")
-      .lte("start_date", dates[2])
-      .gte("end_date", dates[0]);
-
-    leaveRows = leaveResult.error ? [] : (leaveResult.data || []);
-
     if (peopleResult.error) {
       board.textContent = peopleResult.error.message;
+      return;
+    }
+
+    if (rosterResult.error) {
+      board.textContent = rosterResult.error.message;
       return;
     }
 
@@ -231,10 +177,3 @@
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
