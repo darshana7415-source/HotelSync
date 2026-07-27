@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - improved leave wording on shift calendar.
+StaffSync Beach & Bliss Mirissa Version 1.0 - compact mobile shift calendar.

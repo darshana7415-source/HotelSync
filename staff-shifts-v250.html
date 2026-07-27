@@ -29,18 +29,85 @@
     .mini-empty { padding:16px; background:white; border:1px solid #dbe8e5; border-radius:8px; color:#667; }
 
     @media (max-width:720px) {
-      .shift-page-shell { padding:8px; }
-      .shift-top { align-items:flex-start; }
-      .shift-top h1 { font-size:22px; }
-      .shift-top a { font-size:14px; white-space:nowrap; }
-      .shift-card { padding:8px; }
-      .shift-table { table-layout:fixed; width:100%; }
-      .shift-table th, .shift-table td { padding:6px 4px; }
-      .staff-col { width:40%; }
-      .day-col { width:20%; }
-      .staff-name, .shift-name { font-size:10px; line-height:1.1; }
-      .staff-role, .shift-time { font-size:9px; line-height:1.1; }
-      .shift-table th { font-size:10px; }
+      html, body {
+        width:100%;
+        max-width:100%;
+        overflow-x:hidden;
+      }
+      .shift-page-shell {
+        width:100%;
+        max-width:100%;
+        padding:4px;
+        box-sizing:border-box;
+        overflow-x:hidden;
+      }
+      .shift-top {
+        gap:6px;
+        margin-bottom:8px;
+      }
+      .shift-top h1 {
+        font-size:16px;
+        line-height:1.05;
+      }
+      .shift-top small {
+        font-size:10px;
+      }
+      .shift-top a {
+        font-size:11px;
+        white-space:nowrap;
+      }
+      .shift-card {
+        width:100%;
+        max-width:100%;
+        padding:5px;
+        box-sizing:border-box;
+        overflow-x:hidden;
+      }
+      .shift-card h2 {
+        font-size:14px;
+      }
+      .shift-card small {
+        font-size:10px;
+      }
+      .shift-dept-fold {
+        width:100%;
+        max-width:100%;
+        overflow:hidden;
+      }
+      .shift-dept-fold summary {
+        padding:8px;
+        font-size:18px;
+      }
+      .shift-table {
+        width:100%;
+        max-width:100%;
+        table-layout:fixed;
+        border-collapse:collapse;
+      }
+      .shift-table th, .shift-table td {
+        padding:4px 2px;
+        box-sizing:border-box;
+        overflow:hidden;
+        word-break:break-word;
+      }
+      .staff-col {
+        width:31%;
+      }
+      .day-col {
+        width:23%;
+      }
+      .staff-name, .shift-name {
+        font-size:8px;
+        line-height:1.05;
+      }
+      .staff-role, .shift-time {
+        font-size:7.5px;
+        line-height:1.05;
+      }
+      .shift-table th {
+        font-size:8px;
+        line-height:1.05;
+      }
     }
   </style>
 </head>
@@ -175,4 +242,5 @@
 </script>
 </body>
 </html>
+
 
