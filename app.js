@@ -9401,3 +9401,21 @@ function renderShiftCalendar() {
   setInterval(refreshShiftPage, 15000);
 })();
 // end-staffsync-shift-page-v244
+
+// hide-shift-allocation-for-staff-v267
+(function () {
+  function updateShiftAllocationVisibility() {
+    var links = document.querySelectorAll('[data-admin-only="true"]');
+    links.forEach(function (link) {
+      link.style.display = (window.currentRole === "staff" || currentRole === "staff") ? "none" : "";
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", updateShiftAllocationVisibility);
+  window.addEventListener("hashchange", updateShiftAllocationVisibility);
+  document.addEventListener("click", function () {
+    setTimeout(updateShiftAllocationVisibility, 100);
+  });
+  setInterval(updateShiftAllocationVisibility, 2000);
+})();
+// end-hide-shift-allocation-for-staff-v267

@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - careful leave and mobile shift calendar fix.
+StaffSync Beach & Bliss Mirissa Version 1.0 - hide staff shift allocation and mobile shift layout.
