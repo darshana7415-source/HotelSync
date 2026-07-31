@@ -2801,3 +2801,28 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   border-radius: 8px;
   background: #ffffff;
 }
+
+#leave-month-tabs-v277 {
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid #d8e8e8;
+  border-radius: 8px;
+  background: #f7fcfc;
+}
+
+#leave-month-tabs-v277 .leave-month-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+#leave-month-tabs-v277 .leave-month-buttons-v277 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#leave-month-tabs-v277 button {
+  min-height: 36px;
+}

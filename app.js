@@ -9552,3 +9552,137 @@ function renderShiftCalendar() {
   }, 5000);
 })();
 // end-leave-month-browser-v275
+
+// leave-month-position-fix-v277
+(function () {
+  if (window.leaveMonthPositionFixV277) return;
+  window.leaveMonthPositionFixV277 = true;
+
+  var selectedMonthV277 = "2026-07";
+
+  function addMonthsV277(key, count) {
+    var d = new Date(key + "-01T00:00:00");
+    d.setMonth(d.getMonth() + count);
+    return d.toISOString().slice(0, 7);
+  }
+
+  function monthLabelV277(key) {
+    return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function wantedMonthsV277() {
+    var firstMonth = "2026-07";
+    var current = new Date().toISOString().slice(0, 7);
+    var endMonth = current === firstMonth ? addMonthsV277(current, 1) : current;
+
+    var months = [];
+    var cursor = firstMonth;
+    while (cursor <= endMonth) {
+      months.push(cursor);
+      cursor = addMonthsV277(cursor, 1);
+    }
+    return months;
+  }
+
+  function hideOldWrongMonthBoxV277() {
+    var oldBox = document.querySelector("#leave-month-browser-v275");
+    if (oldBox) oldBox.style.display = "none";
+  }
+
+  function findCalendarPlaceV277() {
+    var leavePage = document.querySelector("#leave");
+    if (!leavePage) return null;
+
+    var selectors = [
+      "#leave-calendar",
+      ".leave-calendar",
+      "#leave-organizer",
+      ".leave-organizer",
+      "[id*='leave-calendar']",
+      "[class*='leave-calendar']"
+    ];
+
+    for (var i = 0; i < selectors.length; i++) {
+      var found = leavePage.querySelector(selectors[i]);
+      if (found && found.id !== "leave-month-browser-v275" && found.id !== "leave-month-tabs-v277") {
+        return found;
+      }
+    }
+
+    return leavePage.querySelector(".card:nth-of-type(2)") || leavePage.firstElementChild;
+  }
+
+  function applyMonthToExistingCalendarV277(month) {
+    selectedMonthV277 = month;
+
+    var dateInputs = document.querySelectorAll(
+      "#leave input[type='month'], #leave input[type='date']"
+    );
+
+    dateInputs.forEach(function (input) {
+      if (input.type === "month") input.value = month;
+      if (input.type === "date" && input.id && input.id.toLowerCase().includes("month")) {
+        input.value = month + "-01";
+      }
+    });
+
+    try {
+      if (typeof renderLeaveCalendar === "function") renderLeaveCalendar(month);
+      if (typeof renderLeavePage === "function") renderLeavePage();
+      if (typeof renderLeaves === "function") renderLeaves();
+    } catch {}
+
+    setTimeout(renderTabsV277, 200);
+  }
+
+  function renderTabsV277() {
+    hideOldWrongMonthBoxV277();
+
+    var place = findCalendarPlaceV277();
+    if (!place) return;
+
+    var tabs = document.querySelector("#leave-month-tabs-v277");
+    if (!tabs) {
+      tabs = document.createElement("div");
+      tabs.id = "leave-month-tabs-v277";
+      tabs.className = "leave-month-tabs-v277";
+      place.parentNode.insertBefore(tabs, place);
+    }
+
+    var months = wantedMonthsV277();
+    if (months.indexOf(selectedMonthV277) === -1) selectedMonthV277 = months[months.length - 1];
+
+    tabs.innerHTML =
+      '<div class="leave-month-title"><strong>Leave calendar month</strong><small>Saved months remain visible until admin deletes the records.</small></div>' +
+      '<div class="leave-month-buttons-v277">' +
+      months.map(function (month) {
+        return '<button type="button" class="' + (month === selectedMonthV277 ? 'primary-action' : 'ghost') + '" data-leave-month-v277="' + month + '">' + monthLabelV277(month) + '</button>';
+      }).join("") +
+      '</div>';
+  }
+
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-leave-month-v277]");
+    if (!btn) return;
+    applyMonthToExistingCalendarV277(btn.getAttribute("data-leave-month-v277"));
+  });
+
+  function refreshV277() {
+    if (!String(location.hash || "").includes("leave")) return;
+    renderTabsV277();
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(refreshV277, 1000);
+  });
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(refreshV277, 400);
+  });
+
+  setInterval(refreshV277, 5000);
+})();
+// end-leave-month-position-fix-v277
