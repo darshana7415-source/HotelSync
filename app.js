@@ -9552,3 +9552,66 @@ function renderShiftCalendar() {
   }, 5000);
 })();
 // end-leave-month-browser-v275
+
+// leave-months-from-supabase-view-v279
+(function () {
+  if (window.leaveMonthsFromViewV279) return;
+  window.leaveMonthsFromViewV279 = true;
+
+  var cachedMonthsV279 = [
+    { month_key: "2026-07", month_label: "July 2026" },
+    { month_key: "2026-08", month_label: "August 2026" }
+  ];
+
+  function dbV279() {
+    if (window.staffSyncSupabase && window.staffSyncSupabase.from) return window.staffSyncSupabase;
+    if (window.staffSyncDb && window.staffSyncDb.from) return window.staffSyncDb;
+    return null;
+  }
+
+  async function loadMonthsV279() {
+    var db = dbV279();
+    if (!db) return;
+
+    var result = await db
+      .from("staffsync_leave_months_view")
+      .select("month_key, month_label")
+      .order("month_key", { ascending: true });
+
+    if (!result.error && Array.isArray(result.data) && result.data.length) {
+      cachedMonthsV279 = result.data;
+    }
+  }
+
+  function rebuildExistingMonthButtonsV279() {
+    var box = document.querySelector("#leave-month-browser-v275");
+    if (!box) return;
+
+    var buttons = cachedMonthsV279.map(function (row, index) {
+      var cls = index === cachedMonthsV279.length - 1 ? "primary-action" : "ghost";
+      return '<button type="button" class="' + cls + '" data-leave-month="' + row.month_key + '">' + row.month_label + '</button>';
+    }).join("");
+
+    var buttonWrap = box.querySelector(".segmented-buttons");
+    if (buttonWrap) {
+      buttonWrap.innerHTML = buttons;
+    }
+  }
+
+  async function refreshMonthsV279() {
+    if (!String(location.hash || "").includes("leave")) return;
+    await loadMonthsV279();
+    rebuildExistingMonthButtonsV279();
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(refreshMonthsV279, 1500);
+  });
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(refreshMonthsV279, 600);
+  });
+
+  setInterval(refreshMonthsV279, 8000);
+})();
+// end-leave-months-from-supabase-view-v279
