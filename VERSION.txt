@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - existing leave month browser.
+StaffSync Beach & Bliss Mirissa Version 1.0 - fixed leave month selector months and position.
