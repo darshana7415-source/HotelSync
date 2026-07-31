@@ -9419,3 +9419,136 @@ function renderShiftCalendar() {
   setInterval(updateShiftAllocationVisibility, 2000);
 })();
 // end-hide-shift-allocation-for-staff-v267
+
+// leave-month-browser-v275
+(function () {
+  if (window.leaveMonthBrowserV275) return;
+  window.leaveMonthBrowserV275 = true;
+
+  let selectedLeaveMonth = new Date().toISOString().slice(0, 7);
+
+  function roleNow() {
+    try {
+      return String(window.currentRole || currentRole || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function monthLabel(key) {
+    return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function addMonths(key, count) {
+    const d = new Date(key + "-01T00:00:00");
+    d.setMonth(d.getMonth() + count);
+    return d.toISOString().slice(0, 7);
+  }
+
+  function allowedMonths() {
+    const current = new Date().toISOString().slice(0, 7);
+    const role = roleNow();
+
+    if (role === "staff") {
+      return [current, addMonths(current, 1)];
+    }
+
+    const saved = new Set([addMonths(current, -1), current, addMonths(current, 1)]);
+
+    try {
+      (window.leaveRequests || leaveRequests || []).forEach((row) => {
+        const start = String(row.startDate || row.start_date || row.date || "").slice(0, 7);
+        if (start) saved.add(start);
+      });
+    } catch {}
+
+    return Array.from(saved).sort();
+  }
+
+  function ensureMonthBar() {
+    const leavePage = document.querySelector("#leave");
+    if (!leavePage) return null;
+
+    let bar = document.querySelector("#leave-month-browser-v275");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "leave-month-browser-v275";
+      bar.className = "card";
+      bar.style.marginBottom = "12px";
+      leavePage.prepend(bar);
+    }
+
+    return bar;
+  }
+
+  function renderMonthBar() {
+    const bar = ensureMonthBar();
+    if (!bar) return;
+
+    const months = allowedMonths();
+    if (!months.includes(selectedLeaveMonth)) selectedLeaveMonth = new Date().toISOString().slice(0, 7);
+
+    bar.innerHTML = `
+      <div class="box-title-row">
+        <div>
+          <strong>Leave calendar month</strong>
+          <small>Saved previous months stay visible until admin deletes the records.</small>
+        </div>
+      </div>
+      <div class="segmented-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        ${months.map((month) => `
+          <button type="button" class="${month === selectedLeaveMonth ? "primary-action" : "ghost"}" data-leave-month="${month}">
+            ${monthLabel(month)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function dateInSelectedMonth(dateText) {
+    const value = String(dateText || "").slice(0, 10);
+    return value.slice(0, 7) === selectedLeaveMonth;
+  }
+
+  function filterVisibleLeaveCards() {
+    const leavePage = document.querySelector("#leave");
+    if (!leavePage) return;
+
+    leavePage.querySelectorAll("[data-leave-date], [data-start-date], [data-request-date]").forEach((el) => {
+      const date = el.getAttribute("data-leave-date") || el.getAttribute("data-start-date") || el.getAttribute("data-request-date");
+      el.style.display = dateInSelectedMonth(date) ? "" : "none";
+    });
+  }
+
+  document.addEventListener("click", function (event) {
+    const btn = event.target.closest("[data-leave-month]");
+    if (!btn) return;
+    selectedLeaveMonth = btn.getAttribute("data-leave-month");
+    renderMonthBar();
+    filterVisibleLeaveCards();
+
+    try {
+      if (typeof renderLeaveCalendar === "function") renderLeaveCalendar(selectedLeaveMonth);
+      if (typeof renderLeavePage === "function") renderLeavePage();
+      if (typeof renderDashboard === "function") renderDashboard();
+    } catch {}
+  });
+
+  function refresh() {
+    renderMonthBar();
+    filterVisibleLeaveCards();
+  }
+
+  window.addEventListener("hashchange", function () {
+    if (String(location.hash).includes("leave")) setTimeout(refresh, 400);
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(refresh, 1200);
+  });
+
+  setInterval(function () {
+    if (String(location.hash).includes("leave")) refresh();
+  }, 5000);
+})();
+// end-leave-month-browser-v275
