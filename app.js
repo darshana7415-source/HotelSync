@@ -9446,20 +9446,23 @@ function renderShiftCalendar() {
   }
 
   function allowedMonths() {
-    const firstMonth = "2026-07";
-    const minimumEndMonth = "2026-08";
     const current = new Date().toISOString().slice(0, 7);
-    const endMonth = current > minimumEndMonth ? current : minimumEndMonth;
+    const role = roleNow();
 
-    const months = [];
-    let cursor = firstMonth;
-
-    while (cursor <= endMonth) {
-      months.push(cursor);
-      cursor = addMonths(cursor, 1);
+    if (role === "staff") {
+      return [current, addMonths(current, 1)];
     }
 
-    return months;
+    const saved = new Set([addMonths(current, -1), current, addMonths(current, 1)]);
+
+    try {
+      (window.leaveRequests || leaveRequests || []).forEach((row) => {
+        const start = String(row.startDate || row.start_date || row.date || "").slice(0, 7);
+        if (start) saved.add(start);
+      });
+    } catch {}
+
+    return Array.from(saved).sort();
   }
 
   function ensureMonthBar() {
@@ -9472,19 +9475,7 @@ function renderShiftCalendar() {
       bar.id = "leave-month-browser-v275";
       bar.className = "card";
       bar.style.marginBottom = "12px";
-      const calendarTarget =
-        leavePage.querySelector("#leave-calendar") ||
-        leavePage.querySelector(".leave-calendar") ||
-        leavePage.querySelector("#leave-coverage") ||
-        leavePage.querySelector(".leave-coverage") ||
-        leavePage.querySelector("[id*='leave-calendar']:not(#leave-month-browser-v275)") ||
-        leavePage.querySelector("[class*='leave-calendar']");
-
-      if (calendarTarget && calendarTarget.parentNode) {
-        calendarTarget.parentNode.insertBefore(bar, calendarTarget);
-      } else {
-        leavePage.prepend(bar);
-      }
+      leavePage.prepend(bar);
     }
 
     return bar;
@@ -9561,4 +9552,3 @@ function renderShiftCalendar() {
   }, 5000);
 })();
 // end-leave-month-browser-v275
-
