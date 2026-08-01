@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - leave month buttons from Supabase view.
+StaffSync Beach & Bliss Mirissa Version 1.0 - removed unstable leave month selector scripts.
