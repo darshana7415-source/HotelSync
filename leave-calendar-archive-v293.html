@@ -119,7 +119,7 @@ function render(){
 
   function leaveValueForQuota(row){
   const status=String(row.status||"").toLowerCase();
-  if(status.includes("reject")||status.includes("cancel")) return 0;
+  if(!status.includes("approve") && !status.includes("grant")) return 0;
   const type=String(row.leave_type||"Leave").toLowerCase();
   if(type.includes("short")) return 0.25;
   if(type.includes("half")) return 0.5;
@@ -127,7 +127,7 @@ function render(){
 }
 function daysInSelectedMonthForRequest(row){
   const status=String(row.status||"").toLowerCase();
-  if(status.includes("reject")||status.includes("cancel")) return 0;
+  if(!status.includes("approve") && !status.includes("grant")) return 0;
 
   const monthStart=new Date(selectedMonth+"-01T00:00:00");
   const monthEnd=new Date(monthStart.getFullYear(),monthStart.getMonth()+1,0);
@@ -208,5 +208,6 @@ load();
 </script>
 </body>
 </html>
+
 
 

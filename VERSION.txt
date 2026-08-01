@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - fixed archive quota to count leave days.
+StaffSync Beach & Bliss Mirissa Version 1.0 - fixed archive quota to count approved leaves only.
