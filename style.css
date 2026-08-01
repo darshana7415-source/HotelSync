@@ -2826,28 +2826,3 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
 #leave-calendar-month-tabs-v282 button {
   min-height: 36px;
 }
-
-#leave-calendar-month-tabs-v282 {
-  margin: 10px 0 12px;
-  padding: 10px;
-  border: 1px solid #d8e8e8;
-  border-radius: 8px;
-  background: #f7fcfc;
-}
-
-#leave-calendar-month-tabs-v282 .leave-calendar-month-title-v282 {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
-}
-
-#leave-calendar-month-tabs-v282 .leave-calendar-month-buttons-v282 {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-#leave-calendar-month-tabs-v282 button {
-  min-height: 36px;
-}
