@@ -59,7 +59,12 @@
 const env = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || {};
 const url = env.SUPABASE_URL || env.supabaseUrl || env.url;
 const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey;
-const db = window.supabase.createClient(url, key);
+if (!url || !key) {
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelector("#calendar").innerHTML = `<div class="day">Supabase env missing. url=${url ? "ok" : "missing"}, key=${key ? "ok" : "missing"}</div>`;
+  });
+}
+const db = url && key ? window.supabase.createClient(url, key) : null;
 
 let rows = [];
 let selectedMonth = new Date().toISOString().slice(0, 7);
@@ -148,6 +153,8 @@ document.addEventListener("click", (event) => {
 });
 
 async function init() {
+  if (!db) return;
+
   const { data, error } = await db
     .from("staffsync_leave_calendar_archive_view")
     .select("*")
@@ -160,6 +167,11 @@ async function init() {
   }
 
   rows = data || [];
+  if (!rows.length) {
+    document.querySelector("#calendar").innerHTML = `<div class="day">Connected to Supabase, but no leave rows returned from staffsync_leave_calendar_archive_view.</div>`;
+    render();
+    return;
+  }
   render();
 }
 
@@ -167,4 +179,5 @@ init();
 </script>
 </body>
 </html>
+
 

@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - leave archive month list and styling.
+StaffSync Beach & Bliss Mirissa Version 1.0 - leave archive debug messages.
