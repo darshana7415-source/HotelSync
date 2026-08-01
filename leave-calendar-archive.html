@@ -6,156 +6,27 @@
   <title>Leave Calendar Archive - StaffSync Beach & Bliss Mirissa</title>
   <script src="env.js"></script>
   <style>
-    :root {
-      --teal:#006b6b;
-      --teal-dark:#005252;
-      --line:#d8e8e8;
-      --bg:#f4fbfb;
-      --card:#ffffff;
-      --text:#10202a;
-      --muted:#667085;
-      --green-bg:#dff7e8;
-      --green:#116b35;
-      --red-bg:#ffe1e1;
-      --red:#9a1b1b;
-      --grey-bg:#eceff3;
-      --grey:#52606d;
-      --yellow-bg:#fff4d6;
-      --yellow:#8a5b00;
-    }
-
-    body {
-      margin:0;
-      font-family:Arial, sans-serif;
-      background:var(--bg);
-      color:var(--text);
-    }
-
-    .shell {
-      max-width:1180px;
-      margin:0 auto;
-      padding:16px;
-    }
-
-    .top {
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    h1 {
-      margin:0;
-      font-size:28px;
-      line-height:1.1;
-    }
-
-    .muted {
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    .back {
-      border:0;
-      border-radius:8px;
-      padding:10px 12px;
-      background:var(--teal);
-      color:#fff;
-      font-weight:800;
-      cursor:pointer;
-      white-space:nowrap;
-    }
-
-    .card {
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:10px;
-      padding:14px;
-      box-shadow:0 8px 24px rgba(0,0,0,.05);
-    }
-
-    .tabs {
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin:12px 0;
-    }
-
-    .tabs button {
-      border:1px solid var(--line);
-      border-radius:8px;
-      padding:10px 12px;
-      background:#eef8f8;
-      color:var(--teal);
-      font-weight:800;
-      cursor:pointer;
-    }
-
-    .tabs button.active {
-      background:var(--teal);
-      color:#fff;
-    }
-
-    .calendar {
-      display:grid;
-      grid-template-columns:repeat(7,minmax(0,1fr));
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .head {
-      padding:8px;
-      background:#eaf7f7;
-      color:var(--teal);
-      font-weight:900;
-      border-radius:8px;
-      text-align:center;
-    }
-
-    .day {
-      min-height:88px;
-      padding:8px;
-      border:1px solid var(--line);
-      border-radius:8px;
-      background:#fff;
-      box-shadow:0 4px 12px rgba(0,0,0,.04);
-    }
-
-    .day.empty {
-      background:#f7fbfb;
-      box-shadow:none;
-    }
-
-    .day strong {
-      display:block;
-      margin-bottom:4px;
-      font-size:18px;
-    }
-
-    .pill {
-      display:block;
-      margin:4px 0;
-      padding:5px 6px;
-      border-radius:6px;
-      font-size:11px;
-      line-height:1.2;
-      font-weight:700;
-    }
-
-    .approved { background:var(--green-bg); color:var(--green); }
-    .rejected { background:var(--red-bg); color:var(--red); }
-    .cancelled { background:var(--grey-bg); color:var(--grey); }
-    .pending { background:var(--yellow-bg); color:var(--yellow); }
-
-    .message {
-      padding:14px;
-      border:1px solid var(--line);
-      border-radius:8px;
-      background:#fff;
-      color:var(--muted);
-    }
-
+    body { margin:0; font-family:Arial,sans-serif; background:#f4fbfb; color:#10202a; }
+    .shell { max-width:1180px; margin:0 auto; padding:16px; }
+    .top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
+    h1 { margin:0; font-size:28px; }
+    .muted { color:#667085; font-size:13px; }
+    .back { display:inline-block; background:#006b6b; color:#fff; text-decoration:none; font-weight:800; padding:10px 12px; border-radius:8px; }
+    .card { background:#fff; border:1px solid #d8e8e8; border-radius:10px; padding:14px; box-shadow:0 8px 24px rgba(0,0,0,.05); }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+    .tabs button { border:1px solid #d8e8e8; border-radius:8px; padding:10px 12px; background:#eef8f8; color:#006b6b; font-weight:800; cursor:pointer; }
+    .tabs button.active { background:#006b6b; color:#fff; }
+    .calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .head { padding:8px; background:#eaf7f7; color:#006b6b; font-weight:900; border-radius:8px; text-align:center; }
+    .day { min-height:88px; padding:8px; border:1px solid #d8e8e8; border-radius:8px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.04); }
+    .day.empty { background:#f7fbfb; box-shadow:none; }
+    .day strong { display:block; margin-bottom:4px; font-size:18px; }
+    .pill { display:block; margin:4px 0; padding:5px 6px; border-radius:6px; font-size:11px; line-height:1.2; font-weight:700; }
+    .approved { background:#dff7e8; color:#116b35; }
+    .rejected { background:#ffe1e1; color:#9a1b1b; }
+    .cancelled { background:#eceff3; color:#52606d; }
+    .pending { background:#fff4d6; color:#8a5b00; }
+    .message { padding:14px; border:1px solid #d8e8e8; border-radius:8px; background:#fff; color:#667085; }
     @media(max-width:720px) {
       .shell { padding:10px; }
       h1 { font-size:20px; }
@@ -175,7 +46,7 @@
         <h1>Leave Calendar Archive</h1>
         <div class="muted">StaffSync Beach & Bliss Mirissa</div>
       </div>
-      <button class="back" type="button" onclick="location.href='index.html#leave'">Back to Leave</button>
+      <a class="back" href="index.html#leave">Back to Leave</a>
     </div>
 
     <section class="card">
@@ -183,57 +54,43 @@
       <div class="muted">Saved previous months, current month, and coming month.</div>
       <div class="tabs" id="month-tabs"></div>
       <div id="status" class="message">Loading leave calendar...</div>
-      <div class="calendar" id="calendar" hidden></div>
+      <div class="calendar" id="calendar"></div>
     </section>
   </main>
 
 <script>
-let rows = [];
-let selectedMonth = new Date().toISOString().slice(0, 7);
+var rows = [];
+var selectedMonth = new Date().toISOString().slice(0, 7);
 
-function cfgValue(...keys) {
-  const sources = [
-    window.STAFFSYNC_ENV,
-    window.STAFFSYNC_CONFIG,
-    window.staffsyncConfig,
-    window.SUPABASE_CONFIG,
-    window
-  ].filter(Boolean);
-
-  for (const source of sources) {
-    for (const key of keys) {
-      if (source[key]) return source[key];
-    }
-  }
-
+function getConfigValue(name) {
+  if (window.STAFFSYNC_ENV && window.STAFFSYNC_ENV[name]) return window.STAFFSYNC_ENV[name];
+  if (window.STAFFSYNC_CONFIG && window.STAFFSYNC_CONFIG[name]) return window.STAFFSYNC_CONFIG[name];
+  if (window[name]) return window[name];
   return "";
 }
 
 function addMonths(key, count) {
-  const d = new Date(key + "-01T00:00:00");
+  var d = new Date(key + "-01T00:00:00");
   d.setMonth(d.getMonth() + count);
   return d.toISOString().slice(0, 7);
 }
 
 function monthLabel(key) {
-  return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", {
-    month:"long",
-    year:"numeric"
-  });
+  return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month:"long", year:"numeric" });
 }
 
 function monthEnd(key) {
-  const d = new Date(key + "-01T00:00:00");
+  var d = new Date(key + "-01T00:00:00");
   d.setMonth(d.getMonth() + 1);
   d.setDate(0);
   return d.toISOString().slice(0, 10);
 }
 
 function monthsToShow() {
-  const current = new Date().toISOString().slice(0, 7);
-  const last = addMonths(current, 1);
-  const months = [];
-  let cursor = "2026-07";
+  var current = new Date().toISOString().slice(0, 7);
+  var last = addMonths(current, 1);
+  var months = [];
+  var cursor = "2026-07";
 
   while (cursor <= last) {
     months.push(cursor);
@@ -244,105 +101,104 @@ function monthsToShow() {
 }
 
 function classFor(status) {
-  const s = String(status || "").toLowerCase();
-  if (s.includes("reject")) return "rejected";
-  if (s.includes("cancel")) return "cancelled";
-  if (s.includes("approve") || s.includes("grant")) return "approved";
+  var s = String(status || "").toLowerCase();
+  if (s.indexOf("reject") >= 0) return "rejected";
+  if (s.indexOf("cancel") >= 0) return "cancelled";
+  if (s.indexOf("approve") >= 0 || s.indexOf("grant") >= 0) return "approved";
   return "pending";
 }
 
 function covers(row, date) {
-  const start = String(row.start_date || "").slice(0, 10);
-  const end = String(row.end_date || start).slice(0, 10);
+  var start = String(row.start_date || "").slice(0, 10);
+  var end = String(row.end_date || start).slice(0, 10);
   return start <= date && end >= date;
 }
 
 function render() {
-  const months = monthsToShow();
-  if (!months.includes(selectedMonth)) selectedMonth = new Date().toISOString().slice(0, 7);
+  var months = monthsToShow();
+  if (months.indexOf(selectedMonth) < 0) selectedMonth = new Date().toISOString().slice(0, 7);
 
-  document.querySelector("#month-tabs").innerHTML = months.map(month =>
-    `<button type="button" class="${month === selectedMonth ? "active" : ""}" data-month="${month}">${monthLabel(month)}</button>`
-  ).join("");
+  var tabHtml = "";
+  for (var i = 0; i < months.length; i++) {
+    var month = months[i];
+    tabHtml += '<button type="button" class="' + (month === selectedMonth ? "active" : "") + '" data-month="' + month + '">' + monthLabel(month) + '</button>';
+  }
+  document.getElementById("month-tabs").innerHTML = tabHtml;
 
-  const first = new Date(selectedMonth + "-01T00:00:00");
-  const blanks = first.getDay();
-  const days = Number(monthEnd(selectedMonth).slice(8, 10));
-  const cells = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(day => `<div class="head">${day}</div>`);
+  var first = new Date(selectedMonth + "-01T00:00:00");
+  var blanks = first.getDay();
+  var days = Number(monthEnd(selectedMonth).slice(8, 10));
+  var cells = "";
 
-  for (let i = 0; i < blanks; i++) cells.push(`<div class="day empty"></div>`);
+  var week = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  for (var h = 0; h < week.length; h++) cells += '<div class="head">' + week[h] + '</div>';
 
-  for (let day = 1; day <= days; day++) {
-    const date = selectedMonth + "-" + String(day).padStart(2, "0");
-    const dayRows = rows.filter(row => covers(row, date));
+  for (var b = 0; b < blanks; b++) cells += '<div class="day empty"></div>';
 
-    cells.push(`
-      <div class="day">
-        <strong>${day}</strong>
-        ${dayRows.map(row => `
-          <span class="pill ${classFor(row.status)}">
-            ${row.employee_code || ""} ${row.full_name || ""} - ${row.leave_type || "Leave"} - ${row.status || ""}
-          </span>
-        `).join("")}
-      </div>
-    `);
+  for (var day = 1; day <= days; day++) {
+    var date = selectedMonth + "-" + String(day).padStart(2, "0");
+    var inside = "";
+
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!covers(row, date)) continue;
+      inside += '<span class="pill ' + classFor(row.status) + '">' +
+        (row.employee_code || "") + " " +
+        (row.full_name || "") + " - " +
+        (row.leave_type || "Leave") + " - " +
+        (row.status || "") +
+      '</span>';
+    }
+
+    cells += '<div class="day"><strong>' + day + '</strong>' + inside + '</div>';
   }
 
-  document.querySelector("#calendar").innerHTML = cells.join("");
-  document.querySelector("#calendar").hidden = false;
-  document.querySelector("#status").hidden = true;
+  document.getElementById("calendar").innerHTML = cells;
+  document.getElementById("status").textContent = "Loaded " + rows.length + " leave records.";
 }
 
-document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-month]");
+document.addEventListener("click", function(event) {
+  var button = event.target.closest("[data-month]");
   if (!button) return;
-  selectedMonth = button.dataset.month;
+  selectedMonth = button.getAttribute("data-month");
   render();
 });
 
-async function init() {
-  const url = cfgValue("SUPABASE_URL", "supabaseUrl", "url");
-  const key = cfgValue("SUPABASE_ANON_KEY", "supabaseAnonKey", "anonKey");
+function loadCalendar() {
+  var url = getConfigValue("SUPABASE_URL");
+  var key = getConfigValue("SUPABASE_ANON_KEY");
 
   if (!url || !key) {
-    document.querySelector("#status").textContent = "Supabase settings not found in env.js.";
+    document.getElementById("status").textContent = "Supabase settings not found in env.js.";
     return;
   }
 
-  const endpoint = `${url.replace(/\/$/, "")}/rest/v1/staffsync_leave_calendar_archive_view?select=*&order=start_date.asc&order=employee_code.asc`;
+  var endpoint = url.replace(/\/$/, "") + "/rest/v1/staffsync_leave_calendar_archive_view?select=*&order=start_date.asc&order=employee_code.asc";
 
-  try {
-    const response = await fetch(endpoint, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        Accept: "application/json"
-      }
+  fetch(endpoint, {
+    method: "GET",
+    headers: {
+      "apikey": key,
+      "Authorization": "Bearer " + key,
+      "Accept": "application/json"
+    }
+  })
+  .then(function(response) {
+    return response.text().then(function(text) {
+      if (!response.ok) throw new Error(response.status + " " + text);
+      return JSON.parse(text || "[]");
     });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      document.querySelector("#status").textContent = `Could not load leave calendar: ${response.status} ${text}`;
-      return;
-    }
-
-    rows = JSON.parse(text || "[]");
-
-    if (!rows.length) {
-      document.querySelector("#status").textContent = "Connected, but no leave records returned from staffsync_leave_calendar_archive_view.";
-      document.querySelector("#calendar").hidden = false;
-      render();
-      return;
-    }
-
+  })
+  .then(function(data) {
+    rows = data || [];
     render();
-  } catch (error) {
-    document.querySelector("#status").textContent = `Could not load leave calendar: ${error.message}`;
-  }
+  })
+  .catch(function(error) {
+    document.getElementById("status").textContent = "Could not load leave calendar: " + error.message;
+  });
 }
 
-setTimeout(init, 300);
+setTimeout(loadCalendar, 500);
 </script>
 </body>
 </html>
