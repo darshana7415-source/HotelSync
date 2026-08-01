@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - forced leave month tabs cache refresh.
+StaffSync Beach & Bliss Mirissa Version 1.0 - real leave month calendar connection.

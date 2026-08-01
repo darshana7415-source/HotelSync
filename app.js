@@ -709,12 +709,12 @@ function leaveThreadId(request) {
 function renderLeaveCalendar() {
   if (!leaveCalendar) return;
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const monthIndex = today.getMonth();
-  const totalDays = new Date(year, monthIndex + 1, 0).getDate();
-  const days = Array.from({ length: totalDays }, (_, index) =>
-    localDateKey(year, monthIndex, index + 1)
+  renderLeaveCalendarMonthTabsV282();
+
+  const selectedMonth = window.staffsyncLeaveCalendarMonthV282 || new Date().toISOString().slice(0, 7);
+  const monthParts = selectedMonth.split("-");
+  const year = Number(monthParts[0]);
+  const monthIndex = Number(monthParts[1]) - 1;
   );
 
   leaveCalendar.innerHTML = days.map((dateValue) => {
