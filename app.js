@@ -739,6 +739,72 @@ function renderLeaveCalendar() {
   }).join("");
 }
 
+
+function addLeaveCalendarMonthsV282(monthKey, amount) {
+  const date = new Date(`${monthKey}-01T00:00:00`);
+  date.setMonth(date.getMonth() + amount);
+  return date.toISOString().slice(0, 7);
+}
+
+function leaveCalendarMonthsV282() {
+  const firstMonth = "2026-07";
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const lastMonth = addLeaveCalendarMonthsV282(currentMonth, 1);
+  const months = [];
+  let cursor = firstMonth;
+
+  while (cursor <= lastMonth) {
+    months.push(cursor);
+    cursor = addLeaveCalendarMonthsV282(cursor, 1);
+  }
+
+  return months;
+}
+
+function leaveCalendarMonthLabelV282(monthKey) {
+  return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function renderLeaveCalendarMonthTabsV282() {
+  const months = leaveCalendarMonthsV282();
+
+  if (!window.staffsyncLeaveCalendarMonthV282 || !months.includes(window.staffsyncLeaveCalendarMonthV282)) {
+    window.staffsyncLeaveCalendarMonthV282 = new Date().toISOString().slice(0, 7);
+  }
+
+  let tabs = document.querySelector("#leave-calendar-month-tabs-v282");
+  if (!tabs) {
+    tabs = document.createElement("div");
+    tabs.id = "leave-calendar-month-tabs-v282";
+    tabs.className = "leave-calendar-month-tabs-v282";
+    leaveCalendar.parentNode.insertBefore(tabs, leaveCalendar);
+  }
+
+  tabs.innerHTML = `
+    <div class="leave-calendar-month-title-v282">
+      <strong>Leave calendar month</strong>
+      <small>Saved previous months, current month, and coming month.</small>
+    </div>
+    <div class="leave-calendar-month-buttons-v282">
+      ${months.map((month) => `
+        <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
+          ${leaveCalendarMonthLabelV282(month)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+document.addEventListener("click", function (event) {
+  const button = event.target.closest("[data-leave-calendar-month-v282]");
+  if (!button) return;
+
+  window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
+  renderLeaveCalendar();
+});
 function renderLeaveCoverage() {
   if (!coverageDate || !coverageGrid) return;
 
@@ -9419,6 +9485,7 @@ function renderShiftCalendar() {
   setInterval(updateShiftAllocationVisibility, 2000);
 })();
 // end-hide-shift-allocation-for-staff-v267
+
 
 
 
