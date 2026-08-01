@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - added separate leave calendar archive page.
+StaffSync Beach & Bliss Mirissa Version 1.0 - leave archive month list and styling.
