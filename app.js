@@ -9422,3 +9422,172 @@ function renderShiftCalendar() {
 
 
 
+
+// leave-calendar-tabs-v281
+(function () {
+  if (window.leaveCalendarTabsV281) return;
+  window.leaveCalendarTabsV281 = true;
+
+  var selectedMonthV281 = new Date().toISOString().slice(0, 7);
+  var cachedLeavesV281 = [];
+
+  function dbV281() {
+    if (window.staffSyncSupabase && window.staffSyncSupabase.from) return window.staffSyncSupabase;
+    if (window.staffSyncDb && window.staffSyncDb.from) return window.staffSyncDb;
+    return null;
+  }
+
+  function addMonthsV281(key, count) {
+    var d = new Date(key + "-01T00:00:00");
+    d.setMonth(d.getMonth() + count);
+    return d.toISOString().slice(0, 7);
+  }
+
+  function monthLabelV281(key) {
+    return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function monthEndV281(key) {
+    var d = new Date(key + "-01T00:00:00");
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function monthTabsV281() {
+    var current = new Date().toISOString().slice(0, 7);
+    return [addMonthsV281(current, -1), current, addMonthsV281(current, 1)];
+  }
+
+  async function loadLeavesV281() {
+    var db = dbV281();
+    if (!db) return;
+
+    var months = monthTabsV281();
+    var from = months[0] + "-01";
+    var to = monthEndV281(months[2]);
+
+    var result = await db
+      .from("staff_leave_calendar_view")
+      .select("*")
+      .lte("start_date", to)
+      .gte("end_date", from)
+      .order("employee_code", { ascending: true })
+      .order("start_date", { ascending: true });
+
+    if (!result.error && Array.isArray(result.data)) {
+      cachedLeavesV281 = result.data;
+    }
+  }
+
+  function leaveClassV281(status) {
+    var value = String(status || "").toLowerCase();
+    if (value.indexOf("reject") >= 0) return "leave-rejected";
+    if (value.indexOf("cancel") >= 0) return "leave-cancelled";
+    if (value.indexOf("approve") >= 0 || value.indexOf("grant") >= 0) return "leave-approved";
+    return "leave-pending";
+  }
+
+  function rowsForDateV281(dateKey) {
+    return cachedLeavesV281.filter(function (row) {
+      var start = String(row.start_date || row.startDate || "").slice(0, 10);
+      var end = String(row.end_date || row.endDate || start).slice(0, 10);
+      return start <= dateKey && end >= dateKey;
+    });
+  }
+
+  function findLeaveCalendarTargetV281() {
+    var page = document.querySelector("#leave");
+    if (!page) return null;
+
+    return page.querySelector("#leave-calendar") ||
+      page.querySelector(".leave-calendar") ||
+      page.querySelector("#leave-coverage") ||
+      page.querySelector(".leave-coverage") ||
+      page.querySelector("[id*='leave-calendar']") ||
+      page.querySelector("[class*='leave-calendar']") ||
+      page.querySelector(".card");
+  }
+
+  function renderV281() {
+    var page = document.querySelector("#leave");
+    if (!page) return;
+
+    var host = document.querySelector("#leave-calendar-tabs-v281");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "leave-calendar-tabs-v281";
+      host.className = "card leave-calendar-tabs-v281";
+
+      var target = findLeaveCalendarTargetV281();
+      if (target && target.parentNode) {
+        target.parentNode.insertBefore(host, target);
+      } else {
+        page.appendChild(host);
+      }
+    }
+
+    var months = monthTabsV281();
+    if (months.indexOf(selectedMonthV281) < 0) selectedMonthV281 = months[1];
+
+    var first = new Date(selectedMonthV281 + "-01T00:00:00");
+    var days = Number(monthEndV281(selectedMonthV281).slice(8, 10));
+    var blanks = first.getDay();
+    var cells = [];
+
+    for (var i = 0; i < blanks; i++) {
+      cells.push('<div class="leave-tab-day empty"></div>');
+    }
+
+    for (var day = 1; day <= days; day++) {
+      var dateKey = selectedMonthV281 + "-" + String(day).padStart(2, "0");
+      var rows = rowsForDateV281(dateKey);
+      cells.push(
+        '<div class="leave-tab-day">' +
+          '<strong>' + day + '</strong>' +
+          rows.map(function (row) {
+            var label = (row.employee_code || "") + " " + (row.full_name || "") + " - " + (row.leave_type || "Leave");
+            return '<span class="leave-tab-pill ' + leaveClassV281(row.status) + '">' + label + '</span>';
+          }).join("") +
+        '</div>'
+      );
+    }
+
+    host.innerHTML =
+      '<div class="box-title-row"><div><strong>Leave calendar month</strong><small>Previous, current, and coming month.</small></div></div>' +
+      '<div class="leave-tab-buttons">' +
+        months.map(function (month) {
+          return '<button type="button" class="' + (month === selectedMonthV281 ? "primary-action" : "ghost") + '" data-leave-tab-month-v281="' + month + '">' + monthLabelV281(month) + '</button>';
+        }).join("") +
+      '</div>' +
+      '<div class="leave-tab-grid">' +
+        '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>' +
+        cells.join("") +
+      '</div>';
+  }
+
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-leave-tab-month-v281]");
+    if (!btn) return;
+    selectedMonthV281 = btn.getAttribute("data-leave-tab-month-v281");
+    renderV281();
+  });
+
+  async function refreshV281() {
+    if (String(location.hash || "").indexOf("leave") < 0) return;
+    await loadLeavesV281();
+    renderV281();
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(refreshV281, 1000);
+  });
+
+  window.addEventListener("hashchange", function () {
+    setTimeout(refreshV281, 500);
+  });
+})();
+// end-leave-calendar-tabs-v281

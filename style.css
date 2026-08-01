@@ -2801,3 +2801,80 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   border-radius: 8px;
   background: #ffffff;
 }
+
+#leave-calendar-tabs-v281 {
+  margin: 12px 0;
+}
+
+#leave-calendar-tabs-v281 .leave-tab-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+#leave-calendar-tabs-v281 .leave-tab-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid #d8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#leave-calendar-tabs-v281 .leave-tab-grid > div {
+  min-height: 58px;
+  padding: 6px;
+  border-right: 1px solid #d8e8e8;
+  border-bottom: 1px solid #d8e8e8;
+  background: #fff;
+  font-size: 12px;
+}
+
+#leave-calendar-tabs-v281 .leave-tab-grid > div:nth-child(-n+7) {
+  min-height: auto;
+  font-weight: 800;
+  color: #006b6b;
+  background: #eaf7f7;
+}
+
+#leave-calendar-tabs-v281 .leave-tab-pill {
+  display: block;
+  margin-top: 4px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+#leave-calendar-tabs-v281 .leave-approved {
+  background: #dff7e8;
+  color: #116b35;
+}
+
+#leave-calendar-tabs-v281 .leave-rejected {
+  background: #ffe1e1;
+  color: #9a1b1b;
+}
+
+#leave-calendar-tabs-v281 .leave-cancelled {
+  background: #eceff3;
+  color: #52606d;
+}
+
+#leave-calendar-tabs-v281 .leave-pending {
+  background: #fff4d6;
+  color: #8a5b00;
+}
+
+@media (max-width: 720px) {
+  #leave-calendar-tabs-v281 .leave-tab-grid > div {
+    min-height: 42px;
+    padding: 3px;
+    font-size: 9px;
+  }
+
+  #leave-calendar-tabs-v281 .leave-tab-pill {
+    font-size: 7.5px;
+    padding: 2px;
+  }
+}
