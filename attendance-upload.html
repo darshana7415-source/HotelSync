@@ -1456,8 +1456,72 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-staff-daily-final-polish-v12-end -->
+<!-- attendance-auto-upload-date-v13-start -->
+<script>
+(function () {
+  function saveUploadedAttendanceDateV13() {
+    const dateInputs = Array.from(document.querySelectorAll("input[type='date']"));
+    const uploadDate =
+      dateInputs.find((input) => /attendance|hikvision|import|upload/i.test(input.id || input.name || "")) ||
+      dateInputs[0];
+
+    if (uploadDate?.value) {
+      localStorage.setItem("staffsync.lastAttendanceUploadDate", uploadDate.value);
+
+      const dailyDate =
+        document.querySelector("#saved-attendance-date") ||
+        document.querySelector("#staff-daily-attendance-date");
+
+      if (dailyDate) {
+        dailyDate.value = uploadDate.value;
+        dailyDate.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+  }
+
+  function applyLastUploadedAttendanceDateV13() {
+    const last = localStorage.getItem("staffsync.lastAttendanceUploadDate");
+    if (!last) return;
+
+    const dailyDate =
+      document.querySelector("#saved-attendance-date") ||
+      document.querySelector("#staff-daily-attendance-date");
+
+    if (dailyDate && dailyDate.value !== last) {
+      dailyDate.value = last;
+      dailyDate.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  document.addEventListener("click", function (event) {
+    const button = event.target?.closest("button");
+    const text = String(button?.textContent || "").toLowerCase();
+
+    if (text.includes("save attendance")) {
+      setTimeout(saveUploadedAttendanceDateV13, 500);
+      setTimeout(saveUploadedAttendanceDateV13, 1500);
+      setTimeout(saveUploadedAttendanceDateV13, 3000);
+    }
+  });
+
+  document.addEventListener("change", function (event) {
+    if (event.target?.matches("input[type='date']")) {
+      const id = event.target.id || "";
+      if (/attendance|hikvision|import|upload/i.test(id)) {
+        localStorage.setItem("staffsync.lastAttendanceUploadDate", event.target.value);
+      }
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", applyLastUploadedAttendanceDateV13);
+  setTimeout(applyLastUploadedAttendanceDateV13, 700);
+  setTimeout(applyLastUploadedAttendanceDateV13, 1800);
+})();
+</script>
+<!-- attendance-auto-upload-date-v13-end -->
 </body>
 </html>
+
 
 
 

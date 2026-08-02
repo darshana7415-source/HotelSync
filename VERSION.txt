@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - final staff daily attendance polish.
+StaffSync Beach & Bliss Mirissa Version 1.0 - attendance remembers uploaded daily date.
