@@ -1387,8 +1387,317 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-alias-status-colors-v5-end -->
+<!-- attendance-daily-date-report-v6-start -->
+<style>
+  .attendance-status-ok {
+    color: #047857;
+    background: #dcfce7;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-off {
+    color: #075985;
+    background: #e0f2fe;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-error {
+    color: #991b1b;
+    background: #fee2e2;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-missing {
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+</style>
+
+<script>
+(function () {
+  function pad(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function todayKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  function todayMonth() {
+    return todayKey().slice(0, 7);
+  }
+
+  function monthBounds(monthKey) {
+    const parts = String(monthKey || todayMonth()).split("-").map(Number);
+    const start = new Date(parts[0], parts[1] - 1, 1);
+    const end = new Date(parts[0], parts[1], 0);
+    return {
+      start: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+      end: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`
+    };
+  }
+
+  function cleanCode(value) {
+    return String(value || "").trim();
+  }
+
+  function isRemovedCode(value) {
+    return cleanCode(value).toLowerCase().includes("removed");
+  }
+
+  function codeNumber(value) {
+    const n = Number(cleanCode(value).replace(/\D/g, ""));
+    return Number.isFinite(n) ? n : 999999;
+  }
+
+  function minutesText(minutes) {
+    const value = Number(minutes || 0);
+    const h = Math.floor(value / 60);
+    const m = Math.round(value % 60);
+    return `${h}:${pad(m)}`;
+  }
+
+  function timeText(value) {
+    if (!value) return "";
+    return String(value).slice(0, 5);
+  }
+
+  function norm(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function isPriyantha(value) {
+    const key = norm(value);
+    return key.includes("priyantha") || key.includes("proyantha");
+  }
+
+  function statusBadge(status) {
+    const text = String(status || "").toUpperCase();
+    let cls = "attendance-status-ok";
+    let label = text || "OK";
+
+    if (text.includes("ERROR")) cls = "attendance-status-error";
+    else if (text.includes("OFF")) cls = "attendance-status-off";
+    else if (text.includes("NO FINGERPRINT") || text.includes("MISSING")) {
+      cls = "attendance-status-missing";
+      label = "NO FINGERPRINT";
+    }
+
+    return `<strong class="${cls}">${label}</strong>`;
+  }
+
+  function cfg() {
+    return window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+  }
+
+  async function restV6(path, options) {
+    const env = cfg();
+    const url = env.SUPABASE_URL || env.supabaseUrl || env.url || window.SUPABASE_URL;
+    const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey || window.SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error("Supabase settings not found.");
+
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      ...(options || {}),
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation",
+        ...((options && options.headers) || {})
+      }
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    return res.status === 204 ? [] : res.json();
+  }
+
+  async function activeStaffV6() {
+    const rows = await restV6("staff_profiles?select=id,employee_code,full_name&order=employee_code.asc");
+    return rows
+      .filter((person) => !isRemovedCode(person.employee_code))
+      .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+  }
+
+  function ensureDailyDateInputV6() {
+    const controls = document.querySelector(".saved-attendance-controls");
+    if (!controls || document.querySelector("#saved-attendance-date")) return;
+
+    const label = document.createElement("label");
+    label.innerHTML = `
+      Daily record date
+      <input id="saved-attendance-date" type="date" value="${todayKey()}">
+    `;
+    controls.insertBefore(label, document.querySelector("#load-saved-attendance"));
+  }
+
+  function parseSegments(value) {
+    try {
+      const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
+      return parsed.map((seg) => `${seg.in || ""}-${seg.out || ""}`).join(", ");
+    } catch {
+      return "";
+    }
+  }
+
+  function attendanceStatus(row) {
+    const segments = parseSegments(row.segments);
+    const total = Number(row.total_minutes || 0);
+
+    if (String(row.source_name || "").toLowerCase().includes("off")) return "OFF";
+    if (!row.clock_in && !row.clock_out && total === 0) return "OFF";
+    if ((!row.clock_in || !row.clock_out || !segments) && total > 0) return "ERROR TIME";
+    return "OK";
+  }
+
+  async function loadAttendanceReportV6() {
+    ensureDailyDateInputV6();
+
+    const month = document.querySelector("#saved-attendance-month")?.value || todayMonth();
+    const selectedDate = document.querySelector("#saved-attendance-date")?.value || todayKey();
+    const bounds = monthBounds(month);
+
+    const status = document.querySelector("#saved-attendance-status");
+    const summaryBody = document.querySelector("#saved-attendance-summary-body");
+    const detailBody = document.querySelector("#saved-attendance-detail-body");
+
+    if (!summaryBody || !detailBody) return;
+
+    if (status) status.textContent = "Loading saved attendance report...";
+    summaryBody.innerHTML = "";
+    detailBody.innerHTML = "";
+
+    const staff = await activeStaffV6();
+    const staffById = new Map(staff.map((person) => [person.id, person]));
+    const priyantha = staff.find((person) => cleanCode(person.employee_code) === "04");
+
+    const monthRows = await restV6(`attendance_imports?select=*&attendance_date=gte.${bounds.start}&attendance_date=lte.${bounds.end}&order=attendance_date.asc`);
+    const dayRows = await restV6(`attendance_imports?select=*&attendance_date=eq.${selectedDate}`);
+
+    // If older data saved Priyantha with a wrong profile but source name says Priyantha,
+    // read it back as active staff code 04.
+    monthRows.forEach((row) => {
+      if (priyantha && isPriyantha(row.source_name)) row.staff_profile_id = priyantha.id;
+    });
+    dayRows.forEach((row) => {
+      if (priyantha && isPriyantha(row.source_name)) row.staff_profile_id = priyantha.id;
+    });
+
+    const monthByStaff = new Map();
+    monthRows.forEach((row) => {
+      if (!monthByStaff.has(row.staff_profile_id)) monthByStaff.set(row.staff_profile_id, []);
+      monthByStaff.get(row.staff_profile_id).push(row);
+    });
+
+    summaryBody.innerHTML = staff.map((person) => {
+      const rows = monthByStaff.get(person.id) || [];
+      const minutes = rows.reduce((sum, row) => sum + Number(row.total_minutes || 0), 0);
+      return `
+        <tr>
+          <td>${cleanCode(person.employee_code)}</td>
+          <td>${person.full_name || ""}</td>
+          <td>${rows.length}</td>
+          <td>${minutesText(minutes)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const dayByStaff = new Map();
+    dayRows.forEach((row) => {
+      dayByStaff.set(row.staff_profile_id, row);
+    });
+
+    detailBody.innerHTML = staff.map((person) => {
+      const row = dayByStaff.get(person.id);
+
+      if (!row) {
+        return `
+          <tr>
+            <td>${cleanCode(person.employee_code)}</td>
+            <td>${person.full_name || ""}</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>0:00</td>
+            <td>${statusBadge("NO FINGERPRINT")}</td>
+          </tr>
+        `;
+      }
+
+      const segments = parseSegments(row.segments);
+      const rowStatus = attendanceStatus(row);
+
+      return `
+        <tr>
+          <td>${cleanCode(person.employee_code)}</td>
+          <td>${person.full_name || row.source_name || ""}</td>
+          <td>${timeText(row.clock_in)}</td>
+          <td>${timeText(row.clock_out)}</td>
+          <td>${segments}</td>
+          <td>${minutesText(row.total_minutes)}</td>
+          <td>${statusBadge(rowStatus)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const detailHead = detailBody.closest("table")?.querySelector("thead");
+    if (detailHead) {
+      detailHead.innerHTML = `
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Clock in</th>
+          <th>Clock out</th>
+          <th>Segments</th>
+          <th>Total</th>
+          <th>Status</th>
+        </tr>
+      `;
+    }
+
+    if (status) {
+      status.textContent = `Monthly totals for ${month}; daily saved records for ${selectedDate}.`;
+    }
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.target?.closest("#load-saved-attendance")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      loadAttendanceReportV6().catch((error) => {
+        const status = document.querySelector("#saved-attendance-status");
+        if (status) status.textContent = `Could not load report: ${error.message}`;
+      });
+    }
+  }, true);
+
+  document.addEventListener("change", function (event) {
+    if (event.target?.matches("#saved-attendance-month,#saved-attendance-date")) {
+      loadAttendanceReportV6().catch(function () {});
+    }
+  });
+
+  window.loadAttendanceReportV6 = loadAttendanceReportV6;
+
+  setTimeout(function () {
+    ensureDailyDateInputV6();
+    if (document.querySelector("#saved-attendance-summary-body")) {
+      loadAttendanceReportV6().catch(function () {});
+    }
+  }, 1200);
+})();
+</script>
+<!-- attendance-daily-date-report-v6-end -->
 </body>
 </html>
+
 
 
 
