@@ -1350,8 +1350,115 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-staff-polish-v11-end -->
+<!-- attendance-staff-daily-final-polish-v12-start -->
+<style>
+  .staff-daily-attendance-lock button,
+  .attendance-staff-daily-only button,
+  body.staff-daily-only-final button {
+    display: none !important;
+  }
+
+  .att-leave-full {
+    color: #6d28d9 !important;
+    background: #ede9fe !important;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+    font-weight: 800;
+  }
+
+  .att-half-day {
+    color: #92400e !important;
+    background: #fef3c7 !important;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+    font-weight: 800;
+  }
+
+  .att-short-leave {
+    color: #075985 !important;
+    background: #dbeafe !important;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+    font-weight: 800;
+  }
+</style>
+
+<script>
+(function () {
+  function isStaffAttendanceV12() {
+    const role = new URLSearchParams(location.search).get("role");
+    return String(role || "").toLowerCase() === "staff";
+  }
+
+  function recolorLeaveStatusesV12() {
+    if (!isStaffAttendanceV12()) return;
+
+    document.querySelectorAll("span, strong, td").forEach((el) => {
+      const text = String(el.textContent || "").trim().toUpperCase();
+
+      if (text === "SHORT LEAVE") {
+        el.classList.remove("att-leave", "att-off", "att-ok");
+        el.classList.add("att-short-leave");
+      } else if (text === "HALF DAY") {
+        el.classList.remove("att-leave", "att-off", "att-ok");
+        el.classList.add("att-half-day");
+      } else if (text === "LEAVE") {
+        el.classList.remove("att-leave", "att-off", "att-ok");
+        el.classList.add("att-leave-full");
+      }
+    });
+  }
+
+  function removeStaffLoadButtonsV12() {
+    if (!isStaffAttendanceV12()) return;
+
+    document.body.classList.add("staff-daily-only-final");
+
+    document.querySelectorAll("button").forEach((button) => {
+      const text = String(button.textContent || "").toLowerCase();
+      if (
+        text.includes("load daily") ||
+        text.includes("load saved") ||
+        text.includes("load report")
+      ) {
+        button.remove();
+      }
+    });
+
+    const title = document.querySelector("h1");
+    if (title) title.textContent = "Daily Saved Attendance Records";
+
+    document.querySelectorAll("p").forEach((p) => {
+      const text = String(p.textContent || "");
+      if (text.includes("Choose a date") || text.includes("Staff view only")) {
+        p.textContent = "Select a date to see saved daily attendance records.";
+      }
+    });
+
+    recolorLeaveStatusesV12();
+  }
+
+  document.addEventListener("DOMContentLoaded", removeStaffLoadButtonsV12);
+
+  document.addEventListener("change", function (event) {
+    if (isStaffAttendanceV12() && event.target?.matches("input[type='date']")) {
+      setTimeout(removeStaffLoadButtonsV12, 300);
+      setTimeout(recolorLeaveStatusesV12, 900);
+    }
+  });
+
+  setTimeout(removeStaffLoadButtonsV12, 300);
+  setTimeout(removeStaffLoadButtonsV12, 1200);
+  setInterval(removeStaffLoadButtonsV12, 2500);
+})();
+</script>
+<!-- attendance-staff-daily-final-polish-v12-end -->
 </body>
 </html>
+
 
 
 
