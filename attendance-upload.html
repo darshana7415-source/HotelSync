@@ -41,6 +41,9 @@
 
   <div class="card">
     <h2>Upload Hikvision Excel</h2>
+    <label style="display:block;margin-bottom:10px;font-weight:800">Attendance date
+      <input id="attendance-date" type="date">
+    </label>
     <input id="file" type="file" accept=".xlsx,.xls,.csv">
     <div id="status" class="muted" style="margin-top:10px">Choose the daily attendance sheet.</div>
     <div class="summary" id="summary"></div>
@@ -167,7 +170,8 @@ function findDate(rows, header){
 function parseSheet(ws){
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""});
   const header=findHeader(rows);
-  const date=findDate(rows, header);
+  const manualDate=document.querySelector("#attendance-date")?.value || "";
+  const date=manualDate || findDate(rows, header);
   const out=[];
 
   for(let idx=header.row+1; idx<rows.length; idx++){
@@ -257,5 +261,6 @@ document.querySelector("#file").addEventListener("change",async e=>{
 </script>
 </body>
 </html>
+
 
 
