@@ -518,7 +518,8 @@ document.addEventListener("click",e=>{
 
 
 
-<!-- attendance-clean-single-report-v7-start -->
+
+<!-- attendance-canonical-save-report-v8-start -->
 <style>
   .saved-attendance-report {
     margin-top: 22px;
@@ -563,40 +564,23 @@ document.addEventListener("click",e=>{
     color: #5d6b70;
     margin-top: 8px;
   }
-  .attendance-status-ok,
-  .attendance-status-off,
-  .attendance-status-error,
-  .attendance-status-missing,
-  .attendance-status-leave {
+  .att-ok, .att-off, .att-error, .att-missing, .att-leave {
     border-radius: 999px;
     padding: 4px 9px;
     display: inline-block;
+    font-weight: 800;
   }
-  .attendance-status-ok {
-    color: #047857;
-    background: #dcfce7;
-  }
-  .attendance-status-off {
-    color: #075985;
-    background: #e0f2fe;
-  }
-  .attendance-status-error {
-    color: #991b1b;
-    background: #fee2e2;
-  }
-  .attendance-status-missing {
-    color: #92400e;
-    background: #fef3c7;
-  }
-  .attendance-status-leave {
-    color: #6d28d9;
-    background: #ede9fe;
-  }
+  .att-ok { color: #047857; background: #dcfce7; }
+  .att-off { color: #075985; background: #e0f2fe; }
+  .att-error { color: #991b1b; background: #fee2e2; }
+  .att-missing { color: #92400e; background: #fef3c7; }
+  .att-leave { color: #6d28d9; background: #ede9fe; }
 </style>
 
 <script>
 (function () {
-  const REPORT_ID = "attendance-clean-single-report-v7";
+  const REPORT_ID = "attendance-canonical-save-report-v8";
+  const HOTEL_ID = "00000000-0000-0000-0000-000000000001";
 
   function pad(value) {
     return String(value).padStart(2, "0");
@@ -621,17 +605,84 @@ document.addEventListener("click",e=>{
     };
   }
 
-  function cleanCode(value) {
+  function clean(value) {
     return String(value || "").trim();
   }
 
+  function norm(value) {
+    return clean(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
   function isRemovedCode(value) {
-    return cleanCode(value).toLowerCase().includes("removed");
+    return clean(value).toLowerCase().includes("removed");
   }
 
   function codeNumber(value) {
-    const n = Number(cleanCode(value).replace(/\D/g, ""));
+    const n = Number(clean(value).replace(/\D/g, ""));
     return Number.isFinite(n) ? n : 999999;
+  }
+
+  function cfg() {
+    return window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+  }
+
+  async function rest(path, options) {
+    const env = cfg();
+    const url = env.SUPABASE_URL || env.supabaseUrl || env.url || window.SUPABASE_URL;
+    const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey || window.SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error("Supabase settings not found.");
+
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      ...(options || {}),
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation",
+        ...((options && options.headers) || {})
+      }
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+    return res.status === 204 ? [] : res.json();
+  }
+
+  async function activeStaff() {
+    const rows = await rest("staff_profiles?select=id,employee_code,full_name&order=employee_code.asc");
+    return rows
+      .filter((person) => !isRemovedCode(person.employee_code))
+      .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+  }
+
+  function selectedUploadDate() {
+    const inputs = Array.from(document.querySelectorAll("input[type='date']"));
+    const good = inputs.find((input) =>
+      /attendance|hikvision|import|upload/i.test(input.id || input.name || "")
+    ) || inputs[0];
+
+    return good?.value || todayKey();
+  }
+
+  function selectedReportMonth() {
+    return document.querySelector("#saved-attendance-month")?.value || todayMonth();
+  }
+
+  function selectedReportDate() {
+    return document.querySelector("#saved-attendance-date")?.value || selectedUploadDate() || todayKey();
+  }
+
+  function minutesFromText(value) {
+    const text = clean(value);
+    if (!text || text === "0") return 0;
+
+    const hm = text.match(/^(\d{1,3}):(\d{2})$/);
+    if (hm) return Number(hm[1]) * 60 + Number(hm[2]);
+
+    const decimal = Number(text);
+    if (Number.isFinite(decimal)) return Math.round(decimal * 60);
+
+    return 0;
   }
 
   function minutesText(minutes) {
@@ -642,45 +693,27 @@ document.addEventListener("click",e=>{
   }
 
   function timeText(value) {
-    if (!value) return "";
-    return String(value).slice(0, 5);
+    if (!value) return null;
+    const match = clean(value).match(/(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    return `${pad(match[1])}:${match[2]}`;
   }
 
-  function statusBadge(status) {
-    const label = String(status || "OK").toUpperCase();
-    let cls = "attendance-status-ok";
+  function parseSegmentsText(value) {
+    const text = clean(value);
+    if (!text) return [];
 
-    if (label.includes("ERROR")) cls = "attendance-status-error";
-    else if (label.includes("OFF")) cls = "attendance-status-off";
-    else if (label.includes("NO FINGERPRINT")) cls = "attendance-status-missing";
-    else if (label.includes("LEAVE") || label.includes("HALF DAY") || label.includes("SHORT")) cls = "attendance-status-leave";
-
-    return `<strong class="${cls}">${label}</strong>`;
+    return text.split(",")
+      .map((part) => part.trim())
+      .map((part) => {
+        const match = part.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+        if (!match) return null;
+        return { in: timeText(match[1]), out: timeText(match[2]) };
+      })
+      .filter(Boolean);
   }
 
-  function cfg() {
-    return window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
-  }
-
-  async function rest(path) {
-    const env = cfg();
-    const url = env.SUPABASE_URL || env.supabaseUrl || env.url || window.SUPABASE_URL;
-    const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey || window.SUPABASE_ANON_KEY;
-    if (!url || !key) throw new Error("Supabase settings not found.");
-
-    const res = await fetch(`${url}/rest/v1/${path}`, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        Accept: "application/json"
-      }
-    });
-
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-
-  function parseSegments(value) {
+  function formatSegments(value) {
     try {
       const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
       return parsed.map((seg) => `${seg.in || ""}-${seg.out || ""}`).join(", ");
@@ -689,25 +722,132 @@ document.addEventListener("click",e=>{
     }
   }
 
-  function rowStatus(row) {
-    const source = String(row.source_name || "").toUpperCase();
-    const total = Number(row.total_minutes || 0);
-    const segments = parseSegments(row.segments);
+  function statusFromRowText(text, fallback) {
+    const upper = clean(text).toUpperCase();
 
-    if (source.includes("SHORT LEAVE")) return "SHORT LEAVE";
-    if (source.includes("HALF DAY")) return "HALF DAY";
-    if (source.includes("LEAVE")) return "LEAVE";
-    if (source.includes("OFF")) return "OFF";
-    if ((!row.clock_in || !row.clock_out || !segments) && total > 0) return "ERROR TIME";
-    if (total === 0 && !row.clock_in && !row.clock_out) return "OFF";
-    return "OK";
+    if (upper.includes("SHORT LEAVE")) return "SHORT LEAVE";
+    if (upper.includes("HALF DAY")) return "HALF DAY";
+    if (upper.includes("LEAVE")) return "LEAVE";
+    if (upper.includes("OFF")) return "OFF";
+    if (upper.includes("ERROR") || upper.includes("#VALUE") || upper.includes("UNMARKED") || upper.includes("STARTING DATE")) return "ERROR TIME";
+    if (upper.includes("UNMATCHED")) return "UNMATCHED";
+    if (upper.includes("NO FINGERPRINT") || upper.includes("MISSING")) return "NO FINGERPRINT";
+    return fallback || "OK";
   }
 
-  async function activeStaff() {
-    const rows = await rest("staff_profiles?select=id,employee_code,full_name&order=employee_code.asc");
-    return rows
-      .filter((person) => !isRemovedCode(person.employee_code))
-      .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+  function statusBadge(status) {
+    const label = clean(status || "OK").toUpperCase();
+    let cls = "att-ok";
+    if (label.includes("ERROR")) cls = "att-error";
+    else if (label.includes("OFF")) cls = "att-off";
+    else if (label.includes("NO FINGERPRINT") || label.includes("MISSING")) cls = "att-missing";
+    else if (label.includes("LEAVE") || label.includes("HALF DAY") || label.includes("SHORT")) cls = "att-leave";
+    return `<span class="${cls}">${label}</span>`;
+  }
+
+  function cellByHeader(cells, headerMap, names) {
+    for (const name of names) {
+      const index = headerMap.get(name);
+      if (index !== undefined) return clean(cells[index]?.textContent);
+    }
+    return "";
+  }
+
+  function findUploadPreviewTable() {
+    const tables = Array.from(document.querySelectorAll("table"));
+    return tables.find((table) => {
+      const text = table.textContent || "";
+      return text.includes("Segments") && text.includes("Clock") && text.includes("Status");
+    });
+  }
+
+  function previewRowsFromTable(staff) {
+    const table = findUploadPreviewTable();
+    if (!table) throw new Error("Upload preview table not found. Upload the Hikvision Excel first.");
+
+    const headers = Array.from(table.querySelectorAll("thead th")).map((th) => norm(th.textContent));
+    const headerMap = new Map(headers.map((name, index) => [name, index]));
+    const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+
+    const byCode = new Map(staff.map((person) => [clean(person.employee_code), person]));
+    const byName = new Map(staff.map((person) => [norm(person.full_name), person]));
+    const code04 = byCode.get("04");
+
+    return bodyRows.map((row) => {
+      const cells = Array.from(row.querySelectorAll("td"));
+      const rowText = row.textContent || "";
+
+      const codeFromCell = cellByHeader(cells, headerMap, ["code", "employeecode", "staffcode"]);
+      const sourceName = cellByHeader(cells, headerMap, ["sheetname", "sourcename", "name"]);
+      const matchedName = cellByHeader(cells, headerMap, ["matchedstaff", "staff", "fullname"]);
+      const clockInText = cellByHeader(cells, headerMap, ["clockin", "in"]);
+      const clockOutText = cellByHeader(cells, headerMap, ["clockout", "out"]);
+      const segmentsText = cellByHeader(cells, headerMap, ["segments"]);
+      const totalText = cellByHeader(cells, headerMap, ["totalhours", "total"]);
+      const statusText = cellByHeader(cells, headerMap, ["status"]);
+
+      let person = null;
+
+      if (codeFromCell) person = byCode.get(codeFromCell);
+      if (!person && code04 && (norm(sourceName).includes("priyantha") || norm(sourceName).includes("proyantha") || norm(matchedName).includes("priyantha") || norm(matchedName).includes("proyantha"))) person = code04;
+      if (!person && matchedName) person = byName.get(norm(matchedName));
+      if (!person && sourceName) person = byName.get(norm(sourceName));
+
+      const status = statusFromRowText(rowText, statusText);
+      const segments = parseSegmentsText(segmentsText);
+      const clockIn = timeText(clockInText) || segments[0]?.in || null;
+      const clockOut = timeText(clockOutText) || segments[segments.length - 1]?.out || null;
+      const totalMinutes = minutesFromText(totalText);
+
+      return {
+        rowText,
+        person,
+        sourceName: sourceName || matchedName || "",
+        status,
+        clockIn,
+        clockOut,
+        segments,
+        totalMinutes
+      };
+    });
+  }
+
+  async function savePreviewToSupabase() {
+    const status = document.querySelector("#saved-attendance-status") || document.querySelector("#shift-import-result") || document.querySelector("p");
+    if (status) status.textContent = "Saving corrected attendance records...";
+
+    const staff = await activeStaff();
+    const attendanceDate = selectedUploadDate();
+    const rows = previewRowsFromTable(staff);
+
+    const saveRows = rows
+      .filter((item) => item.person)
+      .filter((item) => !["UNMATCHED", "NO FINGERPRINT", "MISSING"].includes(item.status))
+      .map((item) => {
+        const sourceStatus = item.status === "OK" ? item.sourceName : `${item.status} - ${item.sourceName || item.person.full_name}`;
+        return {
+          hotel_id: HOTEL_ID,
+          staff_profile_id: item.person.id,
+          attendance_date: attendanceDate,
+          source_name: sourceStatus,
+          clock_in: item.status === "OK" || item.status === "ERROR TIME" ? item.clockIn : null,
+          clock_out: item.status === "OK" || item.status === "ERROR TIME" ? item.clockOut : null,
+          segments: item.status === "OK" || item.status === "ERROR TIME" ? item.segments : [],
+          total_minutes: item.status === "OK" ? item.totalMinutes : 0,
+          source: "hikvision_excel"
+        };
+      });
+
+    if (!saveRows.length) throw new Error("No matched rows ready to save.");
+
+    await rest("attendance_imports?on_conflict=hotel_id,staff_profile_id,attendance_date,source", {
+      method: "POST",
+      body: JSON.stringify(saveRows)
+    });
+
+    if (status) status.textContent = `Saved ${saveRows.length} attendance record${saveRows.length === 1 ? "" : "s"} for ${attendanceDate}.`;
+
+    await loadReport();
   }
 
   function ensureReportUi() {
@@ -718,7 +858,7 @@ document.addEventListener("click",e=>{
     host.className = "saved-attendance-report";
     host.innerHTML = `
       <h2>Saved Attendance Report</h2>
-      <p class="saved-report-note">Monthly totals use the selected month. Daily saved records use the selected date.</p>
+      <p class="saved-report-note">Use Save attendance to StaffSync after previewing Excel. Monthly totals and daily records are read from saved data.</p>
 
       <div class="saved-attendance-controls">
         <label>
@@ -727,7 +867,7 @@ document.addEventListener("click",e=>{
         </label>
         <label>
           Daily record date
-          <input id="saved-attendance-date" type="date" value="${todayKey()}">
+          <input id="saved-attendance-date" type="date" value="${selectedUploadDate() || todayKey()}">
         </label>
         <button id="load-saved-attendance" type="button">Load saved report</button>
       </div>
@@ -758,11 +898,25 @@ document.addEventListener("click",e=>{
     document.body.appendChild(host);
   }
 
+  function statusForSavedRow(row) {
+    const source = clean(row.source_name).toUpperCase();
+    const total = Number(row.total_minutes || 0);
+    const segments = formatSegments(row.segments);
+
+    if (source.includes("SHORT LEAVE")) return "SHORT LEAVE";
+    if (source.includes("HALF DAY")) return "HALF DAY";
+    if (source.includes("LEAVE")) return "LEAVE";
+    if (source.includes("OFF")) return "OFF";
+    if ((!row.clock_in || !row.clock_out || !segments) && total > 0) return "ERROR TIME";
+    if (total === 0 && !row.clock_in && !row.clock_out) return "OFF";
+    return "OK";
+  }
+
   async function loadReport() {
     ensureReportUi();
 
-    const month = document.querySelector("#saved-attendance-month").value || todayMonth();
-    const selectedDate = document.querySelector("#saved-attendance-date").value || todayKey();
+    const month = selectedReportMonth();
+    const selectedDate = selectedReportDate();
     const bounds = monthBounds(month);
 
     const status = document.querySelector("#saved-attendance-status");
@@ -779,29 +933,29 @@ document.addEventListener("click",e=>{
       rest(`attendance_imports?select=*&attendance_date=eq.${selectedDate}`)
     ]);
 
-    const rowsByStaff = new Map();
+    const monthByStaff = new Map();
     monthRows.forEach((row) => {
-      if (!rowsByStaff.has(row.staff_profile_id)) rowsByStaff.set(row.staff_profile_id, []);
-      rowsByStaff.get(row.staff_profile_id).push(row);
+      if (!monthByStaff.has(row.staff_profile_id)) monthByStaff.set(row.staff_profile_id, []);
+      monthByStaff.get(row.staff_profile_id).push(row);
     });
 
     summaryBody.innerHTML = people.map((person) => {
-      const rows = rowsByStaff.get(person.id) || [];
+      const rows = monthByStaff.get(person.id) || [];
       const minutes = rows.reduce((sum, row) => sum + Number(row.total_minutes || 0), 0);
+      const workingDays = rows.filter((row) => statusForSavedRow(row) === "OK").length;
+
       return `
         <tr>
-          <td>${cleanCode(person.employee_code)}</td>
+          <td>${clean(person.employee_code)}</td>
           <td>${person.full_name || ""}</td>
-          <td>${rows.length}</td>
+          <td>${workingDays}</td>
           <td>${minutesText(minutes)}</td>
         </tr>
       `;
     }).join("");
 
     const dayByStaff = new Map();
-    dayRows.forEach((row) => {
-      dayByStaff.set(row.staff_profile_id, row);
-    });
+    dayRows.forEach((row) => dayByStaff.set(row.staff_profile_id, row));
 
     detailBody.innerHTML = people.map((person) => {
       const row = dayByStaff.get(person.id);
@@ -809,7 +963,7 @@ document.addEventListener("click",e=>{
       if (!row) {
         return `
           <tr>
-            <td>${cleanCode(person.employee_code)}</td>
+            <td>${clean(person.employee_code)}</td>
             <td>${person.full_name || ""}</td>
             <td></td>
             <td></td>
@@ -820,15 +974,15 @@ document.addEventListener("click",e=>{
         `;
       }
 
-      const statusText = rowStatus(row);
+      const statusText = statusForSavedRow(row);
 
       return `
         <tr>
-          <td>${cleanCode(person.employee_code)}</td>
+          <td>${clean(person.employee_code)}</td>
           <td>${person.full_name || row.source_name || ""}</td>
-          <td>${timeText(row.clock_in)}</td>
-          <td>${timeText(row.clock_out)}</td>
-          <td>${parseSegments(row.segments)}</td>
+          <td>${timeText(row.clock_in) || ""}</td>
+          <td>${timeText(row.clock_out) || ""}</td>
+          <td>${formatSegments(row.segments)}</td>
           <td>${minutesText(row.total_minutes)}</td>
           <td>${statusBadge(statusText)}</td>
         </tr>
@@ -839,14 +993,30 @@ document.addEventListener("click",e=>{
   }
 
   document.addEventListener("click", function (event) {
-    if (event.target?.closest("#load-saved-attendance")) {
+    const button = event.target?.closest("button");
+    if (!button) return;
+
+    const text = clean(button.textContent).toLowerCase();
+
+    if (text.includes("save attendance")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      savePreviewToSupabase().catch((error) => {
+        const status = document.querySelector("#saved-attendance-status");
+        if (status) status.textContent = `Could not save attendance: ${error.message}`;
+        alert(`Could not save attendance: ${error.message}`);
+      });
+      return;
+    }
+
+    if (button.id === "load-saved-attendance") {
       event.preventDefault();
       loadReport().catch((error) => {
         const status = document.querySelector("#saved-attendance-status");
         if (status) status.textContent = `Could not load report: ${error.message}`;
       });
     }
-  });
+  }, true);
 
   document.addEventListener("change", function (event) {
     if (event.target?.matches("#saved-attendance-month,#saved-attendance-date")) {
@@ -865,9 +1035,10 @@ document.addEventListener("click",e=>{
   }
 })();
 </script>
-<!-- attendance-clean-single-report-v7-end -->
+<!-- attendance-canonical-save-report-v8-end -->
 </body>
 </html>
+
 
 
 

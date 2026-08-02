@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - cleaned single attendance saved report.
+StaffSync Beach & Bliss Mirissa Version 1.0 - attendance save/report uses corrected upload records.
