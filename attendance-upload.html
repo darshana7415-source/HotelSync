@@ -219,6 +219,22 @@ function parseSheet(ws){
   }
   return out;
 }
+function applyPreviewMonthlyHours(records){
+  const totals = {};
+  records.forEach(r=>{
+    const staff = r.matched || r.name || "";
+    const month = String(r.date || "").slice(0,7);
+    if(!staff || !month || r.status !== "OK") return;
+    const key = staff + "|" + month;
+    totals[key] = (totals[key] || 0) + (Number(r.minutes) || 0);
+  });
+  records.forEach(r=>{
+    const staff = r.matched || r.name || "";
+    const month = String(r.date || "").slice(0,7);
+    const key = staff + "|" + month;
+    r.monthlyHours = hours(totals[key] || 0);
+  });
+}
 function render(records){
   const body=document.querySelector("#body");
   body.innerHTML=records.map(r=>`
@@ -229,7 +245,7 @@ function render(records){
       <td>${r.clockOut}</td>
       <td>${r.segments}</td>
       <td>${r.hours}</td>
-      <td>${r.monthlyHours || "After save"}</td>
+      <td>${r.monthlyHours || r.hours}</td>
       <td class="${r.status==="OK"?"ok":(r.status==="UNMATCHED"||r.status==="NO VALID PUNCH"?"bad":"warn")}">${r.status}</td>
     </tr>
   `).join("");
@@ -259,11 +275,13 @@ document.querySelector("#file").addEventListener("change",async e=>{
   if(manualDate){
     all=all.map(row=>({...row,date:manualDate}));
   }
+  applyPreviewMonthlyHours(all);
   render(all);
 });
 </script>
 </body>
 </html>
+
 
 
 
