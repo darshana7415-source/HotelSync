@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Attendance Upload Preview - StaffSync</title>
+  <script src="env.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body{font-family:Arial,sans-serif;background:#f4fbfb;margin:0;color:#10202a}
@@ -73,7 +74,7 @@ const aliases = {
   "proyantha": "Proyantha SH"
 };
 
-const knownStaff = [
+let knownStaff = [
   "DIleesha De SIlva","Thusitha Paranamana","Duleep De Silva","Proyantha SH","Ajith",
   "Dineth","Ayesha","Supun","Ruwan Kumarasiri","Gayan","Kavindu Lakshan","Ganindu Sathruwan",
   "Muditha Weerarathne","Pathum","Naveen","Sineth","Navod","Kaveesha","Maleesha","Shiromi",
@@ -82,6 +83,27 @@ const knownStaff = [
 
 function norm(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]/g,"");}
 function cleanName(v){return String(v||"").replace(/\s+/g," ").trim();}
+function cfg(name){
+  return (window.STAFFSYNC_ENV && window.STAFFSYNC_ENV[name]) ||
+    (window.STAFFSYNC_CONFIG && window.STAFFSYNC_CONFIG[name]) ||
+    window[name] || "";
+}
+async function loadLiveStaff(){
+  const url=cfg("SUPABASE_URL");
+  const key=cfg("SUPABASE_ANON_KEY");
+  if(!url||!key) return;
+  try{
+    const endpoint=url.replace(/\/$/,"")+"/rest/v1/staff_profiles?select=employee_code,full_name&order=employee_code.asc";
+    const res=await fetch(endpoint,{headers:{apikey:key,Authorization:"Bearer "+key,Accept:"application/json"}});
+    if(!res.ok) return;
+    const data=await res.json();
+    const names=data.map(x=>x.full_name).filter(Boolean);
+    if(names.length) knownStaff=names;
+    document.querySelector("#status").textContent="Live StaffSync staff list loaded. Choose the daily attendance sheet.";
+  }catch(e){}
+}
+loadLiveStaff();
+
 function matchStaff(name){
   const n=cleanName(name);
   const alias=aliases[norm(n)] || aliases[String(n).toLowerCase()];
@@ -281,6 +303,7 @@ document.querySelector("#file").addEventListener("change",async e=>{
 </script>
 </body>
 </html>
+
 
 
 
