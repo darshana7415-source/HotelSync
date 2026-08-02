@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - attendance report includes every active staff member.
+StaffSync Beach & Bliss Mirissa Version 1.0 - fixed Priyantha attendance match and status colors.

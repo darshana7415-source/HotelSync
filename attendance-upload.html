@@ -1265,8 +1265,131 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-full-active-report-v4-end -->
+<!-- attendance-alias-status-colors-v5-start -->
+<style>
+  .attendance-status-ok {
+    color: #047857;
+    background: #dcfce7;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-off {
+    color: #075985;
+    background: #e0f2fe;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-error {
+    color: #991b1b;
+    background: #fee2e2;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+  .attendance-status-missing {
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+  }
+</style>
+
+<script>
+(function () {
+  function norm(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function staffCodeFromNameV5(value) {
+    const key = norm(value);
+
+    if (
+      key === "priyantha" ||
+      key.includes("priyantha") ||
+      key.includes("proyantha")
+    ) {
+      return "04";
+    }
+
+    return "";
+  }
+
+  function statusClassV5(status) {
+    const text = String(status || "").toUpperCase();
+
+    if (text.includes("ERROR")) return "attendance-status-error";
+    if (text.includes("OFF")) return "attendance-status-off";
+    if (text.includes("NO FINGERPRINT") || text.includes("MISSING")) return "attendance-status-missing";
+    if (text.includes("OK")) return "attendance-status-ok";
+
+    return "";
+  }
+
+  function cleanStatusTextV5(status) {
+    const text = String(status || "").trim().toUpperCase();
+    if (text === "MISSING") return "NO FINGERPRINT";
+    return status || "";
+  }
+
+  function recolorAttendanceStatusesV5() {
+    document.querySelectorAll("table tbody tr").forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (!cells.length) return;
+
+      const last = cells[cells.length - 1];
+      const status = cleanStatusTextV5(last.textContent);
+      const className = statusClassV5(status);
+
+      if (className) {
+        last.innerHTML = `<strong class="${className}">${status}</strong>`;
+      }
+    });
+  }
+
+  function fixPriyanthaVisibleRowsV5() {
+    document.querySelectorAll("table tbody tr").forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length < 3) return;
+
+      const rowText = row.textContent || "";
+      const mappedCode = staffCodeFromNameV5(rowText);
+      if (mappedCode !== "04") return;
+
+      // Preview table format normally has Date, Code/Sheet Name, Name...
+      // Force the visible code/name to the active StaffSync profile.
+      if (cells.length >= 8) {
+        cells[1].textContent = "04";
+        cells[2].textContent = "Priyantha";
+      }
+    });
+  }
+
+  function applyAttendanceDisplayFixesV5() {
+    fixPriyanthaVisibleRowsV5();
+    recolorAttendanceStatusesV5();
+  }
+
+  document.addEventListener("click", function () {
+    setTimeout(applyAttendanceDisplayFixesV5, 300);
+    setTimeout(applyAttendanceDisplayFixesV5, 1200);
+    setTimeout(applyAttendanceDisplayFixesV5, 2500);
+  });
+
+  document.addEventListener("change", function () {
+    setTimeout(applyAttendanceDisplayFixesV5, 500);
+    setTimeout(applyAttendanceDisplayFixesV5, 1800);
+  });
+
+  setInterval(applyAttendanceDisplayFixesV5, 2000);
+})();
+</script>
+<!-- attendance-alias-status-colors-v5-end -->
 </body>
 </html>
+
 
 
 
