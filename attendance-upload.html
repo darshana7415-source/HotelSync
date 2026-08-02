@@ -52,12 +52,11 @@
       <thead>
         <tr>
           <th>Date</th>
-          <th>Sheet name</th>
-          <th>Matched staff</th>
+          <th>Staff</th>
           <th>Clock in</th>
           <th>Clock out</th>
           <th>Segments</th>
-          <th>Total hours</th>
+          <th>Daily hours</th><th>Monthly hours</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -225,12 +224,12 @@ function render(records){
   body.innerHTML=records.map(r=>`
     <tr>
       <td>${r.date}</td>
-      <td>${r.name}</td>
-      <td>${r.matched || "-"}</td>
+      <td>${r.matched || r.name || "-"}</td>
       <td>${r.clockIn}</td>
       <td>${r.clockOut}</td>
       <td>${r.segments}</td>
       <td>${r.hours}</td>
+      <td>${r.monthlyHours || "After save"}</td>
       <td class="${r.status==="OK"?"ok":(r.status==="UNMATCHED"||r.status==="NO VALID PUNCH"?"bad":"warn")}">${r.status}</td>
     </tr>
   `).join("");
@@ -265,6 +264,7 @@ document.querySelector("#file").addEventListener("change",async e=>{
 </script>
 </body>
 </html>
+
 
 
 
