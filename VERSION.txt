@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - Attendance Reports opens upload page directly.
+StaffSync Beach & Bliss Mirissa Version 1.0 - added saved attendance monthly report.
