@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - added staff leave calendar status colors.
+StaffSync Beach & Bliss Mirissa Version 1.0 - added in-app attendance tab.

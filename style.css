@@ -2850,3 +2850,17 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   color: #52606d !important;
   border-color: #c8ced8 !important;
 }
+
+.attendance-upload-frame {
+  width: 100%;
+  min-height: 820px;
+  border: 1px solid #d8e8e8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+@media (max-width: 720px) {
+  .attendance-upload-frame {
+    min-height: 900px;
+  }
+}
