@@ -9601,7 +9601,7 @@ function renderShiftCalendar() {
       panel = document.createElement("section");
       panel.id = "staff-month-leave-calendar-v296";
       panel.className = "panel-card";
-      panel.innerHTML = '<div class="section-heading"><div><p class="eyebrow">My leave calendar</p><h2>Current month leave calendar</h2></div></div><div class="calendar-grid" id="staff-month-leave-grid-v296"></div>';
+      panel.innerHTML = '<div class="section-heading"><div><p class="eyebrow">All staff leave calendar</p><h2>Current month leave calendar</h2></div></div><div class="calendar-grid" id="staff-month-leave-grid-v296"></div>';
       leavePage.insertBefore(panel, leavePage.firstChild);
     }
 
@@ -9614,7 +9614,7 @@ function renderShiftCalendar() {
 
     grid.innerHTML = monthDays().map(function(date){
       var items = requests.filter(function(req){
-        return requestBelongs(req, person) && requestCovers(req, date);
+        return requestCovers(req, date);
       });
       return '<article class="calendar-day ' + (items.length ? 'has-items' : '') + '">' +
         '<strong>' + date.slice(8,10) + '</strong>' +
@@ -9636,3 +9636,4 @@ function renderShiftCalendar() {
   document.addEventListener("change", function(){ setTimeout(bootV296, 250); });
   setInterval(bootV296, 4000);
 })();
+

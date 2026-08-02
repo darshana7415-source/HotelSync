@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - added morning/evening half-short leave choice and staff monthly leave calendar.
+StaffSync Beach & Bliss Mirissa Version 1.0 - staff leave page calendar shows all staff records.
