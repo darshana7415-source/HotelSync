@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - staff leave page calendar shows all staff records.
+StaffSync Beach & Bliss Mirissa Version 1.0 - staff leave calendar shows employee names.

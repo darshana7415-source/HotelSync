@@ -9620,7 +9620,7 @@ function renderShiftCalendar() {
         '<strong>' + date.slice(8,10) + '</strong>' +
         '<small>' + date.slice(5,7) + '-' + date.slice(0,4) + '</small>' +
         (items.length ? items.map(function(req){
-          return '<span class="calendar-item">' + leaveTitle(req) + ' - ' + leaveStatus(req) + '</span>';
+          return '<span class="calendar-item">' + (req.employeeCode || req.employee_code || req.code || '') + ' ' + (req.name || req.full_name || req.fullName || 'Staff') + ' - ' + leaveTitle(req) + ' - ' + leaveStatus(req) + '</span>';
         }).join("") : '<span class="calendar-empty">No leave</span>') +
       '</article>';
     }).join("");
@@ -9636,4 +9636,5 @@ function renderShiftCalendar() {
   document.addEventListener("change", function(){ setTimeout(bootV296, 250); });
   setInterval(bootV296, 4000);
 })();
+
 
