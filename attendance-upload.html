@@ -94,16 +94,20 @@ function badValue(v){
   return !s || s==="off" || s==="starting date" || s==="unmarked" || s.includes("#value");
 }
 function excelDateToYmd(v){
-  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(typeof v==="string"){
+    const s=v.trim();
+    const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if(m){
+      const y=m[3].length===2 ? "20"+m[3] : m[3];
+      return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+    }
+  }
   if(typeof v==="number"){
     const d=XLSX.SSF.parse_date_code(v);
     if(d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
   }
-  const s=String(v||"").trim();
-  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if(m){
-    const y=m[3].length===2 ? "20"+m[3] : m[3];
-    return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  if(v instanceof Date){
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,"0")}-${String(v.getDate()).padStart(2,"0")}`;
   }
   return "";
 }
@@ -129,45 +133,77 @@ function duration(start,end){
   return b-a;
 }
 function hours(mins){return Math.round((mins/60)*100)/100;}
-function parseSheet(ws){
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""});
-  let date="";
-  for(const row of rows.slice(0,5)){
+function findHeader(rows){
+  for(let r=0;r<Math.min(rows.length,10);r++){
+    for(let c=0;c<rows[r].length;c++){
+      const text=String(rows[r][c]||"").toLowerCase().replace(/\*/g,"").trim();
+      const next=String(rows[r][c+1]||"").toLowerCase().replace(/\*/g,"").trim();
+      if(text==="in" && next==="out"){
+        return {row:r, firstIn:c, nameCol:Math.max(0,c-1)};
+      }
+    }
+  }
+  return {row:0, firstIn:2, nameCol:1};
+}
+function findDate(rows, header){
+  const searchRows=rows.slice(0, Math.min(rows.length, header.row+2));
+  for(const row of searchRows){
     for(const cell of row){
       const d=excelDateToYmd(cell);
-      if(d){date=d;break;}
+      if(d) return d;
     }
-    if(date)break;
   }
+  return "";
+}
+function parseSheet(ws){
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""});
+  const header=findHeader(rows);
+  const date=findDate(rows, header);
   const out=[];
-  rows.forEach((row,idx)=>{
-    const name=cleanName(row[1]);
-    if(!name || ["in","out","shift1","total"].includes(name.toLowerCase())) return;
-    const firstCell=String(row[2]||row[1]||"").toLowerCase();
-    if(idx<2 || firstCell.includes("in")) return;
 
-    const pairs=[[row[2],row[3]],[row[4],row[5]],[row[6],row[7]]]
-      .map(p=>[timeText(p[0]),timeText(p[1])])
-      .filter(p=>p[0]||p[1]);
+  for(let idx=header.row+1; idx<rows.length; idx++){
+    const row=rows[idx];
+    const name=cleanName(row[header.nameCol]);
+    if(!name) continue;
+
+    const lowered=name.toLowerCase();
+    if(["in","out","shift1","shift2","shift3","total","left early","ot"].includes(lowered)) continue;
+    if(lowered.includes("date") || lowered.includes("total")) continue;
+
+    const rawFirst=String(row[header.firstIn]||"").toLowerCase().trim();
+    if(rawFirst==="off"){
+      out.push({date,name,matched:matchStaff(name),clockIn:"",clockOut:"",segments:"",hours:0,status:"OFF"});
+      continue;
+    }
+
+    const pairs=[
+      [row[header.firstIn],row[header.firstIn+1]],
+      [row[header.firstIn+2],row[header.firstIn+3]],
+      [row[header.firstIn+4],row[header.firstIn+5]]
+    ].map(p=>[timeText(p[0]),timeText(p[1])]).filter(p=>p[0]||p[1]);
 
     const valid=pairs.filter(p=>p[0]&&p[1]);
+    if(!pairs.length && !valid.length) continue;
+
     const total=valid.reduce((sum,p)=>sum+duration(p[0],p[1]),0);
     const matched=matchStaff(name);
+
     let status="OK";
-    if(String(row[2]||"").toLowerCase().includes("off")) status="OFF";
-    else if(!matched) status="UNMATCHED";
+    if(!matched) status="UNMATCHED";
     else if(!valid.length) status="NO VALID PUNCH";
     else if(valid.length!==pairs.length) status="MISSING IN/OUT";
 
     out.push({
-      date,name,matched,
+      date,
+      name,
+      matched,
       clockIn: valid[0]?.[0] || "",
       clockOut: valid[valid.length-1]?.[1] || "",
       segments: valid.map(p=>p[0]+"-"+p[1]).join(", "),
       hours: hours(total),
       status
     });
-  });
+  }
   return out;
 }
 function render(records){
@@ -210,3 +246,4 @@ document.querySelector("#file").addEventListener("change",async e=>{
 </script>
 </body>
 </html>
+
