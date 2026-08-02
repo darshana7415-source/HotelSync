@@ -9620,7 +9620,7 @@ function renderShiftCalendar() {
         '<strong>' + date.slice(8,10) + '</strong>' +
         '<small>' + date.slice(5,7) + '-' + date.slice(0,4) + '</small>' +
         (items.length ? items.map(function(req){
-          return '<span class="calendar-item">' + (req.employeeCode || req.employee_code || req.code || '') + ' ' + (req.name || req.full_name || req.fullName || 'Staff') + ' - ' + leaveTitle(req) + ' - ' + leaveStatus(req) + '</span>';
+          return '<span class="calendar-item '+staffCalendarStatusClassV299(req)+'">' + (req.employeeCode || req.employee_code || req.code || '') + ' ' + (req.name || req.full_name || req.fullName || 'Staff') + ' - ' + leaveTitle(req) + ' - ' + leaveStatus(req) + '</span>';
         }).join("") : '<span class="calendar-empty">No leave</span>') +
       '</article>';
     }).join("");
@@ -9638,3 +9638,11 @@ function renderShiftCalendar() {
 })();
 
 
+
+function staffCalendarStatusClassV299(req){
+  var status = String(req && req.status || "").toLowerCase();
+  if (status.includes("approve") || status.includes("grant")) return "staff-leave-approved-v299";
+  if (status.includes("reject")) return "staff-leave-rejected-v299";
+  if (status.includes("cancel")) return "staff-leave-cancelled-v299";
+  return "staff-leave-pending-v299";
+}

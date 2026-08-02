@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - staff leave calendar shows employee names.
+StaffSync Beach & Bliss Mirissa Version 1.0 - added staff leave calendar status colors.

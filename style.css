@@ -2826,3 +2826,27 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
 #leave-calendar-month-tabs-v282 button {
   min-height: 36px;
 }
+
+.staff-leave-approved-v299 {
+  background: #dff7e8 !important;
+  color: #116b35 !important;
+  border-color: #8fd8a8 !important;
+}
+
+.staff-leave-rejected-v299 {
+  background: #ffe1e1 !important;
+  color: #9a1b1b !important;
+  border-color: #ff9f9f !important;
+}
+
+.staff-leave-pending-v299 {
+  background: #fff4d6 !important;
+  color: #8a5b00 !important;
+  border-color: #f3c969 !important;
+}
+
+.staff-leave-cancelled-v299 {
+  background: #eceff3 !important;
+  color: #52606d !important;
+  border-color: #c8ced8 !important;
+}
