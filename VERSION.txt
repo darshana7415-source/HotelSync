@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - attendance save/report uses corrected upload records.
+StaffSync Beach & Bliss Mirissa Version 1.0 - staff attendance shows daily records only and Reports tab removed.

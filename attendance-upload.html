@@ -1036,8 +1036,92 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-canonical-save-report-v8-end -->
+<!-- attendance-staff-daily-only-v9-start -->
+<script>
+(function () {
+  function getRoleFromAppV9() {
+    try {
+      const role =
+        localStorage.getItem("staffsync.currentRole") ||
+        localStorage.getItem("staffsync.role") ||
+        sessionStorage.getItem("staffsync.currentRole") ||
+        sessionStorage.getItem("staffsync.role") ||
+        "";
+      return String(role || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function isStaffV9() {
+    const role = getRoleFromAppV9();
+    const urlRole = new URLSearchParams(location.search)..get("role");
+    return role === "staff" || String(urlRole || "").toLowerCase() === "staff";
+  }
+
+  function hideStaffUploadAndMonthlyV9() {
+    if (!isStaffV9()) return;
+
+    document.body.classList.add("attendance-staff-daily-only");
+
+    const phrasesToHide = [
+      "Upload Hikvision Excel",
+      "Save attendance to StaffSync",
+      "Monthly total hours",
+      "Upload Excel",
+      "Preview loaded"
+    ];
+
+    document.querySelectorAll("section, article, .card, .panel, form, div").forEach((el) => {
+      const text = (el.innerText || "").trim();
+      if (!text) return;
+
+      if (
+        text.includes("Upload Hikvision Excel") ||
+        text.includes("Save attendance to StaffSync") ||
+        text.includes("Monthly total hours")
+      ) {
+        if (!text.includes("Daily saved records")) {
+          el.style.display = "none";
+        }
+      }
+    });
+
+    document.querySelectorAll("input[type='file'], textarea, #saved-attendance-month").forEach((el) => {
+      const wrap = el.closest("label, .saved-attendance-controls, section, article, .card, .panel, div");
+      if (wrap && !wrap.textContent.includes("Daily record date")) wrap.style.display = "none";
+    });
+
+    const summary = document.querySelector("#saved-attendance-summary-body");
+    const summaryBlock = summary?.closest(".saved-attendance-table-wrap");
+    const summaryTitle = Array.from(document.querySelectorAll("h2,h3,strong")).find((el) =>
+      (el.textContent || "").includes("Monthly total hours")
+    );
+
+    if (summaryBlock) summaryBlock.style.display = "none";
+    if (summaryTitle) summaryTitle.style.display = "none";
+
+    const reportTitle = Array.from(document.querySelectorAll("h2,h1")).find((el) =>
+      (el.textContent || "").includes("Saved Attendance Report")
+    );
+    if (reportTitle) reportTitle.textContent = "Daily Attendance Records";
+
+    const note = document.querySelector("#saved-attendance-status");
+    if (note && !note.textContent.includes("Daily")) {
+      note.textContent = "Choose a date and load daily attendance records.";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", hideStaffUploadAndMonthlyV9);
+  setTimeout(hideStaffUploadAndMonthlyV9, 500);
+  setTimeout(hideStaffUploadAndMonthlyV9, 1500);
+  setInterval(hideStaffUploadAndMonthlyV9, 3000);
+})();
+</script>
+<!-- attendance-staff-daily-only-v9-end -->
 </body>
 </html>
+
 
 
 
