@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - attendance shows OFF, MISSING, and ERROR TIME for every active staff.
+StaffSync Beach & Bliss Mirissa Version 1.0 - attendance report includes every active staff member.
