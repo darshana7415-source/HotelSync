@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - cleaned attendance report sorting and removed old staff codes.
+StaffSync Beach & Bliss Mirissa Version 1.0 - attendance shows OFF, MISSING, and ERROR TIME for every active staff.

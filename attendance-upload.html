@@ -856,8 +856,211 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-clean-active-sort-v2-end -->
+<!-- attendance-missing-off-error-v3-start -->
+<script>
+(function () {
+  function cleanCode(value) {
+    return String(value || "").trim();
+  }
+
+  function isRemovedCode(value) {
+    return cleanCode(value).toLowerCase().includes("removed");
+  }
+
+  function codeNumber(value) {
+    const n = Number(cleanCode(value).replace(/\D/g, ""));
+    return Number.isFinite(n) ? n : 999999;
+  }
+
+  function minutesText(minutes) {
+    const value = Number(minutes || 0);
+    const h = Math.floor(value / 60);
+    const m = Math.round(value % 60);
+    return `${h}:${String(m).padStart(2, "0")}`;
+  }
+
+  function normalizeName(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  function selectedAttendanceDate() {
+    const dateInput =
+      document.querySelector("#attendance-date") ||
+      document.querySelector("#hikvision-date") ||
+      document.querySelector("input[type='date']");
+    return dateInput?.value || new Date().toISOString().slice(0, 10);
+  }
+
+  function getPreviewRows() {
+    const rows = Array.from(document.querySelectorAll("table tbody tr"));
+    return rows.map((row) => {
+      const cells = Array.from(row.querySelectorAll("td")).map((cell) => cell.textContent.trim());
+      const joined = cells.join(" ").toLowerCase();
+
+      return {
+        row,
+        cells,
+        date: cells[0] || selectedAttendanceDate(),
+        sourceName: cells[1] || "",
+        matchedName: cells[2] || "",
+        clockIn: cells[3] || "",
+        clockOut: cells[4] || "",
+        segments: cells[5] || "",
+        total: cells[6] || "",
+        status: cells[7] || "",
+        joined
+      };
+    });
+  }
+
+  async function fetchActiveStaffForAttendanceV3() {
+    const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+    const url = cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url || window.SUPABASE_URL;
+    const key = cfg.SUPABASE_ANON_KEY || cfg.supabaseAnonKey || cfg.anonKey || window.SUPABASE_ANON_KEY;
+    if (!url || !key) return [];
+
+    const res = await fetch(`${url}/rest/v1/staff_profiles?select=id,employee_code,full_name&order=employee_code.asc`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: "application/json"
+      }
+    });
+
+    if (!res.ok) return [];
+    const staff = await res.json();
+    return staff
+      .filter((person) => !isRemovedCode(person.employee_code))
+      .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+  }
+
+  function rowStatusForPerson(person, previewRows) {
+    const code = cleanCode(person.employee_code);
+    const nameKey = normalizeName(person.full_name);
+
+    const match = previewRows.find((item) => {
+      const sourceKey = normalizeName(item.sourceName);
+      const matchedKey = normalizeName(item.matchedName);
+      return matchedKey === nameKey || sourceKey === nameKey || item.cells.some((cell) => cleanCode(cell) === code);
+    });
+
+    if (!match) {
+      return {
+        date: selectedAttendanceDate(),
+        code,
+        name: person.full_name,
+        clockIn: "",
+        clockOut: "",
+        segments: "",
+        total: "0:00",
+        status: "MISSING"
+      };
+    }
+
+    if (match.joined.includes("off")) {
+      return {
+        date: match.date || selectedAttendanceDate(),
+        code,
+        name: person.full_name,
+        clockIn: "",
+        clockOut: "",
+        segments: "",
+        total: "0:00",
+        status: "OFF"
+      };
+    }
+
+    const hasBadWords =
+      match.joined.includes("#value") ||
+      match.joined.includes("unmarked") ||
+      match.joined.includes("starting date") ||
+      match.joined.includes("error");
+
+    const hasAnyTime = Boolean(match.clockIn || match.clockOut || match.segments);
+    const hasCompleteTime = Boolean(match.clockIn && match.clockOut && match.segments);
+
+    if (hasBadWords || (hasAnyTime && !hasCompleteTime)) {
+      return {
+        date: match.date || selectedAttendanceDate(),
+        code,
+        name: person.full_name,
+        clockIn: match.clockIn,
+        clockOut: match.clockOut,
+        segments: match.segments,
+        total: "0:00",
+        status: "ERROR TIME"
+      };
+    }
+
+    return {
+      date: match.date || selectedAttendanceDate(),
+      code,
+      name: person.full_name,
+      clockIn: match.clockIn,
+      clockOut: match.clockOut,
+      segments: match.segments,
+      total: match.total,
+      status: match.status || "OK"
+    };
+  }
+
+  async function rebuildPreviewWithEveryActiveStaffV3() {
+    const staff = await fetchActiveStaffForAttendanceV3();
+    if (!staff.length) return;
+
+    const previewRows = getPreviewRows();
+    const tableBodies = Array.from(document.querySelectorAll("table tbody"));
+    const body = tableBodies.find((tbody) => {
+      const text = tbody.closest("table")?.textContent || "";
+      return text.includes("Matched staff") || text.includes("Clock in") || text.includes("Segments");
+    });
+
+    if (!body) return;
+
+    const rows = staff.map((person) => rowStatusForPerson(person, previewRows))
+      .sort((a, b) => codeNumber(a.code) - codeNumber(b.code));
+
+    body.innerHTML = rows.map((item) => `
+      <tr>
+        <td>${item.date}</td>
+        <td>${item.code}</td>
+        <td>${item.name}</td>
+        <td>${item.clockIn}</td>
+        <td>${item.clockOut}</td>
+        <td>${item.segments}</td>
+        <td>${item.total}</td>
+        <td><strong>${item.status}</strong></td>
+      </tr>
+    `).join("");
+  }
+
+  document.addEventListener("click", function (event) {
+    const text = event.target?.textContent || "";
+    if (
+      text.includes("Preview") ||
+      text.includes("Import") ||
+      text.includes("Load") ||
+      event.target?.closest("#load-saved-attendance")
+    ) {
+      setTimeout(rebuildPreviewWithEveryActiveStaffV3, 800);
+      setTimeout(rebuildPreviewWithEveryActiveStaffV3, 1800);
+    }
+  });
+
+  document.addEventListener("change", function (event) {
+    if (event.target?.type === "file" || event.target?.type === "date") {
+      setTimeout(rebuildPreviewWithEveryActiveStaffV3, 1000);
+      setTimeout(rebuildPreviewWithEveryActiveStaffV3, 2200);
+    }
+  });
+})();
+</script>
+<!-- attendance-missing-off-error-v3-end -->
 </body>
 </html>
+
 
 
 
