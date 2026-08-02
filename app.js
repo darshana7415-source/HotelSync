@@ -199,14 +199,14 @@ const pageSections = {
   shifts: ["schedule"],
   leave: ["leave", "leave-organizer"],
   location: ["location"],
-  reports: ["reports"]
+  reports: ["reports"], attendance: ["attendance"]
 };
 const pageAliases = {
   "role-demo": "dashboard",
   attendance: "dashboard",
   admin: "staff",
   "edit-staff": "staff",
-  schedule: "shifts",
+  schedule: "shifts", attendance: "attendance",
   "leave-organizer": "leave",
   "leave-pressure": "reports"
 };
@@ -9646,3 +9646,4 @@ function staffCalendarStatusClassV299(req){
   if (status.includes("cancel")) return "staff-leave-cancelled-v299";
   return "staff-leave-pending-v299";
 }
+

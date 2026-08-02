@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - added in-app attendance tab.
+StaffSync Beach & Bliss Mirissa Version 1.0 - fixed Attendance Reports tab navigation.
