@@ -905,8 +905,49 @@
   <script src="supabase-client.js"></script>
   <script src="staffsync-data-service.js?v=194"></script>
   <script src="app.js?v=302"></script>
+<!-- staff-attendance-separate-page-v14-start -->
+<script>
+(function () {
+  function roleNowV14() {
+    try {
+      if (typeof currentRole !== "undefined" && currentRole) return String(currentRole).toLowerCase();
+
+      const stored =
+        localStorage.getItem("staffsync.currentRole") ||
+        localStorage.getItem("staffsync.role") ||
+        sessionStorage.getItem("staffsync.currentRole") ||
+        sessionStorage.getItem("staffsync.role") ||
+        "";
+
+      if (stored) return String(stored).toLowerCase();
+      if ((document.body.innerText || "").includes("Staff signed in")) return "staff";
+      return "";
+    } catch {
+      return "";
+    }
+  }
+
+  document.addEventListener("click", function (event) {
+    const link = event.target?.closest?.("a");
+    if (!link) return;
+
+    const text = String(link.textContent || "");
+    const href = String(link.getAttribute("href") || "");
+
+    if (!text.includes("Attendance Reports") && !href.includes("attendance-upload.html")) return;
+
+    if (roleNowV14() === "staff") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.location.href = "staff-attendance.html?v=14";
+    }
+  }, true);
+})();
+</script>
+<!-- staff-attendance-separate-page-v14-end -->
 </body>
 </html>
+
 
 
 
