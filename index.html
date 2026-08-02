@@ -905,10 +905,13 @@
   <script src="supabase-client.js"></script>
   <script src="staffsync-data-service.js?v=194"></script>
   <script src="app.js?v=302"></script>
-<!-- staff-attendance-separate-page-v14-start -->
+
+<!-- force-staff-attendance-link-v15-start -->
 <script>
 (function () {
-  function roleNowV14() {
+  function roleTextV15() {
+    const text = document.body.innerText || "";
+
     try {
       if (typeof currentRole !== "undefined" && currentRole) return String(currentRole).toLowerCase();
 
@@ -920,33 +923,62 @@
         "";
 
       if (stored) return String(stored).toLowerCase();
-      if ((document.body.innerText || "").includes("Staff signed in")) return "staff";
-      return "";
-    } catch {
-      return "";
-    }
+    } catch {}
+
+    if (text.includes("Staff signed in")) return "staff";
+    if (text.includes("Admin view")) return "admin";
+    if (text.includes("Manager view")) return "manager";
+
+    return "";
+  }
+
+  function rewriteAttendanceLinksV15() {
+    const role = roleTextV15();
+
+    document.querySelectorAll("a").forEach((link) => {
+      const label = String(link.textContent || "").trim();
+      const href = String(link.getAttribute("href") || "");
+
+      if (label.includes("Attendance Reports") || href.includes("attendance-upload.html")) {
+        if (role === "staff") {
+          link.setAttribute("href", "staff-attendance.html?v=15");
+          link.removeAttribute("data-page-link");
+        } else {
+          link.setAttribute("href", "attendance-upload.html?v=15");
+          link.removeAttribute("data-page-link");
+        }
+      }
+    });
   }
 
   document.addEventListener("click", function (event) {
     const link = event.target?.closest?.("a");
     if (!link) return;
 
-    const text = String(link.textContent || "");
+    const label = String(link.textContent || "").trim();
     const href = String(link.getAttribute("href") || "");
 
-    if (!text.includes("Attendance Reports") && !href.includes("attendance-upload.html")) return;
+    if (label.includes("Attendance Reports") || href.includes("attendance-upload.html") || href.includes("staff-attendance.html")) {
+      rewriteAttendanceLinksV15();
 
-    if (roleNowV14() === "staff") {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.location.href = "staff-attendance.html?v=14";
+      if (roleTextV15() === "staff") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.location.href = "staff-attendance.html?v=15";
+      }
     }
   }, true);
+
+  document.addEventListener("DOMContentLoaded", rewriteAttendanceLinksV15);
+  setTimeout(rewriteAttendanceLinksV15, 500);
+  setTimeout(rewriteAttendanceLinksV15, 1500);
+  setInterval(rewriteAttendanceLinksV15, 3000);
 })();
 </script>
-<!-- staff-attendance-separate-page-v14-end -->
+<!-- force-staff-attendance-link-v15-end -->
 </body>
 </html>
+
 
 
 
