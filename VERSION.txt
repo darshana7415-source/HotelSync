@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - added saved attendance monthly report.
+StaffSync Beach & Bliss Mirissa Version 1.0 - cleaned attendance report sorting and removed old staff codes.

@@ -757,8 +757,108 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-saved-report-v1-end -->
+<!-- attendance-clean-active-sort-v2-start -->
+<script>
+(function () {
+  function cleanCode(value) {
+    return String(value || "").trim();
+  }
+
+  function isRemovedCode(value) {
+    return cleanCode(value).toLowerCase().includes("removed");
+  }
+
+  function codeNumber(value) {
+    const n = Number(cleanCode(value).replace(/\D/g, ""));
+    return Number.isFinite(n) ? n : 999999;
+  }
+
+  function sortTableByCode(tableBodySelector, codeColumnIndex, dateColumnIndex) {
+    const body = document.querySelector(tableBodySelector);
+    if (!body) return;
+
+    const rows = Array.from(body.querySelectorAll("tr"));
+    if (!rows.length) return;
+
+    const filtered = rows.filter((row) => {
+      const cells = row.querySelectorAll("td");
+      const code = cells[codeColumnIndex]?.textContent || "";
+      return !isRemovedCode(code);
+    });
+
+    filtered.sort((a, b) => {
+      const acells = a.querySelectorAll("td");
+      const bcells = b.querySelectorAll("td");
+      const acode = codeNumber(acells[codeColumnIndex]?.textContent || "");
+      const bcode = codeNumber(bcells[codeColumnIndex]?.textContent || "");
+      if (acode !== bcode) return acode - bcode;
+
+      if (dateColumnIndex !== null && dateColumnIndex !== undefined) {
+        const adate = acells[dateColumnIndex]?.textContent || "";
+        const bdate = bcells[dateColumnIndex]?.textContent || "";
+        return adate.localeCompare(bdate);
+      }
+
+      return 0;
+    });
+
+    body.innerHTML = "";
+    filtered.forEach((row) => body.appendChild(row));
+  }
+
+  function cleanAttendanceTables() {
+    sortTableByCode("#saved-attendance-summary-body", 0, null);
+    sortTableByCode("#saved-attendance-detail-body", 1, 0);
+
+    document.querySelectorAll("table tbody tr").forEach((row) => {
+      if (row.textContent.toLowerCase().includes("removed")) row.remove();
+    });
+  }
+
+  const oldFetch = window.fetch;
+  window.fetch = async function () {
+    const response = await oldFetch.apply(this, arguments);
+
+    try {
+      const url = String(arguments[0] || "");
+      if (url.includes("/rest/v1/staff_profiles")) {
+        const clone = response.clone();
+        const data = await clone.json();
+
+        if (Array.isArray(data)) {
+          const cleaned = data
+            .filter((person) => !isRemovedCode(person.employee_code))
+            .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+
+          return new Response(JSON.stringify(cleaned), {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+          });
+        }
+      }
+    } catch (error) {
+      // If this compatibility cleanup cannot read the response, keep the original response.
+    }
+
+    return response;
+  };
+
+  document.addEventListener("click", function (event) {
+    if (event.target && event.target.closest("#load-saved-attendance")) {
+      setTimeout(cleanAttendanceTables, 600);
+      setTimeout(cleanAttendanceTables, 1500);
+    }
+  });
+
+  setInterval(cleanAttendanceTables, 2000);
+  setTimeout(cleanAttendanceTables, 1000);
+})();
+</script>
+<!-- attendance-clean-active-sort-v2-end -->
 </body>
 </html>
+
 
 
 
