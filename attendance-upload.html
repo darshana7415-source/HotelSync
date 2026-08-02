@@ -1036,91 +1036,279 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-canonical-save-report-v8-end -->
-<!-- attendance-staff-daily-only-v9-start -->
+
+<!-- attendance-staff-daily-lock-v10-start -->
+<style>
+  .staff-daily-attendance-lock {
+    padding: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+  }
+  .staff-daily-attendance-lock h1 {
+    margin-bottom: 4px;
+  }
+  .staff-attendance-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: end;
+    margin: 16px 0;
+  }
+  .staff-attendance-controls label {
+    display: grid;
+    gap: 6px;
+    font-weight: 700;
+  }
+  .staff-attendance-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #d7e7e7;
+    border-radius: 10px;
+    background: white;
+  }
+  .staff-attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+  }
+  .staff-attendance-table th,
+  .staff-attendance-table td {
+    padding: 9px;
+    border-bottom: 1px solid #e1eeee;
+    text-align: left;
+  }
+  .staff-attendance-table th {
+    background: #eefafa;
+    color: #075f63;
+  }
+  .att-ok, .att-off, .att-error, .att-missing, .att-leave {
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+    font-weight: 800;
+  }
+  .att-ok { color: #047857; background: #dcfce7; }
+  .att-off { color: #075985; background: #e0f2fe; }
+  .att-error { color: #991b1b; background: #fee2e2; }
+  .att-missing { color: #92400e; background: #fef3c7; }
+  .att-leave { color: #6d28d9; background: #ede9fe; }
+</style>
+
 <script>
 (function () {
-  function getRoleFromAppV9() {
+  function roleV10() {
+    const queryRole = new URLSearchParams(location.search).get("role");
+    if (queryRole) return String(queryRole).toLowerCase();
+
     try {
-      const role =
+      return String(
         localStorage.getItem("staffsync.currentRole") ||
         localStorage.getItem("staffsync.role") ||
         sessionStorage.getItem("staffsync.currentRole") ||
         sessionStorage.getItem("staffsync.role") ||
-        "";
-      return String(role || "").toLowerCase();
+        ""
+      ).toLowerCase();
     } catch {
       return "";
     }
   }
 
-  function isStaffV9() {
-    const role = getRoleFromAppV9();
-    const urlRole = new URLSearchParams(location.search)..get("role");
-    return role === "staff" || String(urlRole || "").toLowerCase() === "staff";
+  if (roleV10() !== "staff") return;
+
+  function pad(value) {
+    return String(value).padStart(2, "0");
   }
 
-  function hideStaffUploadAndMonthlyV9() {
-    if (!isStaffV9()) return;
+  function todayKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
 
-    document.body.classList.add("attendance-staff-daily-only");
+  function clean(value) {
+    return String(value || "").trim();
+  }
 
-    const phrasesToHide = [
-      "Upload Hikvision Excel",
-      "Save attendance to StaffSync",
-      "Monthly total hours",
-      "Upload Excel",
-      "Preview loaded"
-    ];
+  function isRemovedCode(value) {
+    return clean(value).toLowerCase().includes("removed");
+  }
 
-    document.querySelectorAll("section, article, .card, .panel, form, div").forEach((el) => {
-      const text = (el.innerText || "").trim();
-      if (!text) return;
+  function codeNumber(value) {
+    const n = Number(clean(value).replace(/\D/g, ""));
+    return Number.isFinite(n) ? n : 999999;
+  }
 
-      if (
-        text.includes("Upload Hikvision Excel") ||
-        text.includes("Save attendance to StaffSync") ||
-        text.includes("Monthly total hours")
-      ) {
-        if (!text.includes("Daily saved records")) {
-          el.style.display = "none";
-        }
+  function timeText(value) {
+    if (!value) return "";
+    return String(value).slice(0, 5);
+  }
+
+  function minutesText(minutes) {
+    const value = Number(minutes || 0);
+    const h = Math.floor(value / 60);
+    const m = Math.round(value % 60);
+    return `${h}:${pad(m)}`;
+  }
+
+  function cfg() {
+    return window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+  }
+
+  async function rest(path) {
+    const env = cfg();
+    const url = env.SUPABASE_URL || env.supabaseUrl || env.url || window.SUPABASE_URL;
+    const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey || window.SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error("Supabase settings not found.");
+
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: "application/json"
       }
     });
 
-    document.querySelectorAll("input[type='file'], textarea, #saved-attendance-month").forEach((el) => {
-      const wrap = el.closest("label, .saved-attendance-controls, section, article, .card, .panel, div");
-      if (wrap && !wrap.textContent.includes("Daily record date")) wrap.style.display = "none";
-    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
 
-    const summary = document.querySelector("#saved-attendance-summary-body");
-    const summaryBlock = summary?.closest(".saved-attendance-table-wrap");
-    const summaryTitle = Array.from(document.querySelectorAll("h2,h3,strong")).find((el) =>
-      (el.textContent || "").includes("Monthly total hours")
-    );
-
-    if (summaryBlock) summaryBlock.style.display = "none";
-    if (summaryTitle) summaryTitle.style.display = "none";
-
-    const reportTitle = Array.from(document.querySelectorAll("h2,h1")).find((el) =>
-      (el.textContent || "").includes("Saved Attendance Report")
-    );
-    if (reportTitle) reportTitle.textContent = "Daily Attendance Records";
-
-    const note = document.querySelector("#saved-attendance-status");
-    if (note && !note.textContent.includes("Daily")) {
-      note.textContent = "Choose a date and load daily attendance records.";
+  function formatSegments(value) {
+    try {
+      const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
+      return parsed.map((seg) => `${seg.in || ""}-${seg.out || ""}`).join(", ");
+    } catch {
+      return "";
     }
   }
 
-  document.addEventListener("DOMContentLoaded", hideStaffUploadAndMonthlyV9);
-  setTimeout(hideStaffUploadAndMonthlyV9, 500);
-  setTimeout(hideStaffUploadAndMonthlyV9, 1500);
-  setInterval(hideStaffUploadAndMonthlyV9, 3000);
+  function statusForRow(row) {
+    const source = clean(row.source_name).toUpperCase();
+    const total = Number(row.total_minutes || 0);
+    const segments = formatSegments(row.segments);
+
+    if (source.includes("SHORT LEAVE")) return "SHORT LEAVE";
+    if (source.includes("HALF DAY")) return "HALF DAY";
+    if (source.includes("LEAVE")) return "LEAVE";
+    if (source.includes("OFF")) return "OFF";
+    if ((!row.clock_in || !row.clock_out || !segments) && total > 0) return "ERROR TIME";
+    if (total === 0 && !row.clock_in && !row.clock_out) return "OFF";
+    return "OK";
+  }
+
+  function badge(status) {
+    const label = clean(status || "OK").toUpperCase();
+    let cls = "att-ok";
+    if (label.includes("ERROR")) cls = "att-error";
+    else if (label.includes("OFF")) cls = "att-off";
+    else if (label.includes("NO FINGERPRINT")) cls = "att-missing";
+    else if (label.includes("LEAVE") || label.includes("HALF DAY") || label.includes("SHORT")) cls = "att-leave";
+    return `<span class="${cls}">${label}</span>`;
+  }
+
+  async function loadDaily() {
+    const date = document.querySelector("#staff-daily-attendance-date").value || todayKey();
+    const status = document.querySelector("#staff-daily-attendance-status");
+    const body = document.querySelector("#staff-daily-attendance-body");
+
+    status.textContent = "Loading daily attendance...";
+    body.innerHTML = "";
+
+    const [staffRows, dayRows] = await Promise.all([
+      rest("staff_profiles?select=id,employee_code,full_name&order=employee_code.asc"),
+      rest(`attendance_imports?select=*&attendance_date=eq.${date}`)
+    ]);
+
+    const staff = staffRows
+      .filter((person) => !isRemovedCode(person.employee_code))
+      .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+
+    const byStaff = new Map();
+    dayRows.forEach((row) => byStaff.set(row.staff_profile_id, row));
+
+    body.innerHTML = staff.map((person) => {
+      const row = byStaff.get(person.id);
+
+      if (!row) {
+        return `
+          <tr>
+            <td>${clean(person.employee_code)}</td>
+            <td>${person.full_name || ""}</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>0:00</td>
+            <td>${badge("NO FINGERPRINT")}</td>
+          </tr>
+        `;
+      }
+
+      return `
+        <tr>
+          <td>${clean(person.employee_code)}</td>
+          <td>${person.full_name || row.source_name || ""}</td>
+          <td>${timeText(row.clock_in)}</td>
+          <td>${timeText(row.clock_out)}</td>
+          <td>${formatSegments(row.segments)}</td>
+          <td>${minutesText(row.total_minutes)}</td>
+          <td>${badge(statusForRow(row))}</td>
+        </tr>
+      `;
+    }).join("");
+
+    status.textContent = `Daily attendance records for ${date}.`;
+  }
+
+  function showStaffDailyPage() {
+    document.body.innerHTML = `
+      <main class="staff-daily-attendance-lock">
+        <h1>Daily Attendance Records</h1>
+        <p>Staff view only. Upload and monthly reports are hidden.</p>
+
+        <div class="staff-attendance-controls">
+          <label>
+            Daily record date
+            <input id="staff-daily-attendance-date" type="date" value="${todayKey()}">
+          </label>
+          <button id="staff-load-daily-attendance" type="button">Load daily records</button>
+          <a href="index.html#dashboard">Back to dashboard</a>
+        </div>
+
+        <p id="staff-daily-attendance-status">Choose a date and load daily attendance.</p>
+
+        <div class="staff-attendance-table-wrap">
+          <table class="staff-attendance-table">
+            <thead>
+              <tr><th>Code</th><th>Name</th><th>Clock in</th><th>Clock out</th><th>Segments</th><th>Total</th><th>Status</th></tr>
+            </thead>
+            <tbody id="staff-daily-attendance-body"></tbody>
+          </table>
+        </div>
+      </main>
+    `;
+
+    document.querySelector("#staff-load-daily-attendance").addEventListener("click", () => {
+      loadDaily().catch((error) => {
+        document.querySelector("#staff-daily-attendance-status").textContent = `Could not load attendance: ${error.message}`;
+      });
+    });
+
+    document.querySelector("#staff-daily-attendance-date").addEventListener("change", () => {
+      loadDaily().catch(function () {});
+    });
+
+    loadDaily().catch(function () {});
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", showStaffDailyPage);
+  } else {
+    showStaffDailyPage();
+  }
 })();
 </script>
-<!-- attendance-staff-daily-only-v9-end -->
+<!-- attendance-staff-daily-lock-v10-end -->
 </body>
 </html>
+
 
 
 
