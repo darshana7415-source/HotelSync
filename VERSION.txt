@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - daily attendance report uses selected date and Priyantha readback fix.
+StaffSync Beach & Bliss Mirissa Version 1.0 - cleaned single attendance saved report.
