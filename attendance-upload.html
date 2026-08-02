@@ -132,7 +132,16 @@ function duration(start,end){
   if(b<a)b+=1440;
   return b-a;
 }
-function hours(mins){return Math.round((mins/60)*100)/100;}
+function hours(mins){
+  const h=Math.floor(mins/60);
+  const m=mins%60;
+  return `${h}:${String(m).padStart(2,"0")}`;
+}
+function decimalHours(text){
+  if(!text || !String(text).includes(":")) return 0;
+  const p=String(text).split(":").map(Number);
+  return p[0] + (p[1]/60);
+}
 function findHeader(rows){
   for(let r=0;r<Math.min(rows.length,10);r++){
     for(let c=0;c<rows[r].length;c++){
@@ -201,6 +210,7 @@ function parseSheet(ws){
       clockOut: valid[valid.length-1]?.[1] || "",
       segments: valid.map(p=>p[0]+"-"+p[1]).join(", "),
       hours: hours(total),
+      minutes: total,
       status
     });
   }
@@ -225,7 +235,8 @@ function render(records){
   const ok=records.filter(r=>r.status==="OK").length;
   const unmatched=records.filter(r=>r.status==="UNMATCHED").length;
   const warnings=records.filter(r=>r.status!=="OK"&&r.status!=="UNMATCHED").length;
-  const totalHours=hours(records.reduce((s,r)=>s+(Number(r.hours)||0),0));
+  const totalMinutes=records.reduce((s,r)=>s+(Number(r.minutes)||0),0);
+  const totalHours=hours(totalMinutes);
   document.querySelector("#summary").innerHTML=`
     <div><b>${records.length}</b><br>Total rows</div>
     <div><b>${ok}</b><br>Ready records</div>
@@ -246,4 +257,5 @@ document.querySelector("#file").addEventListener("change",async e=>{
 </script>
 </body>
 </html>
+
 
