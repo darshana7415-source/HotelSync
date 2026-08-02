@@ -4,8 +4,144 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Attendance Upload Preview - StaffSync</title>
-  <script src="env.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="env.js">async function saveAttendance(){
+  const status=document.querySelector("#save-status");
+  const url=cfg("SUPABASE_URL");
+  const key=cfg("SUPABASE_ANON_KEY");
+  if(!url||!key){
+    status.textContent="Supabase settings not found.";
+    return;
+  }
+
+  const ready=latestRecords.filter(r=>r.status==="OK" && r.matched && r.date);
+  if(!ready.length){
+    status.textContent="No ready records to save.";
+    return;
+  }
+
+  status.textContent="Saving attendance...";
+  try{
+    const staffRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/staff_profiles?select=id,employee_code,full_name",{
+      headers:{apikey:key,Authorization:"Bearer "+key,Accept:"application/json"}
+    });
+    if(!staffRes.ok) throw new Error(await staffRes.text());
+    const staffRows=await staffRes.json();
+
+    const payload=ready.map(r=>{
+      const person=staffRows.find(s=>norm(s.full_name)===norm(r.matched));
+      if(!person) return null;
+      const segs=String(r.segments||"").split(",").map(x=>x.trim()).filter(Boolean).map(x=>{
+        const p=x.split("-");
+        return {in:p[0]||"",out:p[1]||""};
+      });
+      return {
+        hotel_id:"00000000-0000-0000-0000-000000000001",
+        staff_profile_id:person.id,
+        attendance_date:r.date,
+        source_name:r.name,
+        clock_in:r.clockIn || null,
+        clock_out:r.clockOut || null,
+        segments:segs,
+        total_minutes:Number(r.minutes)||0,
+        source:"hikvision_excel"
+      };
+    }).filter(Boolean);
+
+    if(!payload.length){
+      status.textContent="No records matched StaffSync staff IDs.";
+      return;
+    }
+
+    const saveRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/attendance_imports?on_conflict=hotel_id,staff_profile_id,attendance_date,source",{
+      method:"POST",
+      headers:{
+        apikey:key,
+        Authorization:"Bearer "+key,
+        "Content-Type":"application/json",
+        Prefer:"resolution=merge-duplicates,return=minimal"
+      },
+      body:JSON.stringify(payload)
+    });
+    if(!saveRes.ok) throw new Error(await saveRes.text());
+
+    status.textContent="Saved "+payload.length+" attendance records to StaffSync.";
+  }catch(error){
+    status.textContent="Save failed: "+error.message;
+  }
+}
+document.addEventListener("click",e=>{
+  if(e.target && e.target.id==="save-attendance") saveAttendance();
+});
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">async function saveAttendance(){
+  const status=document.querySelector("#save-status");
+  const url=cfg("SUPABASE_URL");
+  const key=cfg("SUPABASE_ANON_KEY");
+  if(!url||!key){
+    status.textContent="Supabase settings not found.";
+    return;
+  }
+
+  const ready=latestRecords.filter(r=>r.status==="OK" && r.matched && r.date);
+  if(!ready.length){
+    status.textContent="No ready records to save.";
+    return;
+  }
+
+  status.textContent="Saving attendance...";
+  try{
+    const staffRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/staff_profiles?select=id,employee_code,full_name",{
+      headers:{apikey:key,Authorization:"Bearer "+key,Accept:"application/json"}
+    });
+    if(!staffRes.ok) throw new Error(await staffRes.text());
+    const staffRows=await staffRes.json();
+
+    const payload=ready.map(r=>{
+      const person=staffRows.find(s=>norm(s.full_name)===norm(r.matched));
+      if(!person) return null;
+      const segs=String(r.segments||"").split(",").map(x=>x.trim()).filter(Boolean).map(x=>{
+        const p=x.split("-");
+        return {in:p[0]||"",out:p[1]||""};
+      });
+      return {
+        hotel_id:"00000000-0000-0000-0000-000000000001",
+        staff_profile_id:person.id,
+        attendance_date:r.date,
+        source_name:r.name,
+        clock_in:r.clockIn || null,
+        clock_out:r.clockOut || null,
+        segments:segs,
+        total_minutes:Number(r.minutes)||0,
+        source:"hikvision_excel"
+      };
+    }).filter(Boolean);
+
+    if(!payload.length){
+      status.textContent="No records matched StaffSync staff IDs.";
+      return;
+    }
+
+    const saveRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/attendance_imports?on_conflict=hotel_id,staff_profile_id,attendance_date,source",{
+      method:"POST",
+      headers:{
+        apikey:key,
+        Authorization:"Bearer "+key,
+        "Content-Type":"application/json",
+        Prefer:"resolution=merge-duplicates,return=minimal"
+      },
+      body:JSON.stringify(payload)
+    });
+    if(!saveRes.ok) throw new Error(await saveRes.text());
+
+    status.textContent="Saved "+payload.length+" attendance records to StaffSync.";
+  }catch(error){
+    status.textContent="Save failed: "+error.message;
+  }
+}
+document.addEventListener("click",e=>{
+  if(e.target && e.target.id==="save-attendance") saveAttendance();
+});
+</script>
   <style>
     body{font-family:Arial,sans-serif;background:#f4fbfb;margin:0;color:#10202a}
     .wrap{max-width:1200px;margin:auto;padding:14px}
@@ -49,6 +185,8 @@
     <div id="status" class="muted" style="margin-top:10px">Choose the daily attendance sheet.</div>
     <div class="summary" id="summary"></div>
     <div id="warnings"></div>
+    <button id="save-attendance" class="btn" type="button" disabled>Save attendance to StaffSync</button>
+    <div id="save-status" class="muted" style="margin-top:10px"></div>
     <table id="table" hidden>
       <thead>
         <tr>
@@ -257,7 +395,12 @@ function applyPreviewMonthlyHours(records){
     r.monthlyHours = hours(totals[key] || 0);
   });
 }
+let latestRecords = [];
 function render(records){
+  latestRecords = records;
+  const saveButton = document.querySelector("#save-attendance");
+  if(saveButton) saveButton.disabled = !records.some(r=>r.status==="OK" && r.matched);
+
   const body=document.querySelector("#body");
   body.innerHTML=records.map(r=>`
     <tr>
@@ -300,9 +443,78 @@ document.querySelector("#file").addEventListener("change",async e=>{
   applyPreviewMonthlyHours(all);
   render(all);
 });
+async function saveAttendance(){
+  const status=document.querySelector("#save-status");
+  const url=cfg("SUPABASE_URL");
+  const key=cfg("SUPABASE_ANON_KEY");
+  if(!url||!key){
+    status.textContent="Supabase settings not found.";
+    return;
+  }
+
+  const ready=latestRecords.filter(r=>r.status==="OK" && r.matched && r.date);
+  if(!ready.length){
+    status.textContent="No ready records to save.";
+    return;
+  }
+
+  status.textContent="Saving attendance...";
+  try{
+    const staffRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/staff_profiles?select=id,employee_code,full_name",{
+      headers:{apikey:key,Authorization:"Bearer "+key,Accept:"application/json"}
+    });
+    if(!staffRes.ok) throw new Error(await staffRes.text());
+    const staffRows=await staffRes.json();
+
+    const payload=ready.map(r=>{
+      const person=staffRows.find(s=>norm(s.full_name)===norm(r.matched));
+      if(!person) return null;
+      const segs=String(r.segments||"").split(",").map(x=>x.trim()).filter(Boolean).map(x=>{
+        const p=x.split("-");
+        return {in:p[0]||"",out:p[1]||""};
+      });
+      return {
+        hotel_id:"00000000-0000-0000-0000-000000000001",
+        staff_profile_id:person.id,
+        attendance_date:r.date,
+        source_name:r.name,
+        clock_in:r.clockIn || null,
+        clock_out:r.clockOut || null,
+        segments:segs,
+        total_minutes:Number(r.minutes)||0,
+        source:"hikvision_excel"
+      };
+    }).filter(Boolean);
+
+    if(!payload.length){
+      status.textContent="No records matched StaffSync staff IDs.";
+      return;
+    }
+
+    const saveRes=await fetch(url.replace(/\/$/,"")+"/rest/v1/attendance_imports?on_conflict=hotel_id,staff_profile_id,attendance_date,source",{
+      method:"POST",
+      headers:{
+        apikey:key,
+        Authorization:"Bearer "+key,
+        "Content-Type":"application/json",
+        Prefer:"resolution=merge-duplicates,return=minimal"
+      },
+      body:JSON.stringify(payload)
+    });
+    if(!saveRes.ok) throw new Error(await saveRes.text());
+
+    status.textContent="Saved "+payload.length+" attendance records to StaffSync.";
+  }catch(error){
+    status.textContent="Save failed: "+error.message;
+  }
+}
+document.addEventListener("click",e=>{
+  if(e.target && e.target.id==="save-attendance") saveAttendance();
+});
 </script>
 </body>
 </html>
+
 
 
 
