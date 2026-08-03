@@ -405,6 +405,12 @@ body[data-page="staff"] #admin {
   grid-column: 1 / -1;
 }
 
+/* #schedule sits between #leave and #leave-organizer in the HTML but is reordered/hidden
+   on the Leave page, which can leave these two panels touching with no visible gap. */
+body[data-page="leave"] #leave-organizer {
+  margin-top: 1.25rem;
+}
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -1459,6 +1465,7 @@ body[data-role="staff"] .role-grid {
   align-items: center;
   background: #fff;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
   border-radius: 8px;
   display: grid;
   gap: 0.75rem;
@@ -1473,6 +1480,25 @@ body[data-role="staff"] .role-grid {
 
 .leave-quota-row small {
   color: var(--muted);
+}
+
+/* Highlight staff who are near or past their monthly quota. */
+.leave-quota-row.quota-row-low {
+  border-left-color: var(--amber);
+  background: #fffaf0;
+}
+
+.leave-quota-row.quota-row-empty {
+  border-left-color: var(--red);
+  background: #fef4f4;
+}
+
+.leave-quota-row.quota-row-empty span:nth-child(4) b {
+  color: var(--red);
+}
+
+.leave-quota-row.quota-row-low span:nth-child(4) b {
+  color: var(--amber);
 }
 
 .leave-history-box {
@@ -2171,10 +2197,6 @@ button.danger {
 
   .organizer-grid {
     grid-template-columns: 1fr;
-  }
-
-  .leave-quota-row {
-    grid-template-columns: 1fr 1fr;
   }
 
   .inline-form {
@@ -3002,5 +3024,79 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
 
   .top-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===== leave-quota-history-mobile-polish-v311 =====
+   The "Leave quota and history" panel: quota table becomes readable cards, chat/leave
+   items get more breathing room, and the quota-vs-taken numbers stay legible on a phone. */
+@media (max-width: 720px) {
+  .self-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .self-stats span {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .self-stats b {
+    font-size: 1.05rem;
+  }
+
+  .self-stats small {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .leave-quota-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0.7rem 0.8rem;
+  }
+
+  .leave-quota-row .quota-row-name {
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .leave-quota-row > span:not(.quota-row-name) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.28rem 0;
+  }
+
+  .leave-quota-row > span:not(.quota-row-name) b {
+    order: 2;
+    font-size: 1rem;
+  }
+
+  .leave-quota-row > span:not(.quota-row-name) small {
+    order: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .staff-message-box,
+  .leave-thread {
+    gap: 0.65rem;
+  }
+
+  .mini-item {
+    align-items: flex-start;
+    padding: 0.7rem;
+  }
+
+  .mini-item strong {
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+
+  .chat-thread-card {
+    padding: 0.75rem;
   }
 }

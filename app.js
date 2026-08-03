@@ -634,15 +634,18 @@ function renderAdminMonthlyLeaveView() {
         <span><b>${totals.rejected}</b><small>rejected requests</small></span>
       </div>
       <div class="leave-quota-table">
-        ${rows.length ? rows.map((row) => `
-          <div class="leave-quota-row">
-            <span><strong>${row.person.employeeCode ? `${row.person.employeeCode} - ` : ""}${row.person.name}</strong><small>${row.person.department} - ${row.person.role}</small></span>
+        ${rows.length ? rows.map((row) => {
+          const balanceCls = row.available <= 0 ? "quota-row-empty" : row.available <= 1 ? "quota-row-low" : "";
+          return `
+          <div class="leave-quota-row ${balanceCls}">
+            <span class="quota-row-name"><strong>${row.person.employeeCode ? `${row.person.employeeCode} - ` : ""}${row.person.name}</strong><small>${row.person.department} - ${row.person.role}</small></span>
             <span><b>${formatLeaveUnits(monthlyLeaveQuota)}</b><small>quota</small></span>
             <span><b>${formatLeaveUnits(row.approved)}</b><small>taken</small></span>
             <span><b>${formatLeaveUnits(row.available)}</b><small>available</small></span>
             <span><b>${row.rejected}</b><small>rejected</small></span>
           </div>
-        `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
+        `;
+        }).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
       </div>
       <div class="staff-message-box">
         <strong>All leave records this month</strong>
