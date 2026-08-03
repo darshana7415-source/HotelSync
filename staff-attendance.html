@@ -307,5 +307,104 @@
       document.querySelector("#status").textContent = `Could not load attendance: ${error.message}`;
     });
   </script>
+<!-- attendance-daily-highlight-v17-start -->
+<style>
+  tr.att-under-10 td {
+    background: #fff1f2 !important;
+  }
+
+  tr.att-no-fingerprint td {
+    background: #7f1d1d !important;
+    color: #ffffff !important;
+  }
+
+  tr.att-no-fingerprint td * {
+    color: #ffffff !important;
+  }
+
+  tr.att-error-time td {
+    background: #fee2e2 !important;
+    color: #7f1d1d !important;
+  }
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function norm(value) {
+    return clean(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function minutesFromText(value) {
+    const text = clean(value);
+    const match = text.match(/^(\d{1,3}):(\d{2})$/);
+    if (!match) return 0;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function highlightDailyAttendanceRowsV17() {
+    document.querySelectorAll("table").forEach((table) => {
+      const headers = Array.from(table.querySelectorAll("thead th")).map((th) => norm(th.textContent));
+
+      const codeIndex = headers.indexOf("code");
+      const totalIndex = headers.indexOf("total");
+      const statusIndex = headers.indexOf("status");
+      const hasDailyColumns =
+        headers.includes("clockin") &&
+        headers.includes("clockout") &&
+        headers.includes("segments");
+
+      if (!hasDailyColumns || codeIndex < 0 || totalIndex < 0 || statusIndex < 0) return;
+
+      table.querySelectorAll("tbody tr").forEach((row) => {
+        row.classList.remove("att-under-10", "att-no-fingerprint", "att-error-time");
+
+        const cells = row.querySelectorAll("td");
+        const code = clean(cells[codeIndex]?.textContent);
+        const totalMinutes = minutesFromText(cells[totalIndex]?.textContent);
+        const status = clean(cells[statusIndex]?.textContent).toUpperCase();
+
+        const isDileesha = code === "01";
+        const isNoFingerprint = status.includes("NO FINGERPRINT") || status.includes("MISSING");
+        const isError = status.includes("ERROR");
+        const isLeaveOrOff = status.includes("LEAVE") || status.includes("OFF") || status.includes("HALF DAY") || status.includes("SHORT");
+
+        if (isError) {
+          row.classList.add("att-error-time");
+          return;
+        }
+
+        if (isNoFingerprint && !isDileesha) {
+          row.classList.add("att-no-fingerprint");
+          return;
+        }
+
+        if (!isLeaveOrOff && !isNoFingerprint && totalMinutes > 0 && totalMinutes < 600) {
+          row.classList.add("att-under-10");
+        }
+      });
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", highlightDailyAttendanceRowsV17);
+  document.addEventListener("change", function () {
+    setTimeout(highlightDailyAttendanceRowsV17, 500);
+    setTimeout(highlightDailyAttendanceRowsV17, 1500);
+  });
+  document.addEventListener("click", function () {
+    setTimeout(highlightDailyAttendanceRowsV17, 500);
+    setTimeout(highlightDailyAttendanceRowsV17, 1500);
+  });
+
+  setTimeout(highlightDailyAttendanceRowsV17, 800);
+  setTimeout(highlightDailyAttendanceRowsV17, 1800);
+  setInterval(highlightDailyAttendanceRowsV17, 3000);
+})();
+</script>
+<!-- attendance-daily-highlight-v17-end -->
 </body>
 </html>
+
