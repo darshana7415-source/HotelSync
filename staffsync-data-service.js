@@ -32,7 +32,9 @@ async function callStaffSyncFunction(functionName, payload, { token } = {}) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) {
-    throw new Error(result.message || `Request to ${functionName} failed.`);
+    const error = new Error(result.message || `Request to ${functionName} failed.`);
+    error.result = result;
+    throw error;
   }
   return result;
 }
@@ -57,6 +59,11 @@ const staffSyncDb = {
 
   logoutStaff() {
     setStaffSyncSessionToken("");
+  },
+
+  // Pre-login check: does this employee code still need first-time password setup?
+  async checkStaffLoginStatus({ employeeCode }) {
+    return callStaffSyncFunction("auth-login", { action: "checkStatus", employeeCode });
   },
 
   // Admin/manager only -- generates a fresh random temp password (replaces the old shared "12345").

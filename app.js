@@ -1853,36 +1853,58 @@ function shiftChangeThreadMarkup(thread) {
   `;
 }
 
+let staffLoginStatusCheckTimer = null;
+let staffLoginStatusCheckSeq = 0;
+
+function setStaffNewPasswordVisible(visible) {
+  const field = document.querySelector("#staff-new-password-field");
+  if (field) field.hidden = !visible;
+  if (!visible && staffNewPassword) staffNewPassword.value = "";
+}
+
 function updateStaffLoginPasswordHint() {
   if (!staffLoginPassword || !staffLoginCode) return;
-  const person = findStaffByLoginCode(staffLoginCode.value);
-  if (!staffLoginCode.value.trim()) {
+  const code = staffLoginCode.value.trim();
+
+  if (!code) {
+    setStaffNewPasswordVisible(false);
     staffLoginPassword.placeholder = "Enter password";
-    if (staffNewPassword) staffNewPassword.placeholder = "First login: choose new password";
-    setStaffLoginStatus("Enter employee code. First login uses the temporary password, then choose a new password.", "");
+    setStaffLoginStatus("Enter your employee code and password.", "");
     return;
   }
-  if (!person) {
-    staffLoginPassword.placeholder = "Enter password";
-    if (staffNewPassword) staffNewPassword.placeholder = "New password";
-    setStaffLoginStatus("No employee found for this code.", "red");
-    return;
-  }
-  const passwordIsSet = person && hasStaffPassword(person);
-  staffLoginPassword.placeholder = passwordIsSet
-    ? "Enter saved staff password"
-    : "Enter temporary password";
-  if (staffNewPassword) {
-    staffNewPassword.placeholder = passwordIsSet
-      ? "Optional: enter new password to change"
-      : "Required: choose new password";
-  }
-  setStaffLoginStatus(
-    passwordIsSet
-      ? `${person.name}: enter saved password. To change it, also enter a new password.`
-      : `${person.name}: first login uses the temporary password. Enter a new password too.`,
-    passwordIsSet ? "blue" : "green"
-  );
+
+  // Ask the server (debounced) whether this employee still needs first-time password setup.
+  // This is the source of truth - a local cache can't know what happened on other phones.
+  clearTimeout(staffLoginStatusCheckTimer);
+  const seq = ++staffLoginStatusCheckSeq;
+  staffLoginStatusCheckTimer = setTimeout(async () => {
+    try {
+      const result = await window.staffSyncDb.checkStaffLoginStatus({ employeeCode: code });
+      if (seq !== staffLoginStatusCheckSeq) return; // a newer keystroke superseded this check
+      if (!result.found) {
+        setStaffNewPasswordVisible(false);
+        staffLoginPassword.placeholder = "Enter password";
+        setStaffLoginStatus("No employee found for this code.", "red");
+        return;
+      }
+      if (result.needsSetup) {
+        setStaffNewPasswordVisible(true);
+        staffLoginPassword.placeholder = "Enter temporary password";
+        if (staffNewPassword) staffNewPassword.placeholder = "Choose your own new password";
+        setStaffLoginStatus("First login: enter the temporary password, then choose your own new password.", "green");
+      } else {
+        setStaffNewPasswordVisible(false);
+        staffLoginPassword.placeholder = "Enter your password";
+        setStaffLoginStatus("Enter your password.", "blue");
+      }
+    } catch {
+      if (seq !== staffLoginStatusCheckSeq) return;
+      // Offline or functions unavailable: show both fields so no one is blocked.
+      setStaffNewPasswordVisible(true);
+      staffLoginPassword.placeholder = "Enter password";
+      setStaffLoginStatus("Enter your password. First login: temporary password plus a new password.", "");
+    }
+  }, 350);
 }
 
 function applyHotelMapImage() {
@@ -6213,9 +6235,7 @@ async function prepareStaffDemoLogin() {
   sessionStorage.setItem("staffsync.appUserId", currentAppUserId);
 
   if (!password) {
-    const message = hasStaffPassword(selectedStaff)
-      ? "Enter the saved staff password for this employee."
-      : "First login: enter any password to save for this employee.";
+    const message = "Enter the password for this employee.";
     setStaffLoginStatus(message, "amber");
     showToast(message);
     return false;
@@ -6288,6 +6308,12 @@ async function checkStaffPassword(person, password, newPassword = "") {
       saveStaffPassword(person, newPassword || password);
       return { ok: true, hadCloudPassword: true, changedPassword: Boolean(result.changedPassword) };
     } catch (error) {
+      // The server signals "password correct but first-time setup incomplete" -- reveal the
+      // New password field so the person can finish setup in the next attempt.
+      if (error.result?.needsNewPassword) {
+        setStaffNewPasswordVisible(true);
+        if (staffNewPassword) staffNewPassword.placeholder = "Choose your own new password";
+      }
       return {
         ok: false,
         hadCloudPassword: false,

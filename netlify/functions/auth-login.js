@@ -77,6 +77,24 @@ exports.handler = async function handler(event) {
   }
 
   try {
+    // Lightweight pre-login check so the UI can show/hide the "New password" field.
+    // Returns whether this employee code still needs first-time password setup.
+    if (payload.action === "checkStatus") {
+      const staff = await findActiveStaffByEmployeeCode(payload.employeeCode);
+      if (!staff) {
+        return json(200, { ok: true, found: false });
+      }
+      const row = await selectOne("staff_login_passwords", {
+        select: "staff_profile_id,reset_required",
+        eq: { staff_profile_id: staff.id }
+      });
+      return json(200, {
+        ok: true,
+        found: true,
+        needsSetup: !row || Boolean(row.reset_required)
+      });
+    }
+
     if (payload.action === "adminResetPassword" || payload.action === "adminSetPassword") {
       const admin = await authenticateAdminRequest(event);
       if (!admin) {
