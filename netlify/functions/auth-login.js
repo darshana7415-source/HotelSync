@@ -47,7 +47,7 @@ async function findActiveStaffByEmployeeCode(employeeCode) {
   // employee_code is stored as free text (e.g. "04"), so pull candidates and match numerically,
   // mirroring the matching rule the client used to apply itself.
   const candidates = await selectMany("staff_profiles", {
-    select: "id,employee_code,full_name,hotel_id,app_users(id,role,status)"
+    select: "id,employee_code,full_name,app_users(id,role,status,hotel_id)"
   });
 
   const match = (candidates || []).find((profile) => {
@@ -218,7 +218,7 @@ exports.handler = async function handler(event) {
       staffProfileId: staff.id,
       appUserId: staff.app_users?.id || null,
       employeeCode: staff.employee_code,
-      hotelId: staff.hotel_id,
+      hotelId: staff.app_users?.hotel_id || null,
       role
     });
 
