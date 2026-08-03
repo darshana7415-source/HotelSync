@@ -31,14 +31,23 @@
     .quota-row{display:grid;grid-template-columns:1.7fr .7fr .7fr .7fr .7fr;border-top:1px solid #d8e8e8}
     .quota-row span{padding:8px;font-size:12px}
     .quota-head{font-weight:900;background:#f7fbfb;color:#006b6b}
+    /* Mobile: the calendar switches to a readable stacked list instead of squeezing
+       7 tiny columns (7px text) onto a phone screen. */
     @media(max-width:720px){
-      .wrap{padding:10px
+      .wrap{padding:10px}
+      h1{font-size:20px}
+      .top{flex-wrap:wrap}
+      button{min-height:44px}
+      .calendar{grid-template-columns:1fr;gap:6px}
+      .head{display:none}
+      .day{min-height:0;padding:9px 11px}
+      .day.empty{display:none}
+      .day:not(:has(.pill)){display:none}
+      .day strong{font-size:14px;margin-bottom:6px}
+      .day strong::after{content:attr(data-weekday);margin-left:6px;color:#667085;font-weight:600;font-size:12px}
+      .pill{font-size:13px;padding:7px 9px;border-radius:7px}
       .quota-row{grid-template-columns:1.4fr .6fr .7fr .5fr .5fr}
-      .quota-row span{font-size:8px;padding:4px}
-    } h1{font-size:20px}
-      .calendar{gap:3px}.head{font-size:9px;padding:4px 1px}
-      .day{min-height:46px;padding:3px}.day strong{font-size:11px}
-      .pill{font-size:7px;padding:2px}
+      .quota-row span{font-size:11px;padding:6px 4px}
     }
   </style>
 </head>
@@ -111,10 +120,11 @@ function render(){
 
   for(let d=1;d<=total;d++){
     const date=selectedMonth+"-"+String(d).padStart(2,"0");
+    const weekday=new Date(date+"T00:00:00").toLocaleDateString("en",{weekday:"short"});
     const items=rows.filter(r=>covers(r,date)).map(r=>`
       <span class="pill ${cls(r.status)}">${r.employee_code||""} ${r.full_name||""} - ${r.leave_type||"Leave"} - ${r.status||""}</span>
     `).join("");
-    html+=`<div class="day"><strong>${d}</strong>${items}</div>`;
+    html+=`<div class="day"><strong data-weekday="${weekday}">${d}</strong>${items}</div>`;
   }
 
   function leaveValueForQuota(row){

@@ -22,7 +22,15 @@
     .datebox { display:flex; gap:8px; align-items:center; border:1px solid #dbe8e5; border-radius:8px; padding:10px; background:#fbfefd; font-weight:700; }
     .message { margin-top:12px; padding:12px; border-radius:8px; background:#eaf7f2; color:#075f63; font-weight:800; }
     .error { background:#fff0f0; color:#9d1c1c; }
-    @media (max-width:720px) { .grid { grid-template-columns:1fr; } }
+    @media (max-width:720px) {
+      .grid { grid-template-columns:1fr; }
+      .shell { padding:12px; }
+      .top { flex-wrap:wrap; }
+      .top h1 { font-size:20px; }
+      .top a { min-height:44px; display:inline-flex; align-items:center; }
+      select,input,button { min-height:46px; font-size:16px; }
+      .card { padding:12px; }
+    }
   </style>
 </head>
 <body>

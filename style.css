@@ -2864,3 +2864,143 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
     min-height: 900px;
   }
 }
+
+/* ===== mobile-eye-friendly-polish-v310 =====
+   Additive, phone-only improvements. Desktop layout is unchanged. */
+@media (max-width: 620px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* 16px inputs stop iOS from auto-zooming the page on focus; taller fields are easier to tap. */
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+
+  input,
+  select {
+    min-height: 46px;
+  }
+
+  button {
+    min-height: 46px;
+    padding: 0.6rem 0.95rem;
+  }
+
+  button.ghost.small-button,
+  .small-button {
+    min-height: 38px;
+    font-size: 14px;
+  }
+
+  /* Nav: larger, clearly separated tap targets on the dark sidebar block. */
+  nav {
+    gap: 0.45rem;
+  }
+
+  nav a {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    min-height: 48px;
+  }
+
+  nav a.active {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Tables: tighter cells so more fits, momentum scrolling, header stays visible while scrolling. */
+  th,
+  td {
+    padding: 0.55rem 0.5rem;
+  }
+
+  table {
+    min-width: 640px;
+  }
+
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    border-radius: 8px;
+  }
+
+  .table-wrap thead th {
+    position: sticky;
+    top: 0;
+    background: #f2f7f9;
+    z-index: 1;
+  }
+
+  /* Header: full-width stacked controls are easier to hit than a squeezed row. */
+  .topbar h1 {
+    font-size: 1.3rem;
+    line-height: 1.25;
+  }
+
+  .top-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .top-actions select,
+  .top-actions button {
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Panels: slightly tighter padding buys usable width on small screens. */
+  .panel {
+    padding: 0.9rem;
+    border-radius: 10px;
+  }
+
+  /* Muted/small text gets a readability floor - tiny grey text is the top eye-strain complaint. */
+  .metric span,
+  .metric small,
+  .request-card small,
+  .shift-card small,
+  .panel small {
+    font-size: 0.82rem;
+  }
+
+  .metric strong {
+    font-size: 1.35rem;
+  }
+
+  /* Leave calendar and chat threads: roomier line spacing for readability. */
+  .thread-message span,
+  .thread-message small {
+    line-height: 1.45;
+  }
+
+  /* Respect iPhone home-indicator / notch areas. */
+  main {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .sidebar {
+    padding-top: calc(1.25rem + env(safe-area-inset-top));
+  }
+}
+
+/* Larger phones / small tablets: two-column nav is comfier than three cramped columns. */
+@media (max-width: 400px) {
+  nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-actions {
+    grid-template-columns: 1fr;
+  }
+}
