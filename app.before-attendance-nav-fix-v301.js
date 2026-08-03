@@ -199,14 +199,14 @@ const pageSections = {
   shifts: ["schedule"],
   leave: ["leave", "leave-organizer"],
   location: ["location"],
-  reports: ["reports"], attendance: ["attendance"]
+  reports: ["reports"]
 };
 const pageAliases = {
   "role-demo": "dashboard",
   attendance: "dashboard",
   admin: "staff",
   "edit-staff": "staff",
-  schedule: "shifts", attendance: "attendance",
+  schedule: "shifts",
   "leave-organizer": "leave",
   "leave-pressure": "reports"
 };
@@ -507,8 +507,8 @@ function renderLeaveRequests() {
           </div>
           ${displayMessages.map((message) => `
             <div class="thread-message">
-              <span>${escapeText(message.message)}</span>
-              <small>${escapeText(message.label || "Message")} - ${formatDateTime(message.time)}</small>
+              <span>${message.message}</span>
+              <small>${message.label || "Message"} - ${formatDateTime(message.time)}</small>
               ${isRealChatMessage(message) ? `<button class="ghost small-button" type="button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>` : ""}
             </div>
           `).join("")}
@@ -661,7 +661,7 @@ function renderAdminMonthlyLeaveView() {
             </div>
             ${thread.messages.map((message) => `
               <div class="mini-item chat-history-item">
-                <span><strong>${escapeText(message.label || "Message")}</strong>${escapeText(message.message)}<small>${formatDateTime(message.time)}</small></span>
+                <span><strong>${message.label || "Message"}</strong>${message.message}<small>${formatDateTime(message.time)}</small></span>
                 <button class="ghost small-button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>
               </div>
             `).join("")}
@@ -695,7 +695,7 @@ function leaveThreadMessagesMarkup(request, limit = 4, messages = leaveMessagesF
   return `
     <div class="thread-message compact-thread-message">
       ${recent.map((message) => `
-        <span><b>${escapeText(message.label || "Message")}:</b> ${escapeText(message.message)}</span>
+        <span><b>${message.label || "Message"}:</b> ${message.message}</span>
         <small>${formatDateTime(message.time)}</small>
       `).join("")}
     </div>
@@ -1554,7 +1554,7 @@ function renderRoleDemo() {
               </div>
               ${thread.messages.map((message) => `
                 <div class="mini-item chat-history-item">
-                  <span><strong>${escapeText(message.label || "Message")}</strong>${escapeText(message.message)}<small>${formatDateTime(message.time)}</small></span>
+                  <span><strong>${message.label || "Message"}</strong>${message.message}<small>${formatDateTime(message.time)}</small></span>
                   <button class="ghost small-button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>
                 </div>
               `).join("")}
@@ -1835,7 +1835,7 @@ function shiftChangeThreadMarkup(thread) {
         ${recentMessages.length ? `
           <div class="thread-message compact-thread-message shift-thread-summary">
             ${recentMessages.map((message) => `
-              <span><b>${escapeText(message.label || "Message")}:</b> ${escapeText(message.message)}</span>
+              <span><b>${message.label || "Message"}:</b> ${message.message}</span>
               <small>${formatDateTime(message.time)}</small>
             `).join("")}
           </div>
@@ -2915,15 +2915,12 @@ function bindEvents() {
       if (currentRole !== "manager" && document.querySelector("#clear-staff-password").checked) {
         clearStaffPassword(person);
         if (person.cloudId && isCloudReady()) {
-          const reset = await window.staffSyncDb.adminResetStaffPassword({ employeeCode: person.employeeCode });
-          if (reset?.tempPassword) {
-            showToast(`New temporary password for ${person.name}: ${reset.tempPassword}`);
-          }
+          await window.staffSyncDb.clearStaffLoginPassword(person.cloudId);
         }
       } else if (currentRole !== "manager" && newPassword) {
         saveStaffPassword(person, newPassword);
         if (person.cloudId && isCloudReady()) {
-          await window.staffSyncDb.adminSetStaffPassword({ employeeCode: person.employeeCode, newPassword });
+          await saveCloudStaffPassword(person, newPassword);
         }
       }
 
@@ -5001,7 +4998,7 @@ function shiftCalendarCell(person, dateValue) {
       ${extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("")}
       ${shiftMessages.length ? `
         <div class="shift-thread-mini">
-          ${shiftMessages.map((message) => `<small>${escapeText(message.label)}: ${escapeText(message.message)}</small>`).join("")}
+          ${shiftMessages.map((message) => `<small>${message.label}: ${message.message}</small>`).join("")}
         </div>
       ` : ""}
       ${isOwnStaffCell ? `
@@ -6272,53 +6269,67 @@ function saveStaffPassword(person, password) {
 }
 
 async function checkStaffPassword(person, password, newPassword = "") {
-  // Cloud-backed staff: verify server-side every time (never compare password hashes in the
-  // browser, and never let a locally-cached value substitute for a real login). A fresh login is
-  // required so we get back a signed session token -- attendance/leave requests need it afterwards.
-  if (person?.cloudId && isCloudReady()) {
-    try {
-      const result = await window.staffSyncDb.loginStaff({
-        employeeCode: person.employeeCode,
-        password,
-        newPassword: newPassword || undefined
-      });
-      if (!result.ok) {
-        return { ok: false, hadCloudPassword: true, message: result.message };
-      }
-      saveStaffPassword(person, newPassword || password);
-      return { ok: true, hadCloudPassword: true, changedPassword: Boolean(result.changedPassword) };
-    } catch (error) {
-      return {
-        ok: false,
-        hadCloudPassword: false,
-        message: error.message || "Could not reach the login service. Check your connection and try again."
-      };
-    }
-  }
-
-  // Local-only fallback for the offline/demo prototype (no Supabase configured at all).
   const localSavedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
   const localSaved = localSavedKey ? staffPasswords[localSavedKey] : "";
-  const key = staffPasswordKey(person);
-  if (!key) return { ok: false, hadCloudPassword: false };
-
   if (localSaved && localSaved === localStaffPasswordValue(password)) {
     if (newPassword) {
       const change = validateNewStaffPassword(newPassword);
       if (!change.ok) return change;
+      await trySaveCloudStaffPassword(person, newPassword);
       saveStaffPassword(person, newPassword);
       return { ok: true, hadCloudPassword: false, changedPassword: true };
     }
     return { ok: true, hadCloudPassword: false };
   }
 
+  if (password === firstStaffPassword && newPassword) {
+    const setup = validateFirstStaffPasswordSetup(password, newPassword);
+    if (!setup.ok) return setup;
+    await trySaveCloudStaffPassword(person, newPassword);
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
+  }
+
+  if (person?.cloudId && isCloudReady()) {
+    try {
+      const record = await window.staffSyncDb.getStaffLoginPassword(person.cloudId);
+      const passwordHash = await hashStaffPassword(person, password);
+      if (!record?.password_hash || record.reset_required) {
+        const setup = validateFirstStaffPasswordSetup(password, newPassword);
+        if (!setup.ok) return setup;
+        await trySaveCloudStaffPassword(person, newPassword);
+        saveStaffPassword(person, newPassword);
+        return { ok: true, hadCloudPassword: false, changedPassword: true };
+      }
+      const ok = record.password_hash === passwordHash;
+      if (ok) {
+        if (newPassword) {
+          const change = validateNewStaffPassword(newPassword);
+          if (!change.ok) return change;
+          await trySaveCloudStaffPassword(person, newPassword);
+          saveStaffPassword(person, newPassword);
+          return { ok: true, hadCloudPassword: true, changedPassword: true };
+        }
+        saveStaffPassword(person, password);
+      }
+      return { ok, hadCloudPassword: true };
+    } catch (error) {
+      return {
+        ok: false,
+        hadCloudPassword: false,
+        message: error.message || "Cloud password check failed. Ask admin to run the staff password SQL."
+      };
+    }
+  }
+
+  const key = staffPasswordKey(person);
+  if (!key) return { ok: false, hadCloudPassword: false };
   if (!localSaved) {
     const setup = validateFirstStaffPasswordSetup(password, newPassword);
     if (!setup.ok) return setup;
     saveStaffPassword(person, newPassword);
     return { ok: true, hadCloudPassword: false, changedPassword: true };
   }
-
   const isMatch = localSaved === localStaffPasswordValue(password);
   if (isMatch && localSavedKey !== key) {
     staffPasswords[key] = localSaved;
@@ -9635,4 +9646,3 @@ function staffCalendarStatusClassV299(req){
   if (status.includes("cancel")) return "staff-leave-cancelled-v299";
   return "staff-leave-pending-v299";
 }
-

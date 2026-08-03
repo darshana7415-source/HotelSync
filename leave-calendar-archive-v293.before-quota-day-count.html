@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Leave Calendar Archive</title>
+  <script src="env.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;background:#f4fbfb;margin:0;color:#10202a}
+    .wrap{max-width:1150px;margin:auto;padding:14px}
+    .top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+    h1{margin:0;font-size:28px}
+    a{background:#006b6b;color:white;text-decoration:none;padding:10px 12px;border-radius:8px;font-weight:800}
+    .card{background:white;border:1px solid #d8e8e8;border-radius:10px;padding:14px;margin-top:14px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    button{border:1px solid #d8e8e8;border-radius:8px;padding:10px 12px;background:#eef8f8;color:#006b6b;font-weight:800}
+    button.active{background:#006b6b;color:white}
+    .status{background:#fff;border:1px solid #d8e8e8;border-radius:8px;padding:10px;margin:8px 0;color:#667085}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+    .head{background:#eaf7f7;color:#006b6b;font-weight:900;text-align:center;padding:8px;border-radius:7px}
+    .day{min-height:85px;background:#fff;border:1px solid #d8e8e8;border-radius:8px;padding:7px}
+    .day.empty{background:#f7fbfb}
+    .day strong{display:block;margin-bottom:4px}
+    .pill{display:block;margin:4px 0;padding:5px;border-radius:6px;font-size:11px;font-weight:700;line-height:1.2}
+    .approved{background:#dff7e8;color:#116b35}
+    .rejected{background:#ffe1e1;color:#9a1b1b}
+    .cancelled{background:#eceff3;color:#52606d}
+    .pending{background:#fff4d6;color:#8a5b00}
+    .quota-summary{margin:12px 0;border:1px solid #d8e8e8;border-radius:8px;overflow:hidden}
+    .quota-summary h3{margin:0;padding:10px;background:#eaf7f7;color:#006b6b}
+    .quota-row{display:grid;grid-template-columns:1.7fr .7fr .7fr .7fr .7fr;border-top:1px solid #d8e8e8}
+    .quota-row span{padding:8px;font-size:12px}
+    .quota-head{font-weight:900;background:#f7fbfb;color:#006b6b}
+    @media(max-width:720px){
+      .wrap{padding:10px
+      .quota-row{grid-template-columns:1.4fr .6fr .7fr .5fr .5fr}
+      .quota-row span{font-size:8px;padding:4px}
+    } h1{font-size:20px}
+      .calendar{gap:3px}.head{font-size:9px;padding:4px 1px}
+      .day{min-height:46px;padding:3px}.day strong{font-size:11px}
+      .pill{font-size:7px;padding:2px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Leave Calendar Archive</h1>
+      <div>StaffSync Beach & Bliss Mirissa</div>
+    </div>
+    <a href="index.html#leave">Back to Leave</a>
+  </div>
+
+  <div class="card">
+    <b>Leave calendar month</b>
+    <div>July 2026 onward, current month, and coming month.</div>
+    <div id="tabs" class="tabs"></div>
+    <div id="status" class="status">Loading leave records...</div>
+    <div id="quota-summary" class="quota-summary"></div>
+    <div id="calendar" class="calendar"></div>
+  </div>
+</div>
+
+<script>
+let rows = [];
+let selectedMonth = "2026-07";
+
+function cfg(name){
+  return (window.STAFFSYNC_ENV && window.STAFFSYNC_ENV[name]) ||
+         (window.STAFFSYNC_CONFIG && window.STAFFSYNC_CONFIG[name]) ||
+         window[name] || "";
+}
+function ymAdd(ym,n){
+  const p=ym.split("-");
+  const d=new Date(Number(p[0]),Number(p[1])-1+n,1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+function label(ym){
+  return new Date(ym+"-01T00:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"});
+}
+function months(){
+  const current=new Date().toISOString().slice(0,7);
+  const last=ymAdd(current,1);
+  const out=[];
+  let m="2026-07";
+  while(m<=last){out.push(m);m=ymAdd(m,1);}
+  return out;
+}
+function cls(status){
+  const s=String(status||"").toLowerCase();
+  if(s.includes("reject"))return"rejected";
+  if(s.includes("cancel"))return"cancelled";
+  if(s.includes("approve")||s.includes("grant"))return"approved";
+  return"pending";
+}
+function covers(r,date){
+  const s=String(r.start_date||"").slice(0,10);
+  const e=String(r.end_date||s).slice(0,10);
+  return s<=date && e>=date;
+}
+function render(){
+  const ms=months();
+  document.getElementById("tabs").innerHTML=ms.map(m=>`<button class="${m===selectedMonth?"active":""}" data-month="${m}">${label(m)}</button>`).join("");
+
+  const first=new Date(selectedMonth+"-01T00:00:00");
+  const total=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+  let html=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="head">${d}</div>`).join("");
+
+  for(let i=0;i<first.getDay();i++) html+=`<div class="day empty"></div>`;
+
+  for(let d=1;d<=total;d++){
+    const date=selectedMonth+"-"+String(d).padStart(2,"0");
+    const items=rows.filter(r=>covers(r,date)).map(r=>`
+      <span class="pill ${cls(r.status)}">${r.employee_code||""} ${r.full_name||""} - ${r.leave_type||"Leave"} - ${r.status||""}</span>
+    `).join("");
+    html+=`<div class="day"><strong>${d}</strong>${items}</div>`;
+  }
+
+  function leaveValueForQuota(row){
+  const status=String(row.status||"").toLowerCase();
+  if(status.includes("reject")||status.includes("cancel")) return 0;
+  const type=String(row.leave_type||"Leave").toLowerCase();
+  if(type.includes("short")) return 0.25;
+  if(type.includes("half")) return 0.5;
+  return 1;
+}
+function renderQuotaSummary(){
+  const box=document.getElementById("quota-summary");
+  if(!box) return;
+  const map={};
+  rows.forEach(r=>{
+    if(!covers(r, selectedMonth+"-15")) {
+      const start=String(r.start_date||"").slice(0,7);
+      const end=String(r.end_date||start).slice(0,7);
+      if(!(start<=selectedMonth && end>=selectedMonth)) return;
+    }
+    const key=(r.employee_code||"")+"|"+(r.full_name||"");
+    if(!map[key]) map[key]={code:r.employee_code||"",name:r.full_name||"",taken:0,full:0,half:0,short:0};
+    const value=leaveValueForQuota(r);
+    map[key].taken+=value;
+    const type=String(r.leave_type||"Leave").toLowerCase();
+    if(value>0 && type.includes("short")) map[key].short+=1;
+    else if(value>0 && type.includes("half")) map[key].half+=1;
+    else if(value>0) map[key].full+=1;
+  });
+  const list=Object.values(map).sort((a,b)=>Number(a.code)-Number(b.code));
+  box.innerHTML='<h3>Leave quota summary - '+label(selectedMonth)+'</h3>'+
+    '<div class="quota-row quota-head"><span>Staff</span><span>Taken</span><span>Balance / 6</span><span>Half</span><span>Short</span></div>'+
+    (list.length?list.map(x=>'<div class="quota-row"><span>'+x.code+' - '+x.name+'</span><span>'+x.taken+'</span><span>'+(6-x.taken)+'</span><span>'+x.half+'</span><span>'+x.short+'</span></div>').join(""):'<div class="status">No leave taken in this month.</div>');
+}
+document.getElementById("calendar").innerHTML=html;
+  document.getElementById("status").textContent=`Loaded ${rows.length} leave records from Supabase.`;
+  renderQuotaSummary();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-month]");
+  if(!b)return;
+  selectedMonth=b.dataset.month;
+  render();
+});
+async function load(){
+  const url=cfg("SUPABASE_URL");
+  const key=cfg("SUPABASE_ANON_KEY");
+  if(!url||!key){
+    document.getElementById("status").textContent="Supabase settings not found in env.js.";
+    return;
+  }
+  try{
+    const endpoint=url.replace(/\/$/,"")+"/rest/v1/staffsync_leave_calendar_archive_view?select=*&order=start_date.asc&order=employee_code.asc";
+    const res=await fetch(endpoint,{headers:{apikey:key,Authorization:"Bearer "+key,Accept:"application/json"}});
+    const text=await res.text();
+    if(!res.ok) throw new Error(res.status+" "+text);
+    rows=JSON.parse(text||"[]");
+    render();
+  }catch(err){
+    document.getElementById("status").textContent="Could not load leave calendar: "+err.message;
+  }
+}
+load();
+</script>
+</body>
+</html>
+

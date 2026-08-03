@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Saved Attendance Records</title>
+  <script src="env.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4fbfb;
+      color: #10242b;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    a {
+      color: #075f63;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .card {
+      background: white;
+      border: 1px solid #d7e7e7;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(15, 65, 70, 0.08);
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: 800;
+    }
+    input {
+      padding: 10px;
+      border: 1px solid #bfd7d7;
+      border-radius: 8px;
+      font: inherit;
+    }
+    .note {
+      color: #5d6b70;
+      margin: 8px 0 14px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #d7e7e7;
+      border-radius: 10px;
+      background: white;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+    th, td {
+      padding: 9px;
+      border-bottom: 1px solid #e1eeee;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: #075f63;
+      background: #eefafa;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 4px 9px;
+      display: inline-block;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ok { color: #047857; background: #dcfce7; }
+    .off { color: #075985; background: #e0f2fe; }
+    .error { color: #991b1b; background: #fee2e2; }
+    .missing { color: #92400e; background: #fef3c7; }
+    .leave { color: #6d28d9; background: #ede9fe; }
+    .half { color: #92400e; background: #fde68a; }
+    .short { color: #075985; background: #dbeafe; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <div>
+        <h1>Daily Saved Attendance Records</h1>
+        <p class="note">Select a date to see saved attendance records.</p>
+      </div>
+      <a href="index.html#dashboard">Back to dashboard</a>
+    </div>
+
+    <section class="card">
+      <div class="controls">
+        <label>
+          Daily record date
+          <input id="attendance-date" type="date">
+        </label>
+      </div>
+
+      <p id="status" class="note">Loading latest saved attendance date...</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Clock in</th>
+              <th>Clock out</th>
+              <th>Segments</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const HOTEL_ID = "00000000-0000-0000-0000-000000000001";
+
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function todayKey() {
+      const now = new Date();
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    function clean(value) {
+      return String(value || "").trim();
+    }
+
+    function isRemovedCode(value) {
+      return clean(value).toLowerCase().includes("removed");
+    }
+
+    function codeNumber(value) {
+      const n = Number(clean(value).replace(/\D/g, ""));
+      return Number.isFinite(n) ? n : 999999;
+    }
+
+    function cfg() {
+      return window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+    }
+
+    async function rest(path) {
+      const env = cfg();
+      const url = env.SUPABASE_URL || env.supabaseUrl || env.url || window.SUPABASE_URL;
+      const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey || window.SUPABASE_ANON_KEY;
+
+      if (!url || !key) throw new Error("Supabase settings not found.");
+
+      const res = await fetch(`${url}/rest/v1/${path}`, {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Accept: "application/json"
+        }
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function timeText(value) {
+      if (!value) return "";
+      return String(value).slice(0, 5);
+    }
+
+    function minutesText(minutes) {
+      const value = Number(minutes || 0);
+      const h = Math.floor(value / 60);
+      const m = Math.round(value % 60);
+      return `${h}:${pad(m)}`;
+    }
+
+    function formatSegments(value) {
+      try {
+        const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
+        return parsed.map((seg) => `${seg.in || ""}-${seg.out || ""}`).join(", ");
+      } catch {
+        return "";
+      }
+    }
+
+    function statusForRow(row) {
+      const source = clean(row.source_name).toUpperCase();
+      const total = Number(row.total_minutes || 0);
+      const segments = formatSegments(row.segments);
+
+      if (source.includes("SHORT LEAVE")) return "SHORT LEAVE";
+      if (source.includes("HALF DAY")) return "HALF DAY";
+      if (source.includes("LEAVE")) return "LEAVE";
+      if (source.includes("OFF")) return "OFF";
+      if ((!row.clock_in || !row.clock_out || !segments) && total > 0) return "ERROR TIME";
+      if (total === 0 && !row.clock_in && !row.clock_out) return "OFF";
+      return "OK";
+    }
+
+    function badge(status) {
+      const label = clean(status || "OK").toUpperCase();
+      let cls = "ok";
+
+      if (label.includes("ERROR")) cls = "error";
+      else if (label === "OFF") cls = "off";
+      else if (label === "NO FINGERPRINT") cls = "missing";
+      else if (label === "HALF DAY") cls = "half";
+      else if (label === "SHORT LEAVE") cls = "short";
+      else if (label.includes("LEAVE")) cls = "leave";
+
+      return `<span class="badge ${cls}">${label}</span>`;
+    }
+
+    async function activeStaff() {
+      const rows = await rest("staff_profiles?select=id,employee_code,full_name&order=employee_code.asc");
+      return rows
+        .filter((person) => !isRemovedCode(person.employee_code))
+        .sort((a, b) => codeNumber(a.employee_code) - codeNumber(b.employee_code));
+    }
+
+    async function latestSavedDate() {
+      const rows = await rest("attendance_imports?select=attendance_date&order=attendance_date.desc&limit=1");
+      return rows[0]?.attendance_date || todayKey();
+    }
+
+    async function loadDaily() {
+      const date = document.querySelector("#attendance-date").value || todayKey();
+      const status = document.querySelector("#status");
+      const body = document.querySelector("#body");
+
+      status.textContent = "Loading saved daily attendance...";
+      body.innerHTML = "";
+
+      const [people, dayRows] = await Promise.all([
+        activeStaff(),
+        rest(`attendance_imports?select=*&attendance_date=eq.${date}`)
+      ]);
+
+      const byStaff = new Map();
+      dayRows.forEach((row) => byStaff.set(row.staff_profile_id, row));
+
+      body.innerHTML = people.map((person) => {
+        const row = byStaff.get(person.id);
+
+        if (!row) {
+          return `
+            <tr>
+              <td>${clean(person.employee_code)}</td>
+              <td>${person.full_name || ""}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>0:00</td>
+              <td>${badge("NO FINGERPRINT")}</td>
+            </tr>
+          `;
+        }
+
+        return `
+          <tr>
+            <td>${clean(person.employee_code)}</td>
+            <td>${person.full_name || row.source_name || ""}</td>
+            <td>${timeText(row.clock_in)}</td>
+            <td>${timeText(row.clock_out)}</td>
+            <td>${formatSegments(row.segments)}</td>
+            <td>${minutesText(row.total_minutes)}</td>
+            <td>${badge(statusForRow(row))}</td>
+          </tr>
+        `;
+      }).join("");
+
+      status.textContent = `Saved daily attendance records for ${date}.`;
+    }
+
+    async function start() {
+      const input = document.querySelector("#attendance-date");
+      input.value = await latestSavedDate();
+      input.addEventListener("change", loadDaily);
+      await loadDaily();
+    }
+
+    start().catch((error) => {
+      document.querySelector("#status").textContent = `Could not load attendance: ${error.message}`;
+    });
+  </script>
+</body>
+</html>

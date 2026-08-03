@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Leave Calendar Archive - StaffSync Beach & Bliss Mirissa</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="env.js"></script>
+  <style>
+    :root { --teal:#006b6b; --line:#d8e8e8; --bg:#f4fbfb; --text:#10202a; }
+    body { margin:0; font-family:Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .shell { max-width:1180px; margin:0 auto; padding:18px; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px; }
+    h1 { margin:0; font-size:28px; }
+    a { color:var(--teal); font-weight:800; text-decoration:none; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; box-shadow:0 8px 24px rgba(0,0,0,.05); }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+    button { border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#eef8f8; color:var(--teal); font-weight:800; cursor:pointer; }
+    button.active { background:var(--teal); color:#fff; }
+    .calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .head, .day { border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:7px; background:#fff; min-height:74px; }
+    .head { min-height:auto; background:#eaf7f7; color:var(--teal); font-weight:900; }
+    .day strong { display:block; margin-bottom:4px; }
+    .pill { display:block; margin:3px 0; padding:4px; border-radius:5px; font-size:11px; line-height:1.2; }
+    .approved { background:#dff7e8; color:#116b35; }
+    .rejected { background:#ffe1e1; color:#9a1b1b; }
+    .cancelled { background:#eceff3; color:#52606d; }
+    .pending { background:#fff4d6; color:#8a5b00; }
+    .muted { color:#667; font-size:13px; }
+    .empty { background:#f7fbfb; }
+    @media(max-width:720px) {
+      .shell { padding:10px; }
+      h1 { font-size:20px; }
+      .calendar { font-size:9px; }
+      .head, .day { padding:3px; min-height:45px; }
+      .pill { font-size:7.5px; padding:2px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="top">
+      <div>
+        <h1>Leave Calendar Archive</h1>
+        <div class="muted">StaffSync Beach & Bliss Mirissa</div>
+      </div>
+      <a href="index.html#leave">Back to Leave</a>
+    </div>
+
+    <section class="card">
+      <strong>Leave calendar month</strong>
+      <div class="muted">Previous saved months, current month, and coming month.</div>
+      <div class="tabs" id="month-tabs"></div>
+      <div class="calendar" id="calendar"></div>
+    </section>
+  </main>
+
+<script>
+const env = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || {};
+const url = env.SUPABASE_URL || env.supabaseUrl || env.url;
+const key = env.SUPABASE_ANON_KEY || env.supabaseAnonKey || env.anonKey;
+const db = window.supabase.createClient(url, key);
+
+let rows = [];
+let selectedMonth = new Date().toISOString().slice(0, 7);
+
+function addMonths(key, count) {
+  const d = new Date(key + "-01T00:00:00");
+  d.setMonth(d.getMonth() + count);
+  return d.toISOString().slice(0, 7);
+}
+
+function monthLabel(key) {
+  return new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month:"long", year:"numeric" });
+}
+
+function monthEnd(key) {
+  const d = new Date(key + "-01T00:00:00");
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(0);
+  return d.toISOString().slice(0, 10);
+}
+
+function monthsToShow() {
+  const current = new Date().toISOString().slice(0, 7);
+  const months = new Set(["2026-07", addMonths(current, -1), current, addMonths(current, 1)]);
+  rows.forEach(r => {
+    const m = String(r.start_date || "").slice(0, 7);
+    if (m >= "2026-07" && m <= addMonths(current, 1)) months.add(m);
+  });
+  return Array.from(months).sort();
+}
+
+function classFor(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("reject")) return "rejected";
+  if (s.includes("cancel")) return "cancelled";
+  if (s.includes("approve") || s.includes("grant")) return "approved";
+  return "pending";
+}
+
+function covers(row, date) {
+  const start = String(row.start_date || "").slice(0, 10);
+  const end = String(row.end_date || start).slice(0, 10);
+  return start <= date && end >= date;
+}
+
+function render() {
+  const months = monthsToShow();
+  if (!months.includes(selectedMonth)) selectedMonth = new Date().toISOString().slice(0, 7);
+
+  document.querySelector("#month-tabs").innerHTML = months.map(m =>
+    `<button class="${m === selectedMonth ? "active" : ""}" data-month="${m}">${monthLabel(m)}</button>`
+  ).join("");
+
+  const first = new Date(selectedMonth + "-01T00:00:00");
+  const blanks = first.getDay();
+  const days = Number(monthEnd(selectedMonth).slice(8, 10));
+  const cells = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => `<div class="head">${d}</div>`);
+
+  for (let i = 0; i < blanks; i++) cells.push(`<div class="day empty"></div>`);
+
+  for (let day = 1; day <= days; day++) {
+    const date = selectedMonth + "-" + String(day).padStart(2, "0");
+    const dayRows = rows.filter(r => covers(r, date));
+    cells.push(`
+      <div class="day">
+        <strong>${day}</strong>
+        ${dayRows.map(r => `
+          <span class="pill ${classFor(r.status)}">${r.employee_code} ${r.full_name} - ${r.leave_type} - ${r.status}</span>
+        `).join("")}
+      </div>
+    `);
+  }
+
+  document.querySelector("#calendar").innerHTML = cells.join("");
+}
+
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-month]");
+  if (!btn) return;
+  selectedMonth = btn.dataset.month;
+  render();
+});
+
+async function init() {
+  const { data, error } = await db
+    .from("staffsync_leave_calendar_archive_view")
+    .select("*")
+    .order("start_date", { ascending:true })
+    .order("employee_code", { ascending:true });
+
+  if (error) {
+    document.querySelector("#calendar").innerHTML = `<div class="day">Could not load leave calendar: ${error.message}</div>`;
+    return;
+  }
+
+  rows = data || [];
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

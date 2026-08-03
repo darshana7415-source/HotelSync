@@ -199,14 +199,14 @@ const pageSections = {
   shifts: ["schedule"],
   leave: ["leave", "leave-organizer"],
   location: ["location"],
-  reports: ["reports"], attendance: ["attendance"]
+  reports: ["reports"]
 };
 const pageAliases = {
   "role-demo": "dashboard",
   attendance: "dashboard",
   admin: "staff",
   "edit-staff": "staff",
-  schedule: "shifts", attendance: "attendance",
+  schedule: "shifts",
   "leave-organizer": "leave",
   "leave-pressure": "reports"
 };
@@ -507,8 +507,8 @@ function renderLeaveRequests() {
           </div>
           ${displayMessages.map((message) => `
             <div class="thread-message">
-              <span>${escapeText(message.message)}</span>
-              <small>${escapeText(message.label || "Message")} - ${formatDateTime(message.time)}</small>
+              <span>${message.message}</span>
+              <small>${message.label || "Message"} - ${formatDateTime(message.time)}</small>
               ${isRealChatMessage(message) ? `<button class="ghost small-button" type="button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>` : ""}
             </div>
           `).join("")}
@@ -661,7 +661,7 @@ function renderAdminMonthlyLeaveView() {
             </div>
             ${thread.messages.map((message) => `
               <div class="mini-item chat-history-item">
-                <span><strong>${escapeText(message.label || "Message")}</strong>${escapeText(message.message)}<small>${formatDateTime(message.time)}</small></span>
+                <span><strong>${message.label || "Message"}</strong>${message.message}<small>${formatDateTime(message.time)}</small></span>
                 <button class="ghost small-button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>
               </div>
             `).join("")}
@@ -695,7 +695,7 @@ function leaveThreadMessagesMarkup(request, limit = 4, messages = leaveMessagesF
   return `
     <div class="thread-message compact-thread-message">
       ${recent.map((message) => `
-        <span><b>${escapeText(message.label || "Message")}:</b> ${escapeText(message.message)}</span>
+        <span><b>${message.label || "Message"}:</b> ${message.message}</span>
         <small>${formatDateTime(message.time)}</small>
       `).join("")}
     </div>
@@ -739,72 +739,6 @@ function renderLeaveCalendar() {
   }).join("");
 }
 
-
-function addLeaveCalendarMonthsV282(monthKey, amount) {
-  const date = new Date(`${monthKey}-01T00:00:00`);
-  date.setMonth(date.getMonth() + amount);
-  return date.toISOString().slice(0, 7);
-}
-
-function leaveCalendarMonthsV282() {
-  const firstMonth = "2026-07";
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const lastMonth = addLeaveCalendarMonthsV282(currentMonth, 1);
-  const months = [];
-  let cursor = firstMonth;
-
-  while (cursor <= lastMonth) {
-    months.push(cursor);
-    cursor = addLeaveCalendarMonthsV282(cursor, 1);
-  }
-
-  return months;
-}
-
-function leaveCalendarMonthLabelV282(monthKey) {
-  return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric"
-  });
-}
-
-function renderLeaveCalendarMonthTabsV282() {
-  const months = leaveCalendarMonthsV282();
-
-  if (!window.staffsyncLeaveCalendarMonthV282 || !months.includes(window.staffsyncLeaveCalendarMonthV282)) {
-    window.staffsyncLeaveCalendarMonthV282 = new Date().toISOString().slice(0, 7);
-  }
-
-  let tabs = document.querySelector("#leave-calendar-month-tabs-v282");
-  if (!tabs) {
-    tabs = document.createElement("div");
-    tabs.id = "leave-calendar-month-tabs-v282";
-    tabs.className = "leave-calendar-month-tabs-v282";
-    leaveCalendar.parentNode.insertBefore(tabs, leaveCalendar);
-  }
-
-  tabs.innerHTML = `
-    <div class="leave-calendar-month-title-v282">
-      <strong>Leave calendar month</strong>
-      <small>Saved previous months, current month, and coming month.</small>
-    </div>
-    <div class="leave-calendar-month-buttons-v282">
-      ${months.map((month) => `
-        <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
-          ${leaveCalendarMonthLabelV282(month)}
-        </button>
-      `).join("")}
-    </div>
-  `;
-}
-
-document.addEventListener("click", function (event) {
-  const button = event.target.closest("[data-leave-calendar-month-v282]");
-  if (!button) return;
-
-  window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
-  renderLeaveCalendar();
-});
 function renderLeaveCoverage() {
   if (!coverageDate || !coverageGrid) return;
 
@@ -1554,7 +1488,7 @@ function renderRoleDemo() {
               </div>
               ${thread.messages.map((message) => `
                 <div class="mini-item chat-history-item">
-                  <span><strong>${escapeText(message.label || "Message")}</strong>${escapeText(message.message)}<small>${formatDateTime(message.time)}</small></span>
+                  <span><strong>${message.label || "Message"}</strong>${message.message}<small>${formatDateTime(message.time)}</small></span>
                   <button class="ghost small-button" data-delete-chat-message="${messageIdentity(message)}">Delete</button>
                 </div>
               `).join("")}
@@ -1835,7 +1769,7 @@ function shiftChangeThreadMarkup(thread) {
         ${recentMessages.length ? `
           <div class="thread-message compact-thread-message shift-thread-summary">
             ${recentMessages.map((message) => `
-              <span><b>${escapeText(message.label || "Message")}:</b> ${escapeText(message.message)}</span>
+              <span><b>${message.label || "Message"}:</b> ${message.message}</span>
               <small>${formatDateTime(message.time)}</small>
             `).join("")}
           </div>
@@ -2915,15 +2849,12 @@ function bindEvents() {
       if (currentRole !== "manager" && document.querySelector("#clear-staff-password").checked) {
         clearStaffPassword(person);
         if (person.cloudId && isCloudReady()) {
-          const reset = await window.staffSyncDb.adminResetStaffPassword({ employeeCode: person.employeeCode });
-          if (reset?.tempPassword) {
-            showToast(`New temporary password for ${person.name}: ${reset.tempPassword}`);
-          }
+          await window.staffSyncDb.clearStaffLoginPassword(person.cloudId);
         }
       } else if (currentRole !== "manager" && newPassword) {
         saveStaffPassword(person, newPassword);
         if (person.cloudId && isCloudReady()) {
-          await window.staffSyncDb.adminSetStaffPassword({ employeeCode: person.employeeCode, newPassword });
+          await saveCloudStaffPassword(person, newPassword);
         }
       }
 
@@ -5001,7 +4932,7 @@ function shiftCalendarCell(person, dateValue) {
       ${extraShiftLabels(entry).map((label) => `<small>${label}</small>`).join("")}
       ${shiftMessages.length ? `
         <div class="shift-thread-mini">
-          ${shiftMessages.map((message) => `<small>${escapeText(message.label)}: ${escapeText(message.message)}</small>`).join("")}
+          ${shiftMessages.map((message) => `<small>${message.label}: ${message.message}</small>`).join("")}
         </div>
       ` : ""}
       ${isOwnStaffCell ? `
@@ -6272,53 +6203,67 @@ function saveStaffPassword(person, password) {
 }
 
 async function checkStaffPassword(person, password, newPassword = "") {
-  // Cloud-backed staff: verify server-side every time (never compare password hashes in the
-  // browser, and never let a locally-cached value substitute for a real login). A fresh login is
-  // required so we get back a signed session token -- attendance/leave requests need it afterwards.
-  if (person?.cloudId && isCloudReady()) {
-    try {
-      const result = await window.staffSyncDb.loginStaff({
-        employeeCode: person.employeeCode,
-        password,
-        newPassword: newPassword || undefined
-      });
-      if (!result.ok) {
-        return { ok: false, hadCloudPassword: true, message: result.message };
-      }
-      saveStaffPassword(person, newPassword || password);
-      return { ok: true, hadCloudPassword: true, changedPassword: Boolean(result.changedPassword) };
-    } catch (error) {
-      return {
-        ok: false,
-        hadCloudPassword: false,
-        message: error.message || "Could not reach the login service. Check your connection and try again."
-      };
-    }
-  }
-
-  // Local-only fallback for the offline/demo prototype (no Supabase configured at all).
   const localSavedKey = staffPasswordKeys(person).find((candidate) => staffPasswords[candidate]);
   const localSaved = localSavedKey ? staffPasswords[localSavedKey] : "";
-  const key = staffPasswordKey(person);
-  if (!key) return { ok: false, hadCloudPassword: false };
-
   if (localSaved && localSaved === localStaffPasswordValue(password)) {
     if (newPassword) {
       const change = validateNewStaffPassword(newPassword);
       if (!change.ok) return change;
+      await trySaveCloudStaffPassword(person, newPassword);
       saveStaffPassword(person, newPassword);
       return { ok: true, hadCloudPassword: false, changedPassword: true };
     }
     return { ok: true, hadCloudPassword: false };
   }
 
+  if (password === firstStaffPassword && newPassword) {
+    const setup = validateFirstStaffPasswordSetup(password, newPassword);
+    if (!setup.ok) return setup;
+    await trySaveCloudStaffPassword(person, newPassword);
+    saveStaffPassword(person, newPassword);
+    return { ok: true, hadCloudPassword: false, changedPassword: true };
+  }
+
+  if (person?.cloudId && isCloudReady()) {
+    try {
+      const record = await window.staffSyncDb.getStaffLoginPassword(person.cloudId);
+      const passwordHash = await hashStaffPassword(person, password);
+      if (!record?.password_hash || record.reset_required) {
+        const setup = validateFirstStaffPasswordSetup(password, newPassword);
+        if (!setup.ok) return setup;
+        await trySaveCloudStaffPassword(person, newPassword);
+        saveStaffPassword(person, newPassword);
+        return { ok: true, hadCloudPassword: false, changedPassword: true };
+      }
+      const ok = record.password_hash === passwordHash;
+      if (ok) {
+        if (newPassword) {
+          const change = validateNewStaffPassword(newPassword);
+          if (!change.ok) return change;
+          await trySaveCloudStaffPassword(person, newPassword);
+          saveStaffPassword(person, newPassword);
+          return { ok: true, hadCloudPassword: true, changedPassword: true };
+        }
+        saveStaffPassword(person, password);
+      }
+      return { ok, hadCloudPassword: true };
+    } catch (error) {
+      return {
+        ok: false,
+        hadCloudPassword: false,
+        message: error.message || "Cloud password check failed. Ask admin to run the staff password SQL."
+      };
+    }
+  }
+
+  const key = staffPasswordKey(person);
+  if (!key) return { ok: false, hadCloudPassword: false };
   if (!localSaved) {
     const setup = validateFirstStaffPasswordSetup(password, newPassword);
     if (!setup.ok) return setup;
     saveStaffPassword(person, newPassword);
     return { ok: true, hadCloudPassword: false, changedPassword: true };
   }
-
   const isMatch = localSaved === localStaffPasswordValue(password);
   if (isMatch && localSavedKey !== key) {
     staffPasswords[key] = localSaved;
@@ -9301,338 +9246,3 @@ function renderShiftCalendar() {
   });
 })();
 // end-restore-navigation-after-shift-v242
-
-
-// staffsync-shift-page-v244
-(function () {
-  if (window.staffsyncShiftPageV244) return;
-  window.staffsyncShiftPageV244 = true;
-
-  let peopleCache = [];
-  let rosterCache = [];
-  let loading = false;
-
-  function isShiftPage() {
-    return String(location.hash || "").toLowerCase().includes("shifts");
-  }
-
-  function todayKey(offset) {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    return d.toISOString().slice(0, 10);
-  }
-
-  function labelDate(key) {
-    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-
-  function staffCode(person) {
-    return String(person.employee_code || person.employeeCode || "").trim();
-  }
-
-  function staffName(person) {
-    return person.full_name || person.fullName || person.name || "Staff";
-  }
-
-  function staffJob(person) {
-    return person.job_title || person.jobTitle || person.role || "Staff";
-  }
-
-  function staffDept(person) {
-    return person.department || "General";
-  }
-
-  function sortByCode(list) {
-    return [...list].sort((a, b) => staffCode(a).localeCompare(staffCode(b), undefined, { numeric: true }));
-  }
-
-  function entryFor(person, date) {
-    const id = String(person.staff_id || person.id || person.cloudId || "");
-    return rosterCache.find((row) =>
-      String(row.staff_id || row.staff_profile_id || "") === id &&
-      String(row.roster_date || row.date || "").slice(0, 10) === date
-    ) || null;
-  }
-
-  function shiftText(person, date) {
-    const entry = entryFor(person, date);
-    const name = entry?.shift_name || entry?.shiftName || person.default_shift_type || person.defaultShiftType || "10h shift";
-    const status = String(entry?.status || entry?.day_status || "").toLowerCase();
-
-    if (status.includes("leave")) {
-      return `<strong>Leave</strong><span>${entry?.day_status || entry?.status || "On leave"}</span>`;
-    }
-
-    const start = String(entry?.start_time || entry?.in_time || "").slice(0, 5);
-    const end = String(entry?.end_time || entry?.out_time || "").slice(0, 5);
-    const time = start && end ? `${start} - ${end}` : "Time not set";
-
-    return `<strong>${name}</strong><span>${time}</span>`;
-  }
-
-  async function loadShiftData() {
-    if (loading) return;
-    loading = true;
-
-    try {
-      const db = window.staffSyncSupabase || window.staffSyncDb;
-      if (!db?.from) return;
-
-      const fromDate = todayKey(0);
-      const toDate = todayKey(2);
-
-      const peopleResult = await db
-        .from("staff_shift_people_view")
-        .select("*")
-        .order("employee_code", { ascending: true });
-
-      const rosterResult = await db
-        .from("staff_shift_roster_view")
-        .select("*")
-        .gte("roster_date", fromDate)
-        .lte("roster_date", toDate);
-
-      if (!peopleResult.error && Array.isArray(peopleResult.data)) peopleCache = peopleResult.data;
-      if (!rosterResult.error && Array.isArray(rosterResult.data)) rosterCache = rosterResult.data;
-    } finally {
-      loading = false;
-    }
-  }
-
-  function render() {
-    if (!isShiftPage()) return;
-
-    const host = document.querySelector("#shift-calendar");
-    if (!host) return;
-
-    const dates = [todayKey(0), todayKey(1), todayKey(2)];
-    const groups = {};
-
-    sortByCode(peopleCache).forEach((person) => {
-      const dept = staffDept(person);
-      groups[dept] = groups[dept] || [];
-      groups[dept].push(person);
-    });
-
-    host.innerHTML = `
-      <div class="shift-clean-board-v244">
-        <h3>Coming 3 days shifts</h3>
-        <small>Open a department to see staff names and shift times.</small>
-        ${Object.keys(groups).sort().map((dept) => `
-          <details class="shift-dept-fold">
-            <summary>${dept}</summary>
-            <div class="shift-simple-grid">
-              <div class="shift-simple-head">Staff</div>
-              ${dates.map((date) => `<div class="shift-simple-head">${labelDate(date)}</div>`).join("")}
-              ${groups[dept].map((person) => `
-                <div class="shift-simple-staff">
-                  <strong>${staffCode(person)} - ${staffName(person)}</strong>
-                  <small>${staffJob(person)}</small>
-                </div>
-                ${dates.map((date) => `<div class="shift-simple-cell">${shiftText(person, date)}</div>`).join("")}
-              `).join("")}
-            </div>
-          </details>
-        `).join("") || `<div class="mini-empty">Staff shifts are loading. Please wait a few seconds.</div>`}
-      </div>
-    `;
-  }
-
-  async function refreshShiftPage() {
-    if (!isShiftPage()) return;
-    await loadShiftData();
-    render();
-  }
-
-  window.addEventListener("hashchange", () => setTimeout(refreshShiftPage, 300));
-  document.addEventListener("DOMContentLoaded", () => setTimeout(refreshShiftPage, 1200));
-
-  document.addEventListener("click", (event) => {
-    if (event.target?.closest?.("a[href='#shifts'], [data-page-link='shifts']")) {
-      setTimeout(refreshShiftPage, 600);
-    }
-  });
-
-  setInterval(refreshShiftPage, 15000);
-})();
-// end-staffsync-shift-page-v244
-
-// hide-shift-allocation-for-staff-v267
-(function () {
-  function updateShiftAllocationVisibility() {
-    var links = document.querySelectorAll('[data-admin-only="true"]');
-    links.forEach(function (link) {
-      link.style.display = (window.currentRole === "staff" || currentRole === "staff") ? "none" : "";
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", updateShiftAllocationVisibility);
-  window.addEventListener("hashchange", updateShiftAllocationVisibility);
-  document.addEventListener("click", function () {
-    setTimeout(updateShiftAllocationVisibility, 100);
-  });
-  setInterval(updateShiftAllocationVisibility, 2000);
-})();
-// end-hide-shift-allocation-for-staff-v267
-
-
-
-
-
-
-
-
-
-// half-short-period-and-staff-calendar-v296
-(function(){
-  function textOf(el){ return String(el?.textContent || el?.value || "").toLowerCase(); }
-  function isHalfOrShort(value){
-    value = String(value || "").toLowerCase();
-    return value.includes("half") || value.includes("short");
-  }
-  function findLeaveTypeSelect(form){
-    return Array.from(form.querySelectorAll("select")).find(function(select){
-      return Array.from(select.options || []).some(function(option){
-        var text = textOf(option);
-        return text.includes("half") || text.includes("short");
-      });
-    });
-  }
-  function ensurePeriodSelector(){
-    document.querySelectorAll("form").forEach(function(form){
-      var typeSelect = findLeaveTypeSelect(form);
-      if (!typeSelect || form.querySelector(".leave-period-v296")) return;
-
-      var wrap = document.createElement("label");
-      wrap.className = "leave-period-v296";
-      wrap.style.display = "none";
-      wrap.innerHTML = 'Half / short leave time <select class="leave-period-select-v296"><option value="Morning">Morning</option><option value="Evening">Evening</option></select>';
-
-      typeSelect.closest("label")?.insertAdjacentElement("afterend", wrap);
-
-      function update(){
-        wrap.style.display = isHalfOrShort(typeSelect.options[typeSelect.selectedIndex]?.text || typeSelect.value) ? "" : "none";
-      }
-
-      typeSelect.addEventListener("change", update);
-      update();
-
-      form.addEventListener("submit", function(){
-        var selectedType = typeSelect.options[typeSelect.selectedIndex]?.text || typeSelect.value;
-        if (!isHalfOrShort(selectedType)) return;
-
-        var period = wrap.querySelector("select")?.value || "Morning";
-        var textarea = form.querySelector("textarea");
-        var input = textarea || Array.from(form.querySelectorAll("input[type='text']")).pop();
-        if (!input) return;
-
-        input.value = String(input.value || "")
-          .replace(/\s*\[(Morning|Evening)\]\s*/gi, " ")
-          .trim();
-
-        input.value = ("[" + period + "] " + input.value).trim();
-      }, true);
-    });
-  }
-
-  function localKey(date){ return date.toISOString().slice(0,10); }
-  function monthDays(){
-    var now = new Date();
-    var y = now.getFullYear();
-    var m = now.getMonth();
-    var total = new Date(y, m + 1, 0).getDate();
-    var out = [];
-    for (var d = 1; d <= total; d++) out.push(localKey(new Date(y, m, d)));
-    return out;
-  }
-  function activeStaffForCalendar(){
-    try {
-      return (window.staff || staff || []).find(function(person){
-        return String(person.id) === String(window.activeStaffId || activeStaffId) ||
-          String(person.cloudId) === String(window.activeStaffId || activeStaffId) ||
-          String(person.appUserId) === String(window.currentAppUserId || currentAppUserId);
-      });
-    } catch(e) { return null; }
-  }
-  function requestCovers(req, date){
-    if (typeof requestCoversDate === "function") return requestCoversDate(req, date);
-    var s = String(req.startDate || req.start_date || "").slice(0,10);
-    var e = String(req.endDate || req.end_date || s).slice(0,10);
-    return s <= date && e >= date;
-  }
-  function requestBelongs(req, person){
-    if (!person) return false;
-    return String(req.staffId || req.staff_id || req.staff_profile_id || req.staffProfileId || "") === String(person.id) ||
-      String(req.staffId || req.staff_id || req.staff_profile_id || req.staffProfileId || "") === String(person.cloudId) ||
-      String(req.name || req.full_name || "").toLowerCase() === String(person.name || person.fullName || "").toLowerCase();
-  }
-  function leaveTitle(req){
-    if (typeof leaveRequestTitle === "function") return leaveRequestTitle(req);
-    return req.leaveType || req.leave_type || "Leave";
-  }
-  function leaveStatus(req){
-    if (typeof leaveStatusDisplay === "function") return leaveStatusDisplay(req);
-    return req.status || "";
-  }
-  function renderStaffMonthCalendar(){
-    var role = "";
-    try { role = String(window.currentRole || currentRole || ""); } catch(e) {}
-    if (role !== "staff") {
-      document.querySelector("#staff-month-leave-calendar-v296")?.remove();
-      return;
-    }
-
-    var leavePage = document.querySelector("#leave");
-    if (!leavePage) return;
-
-    var panel = document.querySelector("#staff-month-leave-calendar-v296");
-    if (!panel) {
-      panel = document.createElement("section");
-      panel.id = "staff-month-leave-calendar-v296";
-      panel.className = "panel-card";
-      panel.innerHTML = '<div class="section-heading"><div><p class="eyebrow">All staff leave calendar</p><h2>Current month leave calendar</h2></div></div><div class="calendar-grid" id="staff-month-leave-grid-v296"></div>';
-      leavePage.insertBefore(panel, leavePage.firstChild);
-    }
-
-    var grid = document.querySelector("#staff-month-leave-grid-v296");
-    if (!grid) return;
-
-    var person = activeStaffForCalendar();
-    var requests = [];
-    try { requests = window.leaveRequests || leaveRequests || []; } catch(e) {}
-
-    grid.innerHTML = monthDays().map(function(date){
-      var items = requests.filter(function(req){
-        return requestCovers(req, date);
-      });
-      return '<article class="calendar-day ' + (items.length ? 'has-items' : '') + '">' +
-        '<strong>' + date.slice(8,10) + '</strong>' +
-        '<small>' + date.slice(5,7) + '-' + date.slice(0,4) + '</small>' +
-        (items.length ? items.map(function(req){
-          return '<span class="calendar-item '+staffCalendarStatusClassV299(req)+'">' + (req.employeeCode || req.employee_code || req.code || '') + ' ' + (req.name || req.full_name || req.fullName || 'Staff') + ' - ' + leaveTitle(req) + ' - ' + leaveStatus(req) + '</span>';
-        }).join("") : '<span class="calendar-empty">No leave</span>') +
-      '</article>';
-    }).join("");
-  }
-
-  function bootV296(){
-    ensurePeriodSelector();
-    renderStaffMonthCalendar();
-  }
-
-  document.addEventListener("DOMContentLoaded", bootV296);
-  document.addEventListener("click", function(){ setTimeout(bootV296, 250); });
-  document.addEventListener("change", function(){ setTimeout(bootV296, 250); });
-  setInterval(bootV296, 4000);
-})();
-
-
-
-function staffCalendarStatusClassV299(req){
-  var status = String(req && req.status || "").toLowerCase();
-  if (status.includes("approve") || status.includes("grant")) return "staff-leave-approved-v299";
-  if (status.includes("reject")) return "staff-leave-rejected-v299";
-  if (status.includes("cancel")) return "staff-leave-cancelled-v299";
-  return "staff-leave-pending-v299";
-}
-

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>StaffSync Shifts</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="env.js"></script>
+  <style>
+    body { background:#f6faf9; color:#102026; margin:0; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    .shift-page-shell { max-width:1100px; margin:0 auto; padding:18px; }
+    .shift-top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
+    .shift-top h1 { margin:0; font-size:24px; }
+    .shift-top a { color:#075f63; font-weight:700; text-decoration:none; }
+    .shift-card { background:white; border:1px solid #dbe8e5; border-radius:10px; padding:14px; box-shadow:0 8px 24px rgba(16,32,38,.06); }
+    .shift-card h2 { margin:0 0 4px; font-size:18px; }
+    .shift-card small { color:#667; }
+    .shift-dept-fold { border:1px solid #dcebea; border-radius:9px; margin-top:12px; background:#fbfefd; overflow:hidden; }
+    .shift-dept-fold summary { cursor:pointer; padding:12px 14px; font-weight:800; color:#075f63; }
+    .shift-simple-grid { display:grid; grid-template-columns:minmax(170px,1.4fr) repeat(3,minmax(105px,1fr)); gap:1px; background:#dcebea; border-top:1px solid #dcebea; }
+    .shift-simple-head, .shift-simple-staff, .shift-simple-cell { background:white; padding:10px; min-height:54px; }
+    .shift-simple-head { font-weight:800; color:#075f63; }
+    .shift-simple-staff strong, .shift-simple-cell strong { display:block; }
+    .shift-simple-staff small, .shift-simple-cell span { display:block; color:#667; margin-top:3px; }
+    .mini-empty { padding:16px; background:white; border:1px solid #dbe8e5; border-radius:8px; color:#667; }
+    @media (max-width: 720px) {
+      .shift-page-shell { padding:10px; }
+      .shift-simple-grid {
+        grid-template-columns: 40% repeat(3, 20%);
+        width: 100%;
+        overflow: visible;
+        font-size: 11px;
+      }
+      .shift-simple-head, .shift-simple-staff, .shift-simple-cell {
+        padding: 7px 5px;
+        min-height: 48px;
+        overflow-wrap: anywhere;
+      }
+      .shift-simple-staff strong, .shift-simple-cell strong {
+        font-size: 11px;
+        line-height: 1.15;
+      }
+      .shift-simple-staff small, .shift-simple-cell span {
+        font-size: 10px;
+        line-height: 1.15;
+      }
+      .shift-dept-fold { overflow: visible; }
+    }
+      .shift-dept-fold { overflow:auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shift-page-shell">
+    <div class="shift-top">
+      <div>
+        <h1>Coming 3 days shifts</h1>
+        <small>StaffSync Beach & Bliss Mirissa</small>
+      </div>
+      <a href="index.html#dashboard">Back to dashboard</a>
+    </div>
+
+    <section class="shift-card">
+      <h2>Department shift calendar</h2>
+      <small>Open a department to see staff names and actual shift times.</small>
+      <div id="shift-board" class="mini-empty">Loading shifts...</div>
+    </section>
+  </main>
+
+<script>
+(function () {
+  const board = document.querySelector("#shift-board");
+
+  function configValue(...names) {
+    for (const name of names) {
+      if (window[name]) return window[name];
+    }
+    const cfg = window.STAFFSYNC_ENV || window.STAFFSYNC_CONFIG || window.staffsyncConfig || window.SUPABASE_CONFIG || {};
+    for (const name of names) {
+      if (cfg[name]) return cfg[name];
+    }
+    return "";
+  }
+
+  const url = configValue("SUPABASE_URL", "supabaseUrl", "url", "STAFFSYNC_SUPABASE_URL", "projectUrl");
+  const key = configValue("SUPABASE_ANON_KEY", "supabaseAnonKey", "anonKey", "STAFFSYNC_SUPABASE_ANON_KEY", "anon");
+
+      if (!url || !key) {
+    board.textContent = "Supabase env settings not found.";
+    return;
+  }
+
+  if (!window.supabase?.createClient) {
+    board.textContent = "Supabase library did not load. Please refresh once.";
+    return;
+  }
+
+  const db = window.supabase.createClient(url, key);
+
+  function dateKey(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function labelDate(key) {
+    return new Date(key + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function code(p) { return String(p.employee_code || "").trim(); }
+  function name(p) { return p.full_name || "Staff"; }
+  function job(p) { return p.job_title || "Staff"; }
+  function dept(p) { return p.department || "General"; }
+
+  function sortPeople(list) {
+    return [...list].sort((a, b) => code(a).localeCompare(code(b), undefined, { numeric: true }));
+  }
+
+  function entryFor(rosters, person, date) {
+    return rosters.find((r) =>
+      String(r.staff_id) === String(person.staff_id) &&
+      String(r.roster_date).slice(0, 10) === date
+    );
+  }
+
+  function shiftCell(rosters, person, date) {
+    const r = entryFor(rosters, person, date);
+    const status = String(r?.status || "").toLowerCase();
+
+    if (status.includes("leave")) {
+      return "<strong>Leave</strong><span>On leave</span>";
+    }
+
+    const shift = r?.shift_name || person.default_shift_type || "10h shift";
+    const start = String(r?.start_time || "").slice(0, 5);
+    const end = String(r?.end_time || "").slice(0, 5);
+    const time = start && end ? `${start} - ${end}` : "Time not set";
+
+    return `<strong>${shift}</strong><span>${time}</span>`;
+  }
+
+  async function load() {
+    const dates = [dateKey(0), dateKey(1), dateKey(2)];
+
+    const peopleResult = await db
+      .from("staff_shift_people_view")
+      .select("*")
+      .order("employee_code", { ascending: true });
+
+    const rosterResult = await db
+      .from("staff_shift_roster_view")
+      .select("*")
+      .gte("roster_date", dates[0])
+      .lte("roster_date", dates[2]);
+
+    const leaveResult = await db
+      .from("leave_requests")
+      .select("*")
+      .lte("start_date", dates[2])
+      .gte("end_date", dates[0]);
+
+    leaveRows = leaveResult.error ? [] : (leaveResult.data || []);
+
+    if (peopleResult.error) {
+      board.textContent = peopleResult.error.message;
+      return;
+    }
+
+    const people = sortPeople(peopleResult.data || []);
+    const rosters = rosterResult.data || [];
+    const groups = {};
+
+    people.forEach((p) => {
+      const d = dept(p);
+      groups[d] = groups[d] || [];
+      groups[d].push(p);
+    });
+
+    board.className = "";
+    board.innerHTML = Object.keys(groups).sort().map((department) => `
+      <details class="shift-dept-fold">
+        <summary>${department}</summary>
+        <div class="shift-simple-grid">
+          <div class="shift-simple-head">Staff</div>
+          ${dates.map((d) => `<div class="shift-simple-head">${labelDate(d)}</div>`).join("")}
+          ${groups[department].map((p) => `
+            <div class="shift-simple-staff">
+              <strong>${code(p)} - ${name(p)}</strong>
+              <small>${job(p)}</small>
+            </div>
+            ${dates.map((d) => `<div class="shift-simple-cell">${shiftCell(rosters, p, d)}</div>`).join("")}
+          `).join("")}
+        </div>
+      </details>
+    `).join("") || `<div class="mini-empty">No staff found.</div>`;
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+

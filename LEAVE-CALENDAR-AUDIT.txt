@@ -1,0 +1,401 @@
+==== GIT ====
+1bc8daa Revert "Replace leave calendar with month tab version"
+5905c64 Replace leave calendar with month tab version
+f202dd2 Force refresh leave month tabs
+e4578ee Call leave month tabs from calendar
+2bb8364 Connect leave month tabs to existing calendar
+f392887 Revert "Add month tabs to same leave calendar"
+85cfeae Add month tabs to same leave calendar
+89e8705 Add month tabs to same leave calendar
+79be2fa Revert "Add leave calendar previous current next tabs"
+dc9f0d9 Add leave calendar previous current next tabs
+?? SHIFT-AUDIT.txt
+?? app.backup-before-shift-clean-v243.js
+?? app.before-connect-leave-tabs-v283.js
+?? app.before-final-leave-calendar-v285.js
+?? app.before-final-leave-tabs-v284.js
+?? app.before-leave-calendar-tabs-v282-short.js
+?? app.before-leave-month-position-v277.js
+?? app.before-leave-month-v278.js
+?? app.before-leave-months-v275.js
+?? app.before-leave-months-view-v279.js
+?? app.before-leave-tabs-v281.js
+?? app.before-remove-bad-leave-months-v280.js
+?? app.before-same-leave-calendar-months-v282.js
+?? app.before-shift-v244.js
+?? app.working-login-backup.js
+?? env.backup-before-shift-fix.js
+?? hotelstaff/
+?? index.before-connect-leave-tabs-v283.html
+?? index.before-final-leave-calendar-v285.html
+?? index.before-final-leave-tabs-v284.html
+?? index.before-leave-calendar-tabs-v282-short.html
+?? index.before-leave-month-position-v277.html
+?? index.before-leave-month-v278.html
+?? index.before-leave-months-v275.html
+?? index.before-leave-months-view-v279.html
+?? index.before-leave-tabs-v281.html
+?? index.before-remove-bad-leave-months-v280.html
+?? index.before-same-leave-calendar-months-v282.html
+?? index.before-shift-link-v265.html
+?? index.before-staff-hide-shift-allocation-v267.html
+?? shift-rescue.txt
+?? staff-shifts-v250.before-leave-mobile-fix.html
+?? staff-shifts-v250.before-mobile-v267.html
+?? staff-shifts-v250.before-restore-v265.html
+?? staff-shifts-v250.before-table-v268.html
+?? staff-shifts-v250.before-v262.html
+?? staff-shifts-v250.before-v266.html
+?? style.before-final-leave-calendar-v285.css
+?? style.before-leave-calendar-tabs-v282-short.css
+?? style.before-leave-month-position-v277.css
+?? style.before-leave-tabs-v281.css
+?? style.before-same-leave-calendar-months-v282.css
+
+==== VERSION ====
+906:  <script src="app.js?v=284"></script>
+
+==== LEAVE CALENDAR REFERENCES ====
+709:function renderLeaveCalendar() {
+771:function renderLeaveCalendarMonthTabsV282() {
+103:const leaveCalendar = document.querySelector("#leave-calendar");
+356:  renderLeaveCalendar();
+709:function renderLeaveCalendar() {
+710:  if (!leaveCalendar) return;
+720:  leaveCalendar.innerHTML = days.map((dateValue) => {
+743:function addLeaveCalendarMonthsV282(monthKey, amount) {
+749:function leaveCalendarMonthsV282() {
+752:  const lastMonth = addLeaveCalendarMonthsV282(currentMonth, 1);
+758:    cursor = addLeaveCalendarMonthsV282(cursor, 1);
+764:function leaveCalendarMonthLabelV282(monthKey) {
+771:function renderLeaveCalendarMonthTabsV282() {
+772:  const months = leaveCalendarMonthsV282();
+774:  if (!window.staffsyncLeaveCalendarMonthV282 || !months.includes(window.staffsyncLeaveCalendarMonthV282)) {
+775:    window.staffsyncLeaveCalendarMonthV282 = new Date().toISOString().slice(0, 7);
+783:    leaveCalendar.parentNode.insertBefore(tabs, leaveCalendar);
+793:        <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
+794:          ${leaveCalendarMonthLabelV282(month)}
+805:  window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
+806:  renderLeaveCalendar();
+index.html:775:          <div class="organizer-grid" id="leave-calendar"></div>
+app.js:103:const leaveCalendar = document.querySelector("#leave-calendar");
+app.js:778:  let tabs = document.querySelector("#leave-calendar-month-tabs-v282");
+app.js:781:    tabs.id = "leave-calendar-month-tabs-v282";
+app.js:782:    tabs.className = "leave-calendar-month-tabs-v282";
+app.js:787:    <div class="leave-calendar-month-title-v282">
+app.js:791:    <div class="leave-calendar-month-buttons-v282">
+app.js:793:        <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
+app.js:802:  const button = event.target.closest("[data-leave-calendar-month-v282]");
+app.js:805:  window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
+style.css:2805:#leave-calendar-month-tabs-v282 {
+style.css:2813:#leave-calendar-month-tabs-v282 .leave-calendar-month-title-v282 {
+style.css:2820:#leave-calendar-month-tabs-v282 .leave-calendar-month-buttons-v282 {
+style.css:2826:#leave-calendar-month-tabs-v282 button {
+app.js:727:      <article class="calendar-day ${requests.length ? "has-items" : ""}">
+style.css:1347:.calendar-day {
+style.css:1384:.calendar-day {
+style.css:1390:.calendar-day.has-items {
+style.css:1395:.calendar-day small,
+722:      requestCoversDate(request, dateValue) &&
+818:      requestCoversDate(request, selectedDate) &&
+846:      requestCoversDate(request, selectedDate) &&
+870:      requestCoversDate(request, selectedDate) &&
+904:      requestCoversDate(request, selectedDate) &&
+1221:      requestCoversDate(request, today) &&
+5559:function requestCoversDate(request, dateValue) {
+5835:    requestCoversDate(request, dateValue)
+5843:    requestCoversDate(request, dateValue)
+771:function renderLeaveCalendarMonthTabsV282() {
+774:  if (!window.staffsyncLeaveCalendarMonthV282 || !months.includes(window.staffsyncLeaveCalendarMonthV282)) {
+775:    window.staffsyncLeaveCalendarMonthV282 = new Date().toISOString().slice(0, 7);
+793:        <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
+805:  window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
+
+==== renderLeaveCalendar BLOCK 680-830 ====
+681:       <form class="leave-chat-form ${isStaffSender ? "staff-chat-form" : "quick-chat-form admin-message-box"}" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="${sender}">
+682:         <label>
+683:           ${isStaffSender ? "Your message" : "Message to employee"}
+684:           <textarea name="message" ${isStaffSender ? "" : `data-admin-leave-message="${leaveThreadId(request)}"`} rows="2" placeholder="${isStaffSender ? "Type your message or question" : "Type reply to staff"}" required>${escapeText(draft)}</textarea>
+685:         </label>
+686:         <button class="chat-send-button" type="submit">${isStaffSender ? "Send chat message" : "Send chat"}</button>
+687:       </form>
+688:     </details>
+689:   `;
+690: }
+691: 
+692: function leaveThreadMessagesMarkup(request, limit = 4, messages = leaveMessagesForRequest(request)) {
+693:   const recent = [...messages].slice(-limit);
+694:   if (!recent.length) return "";
+695:   return `
+696:     <div class="thread-message compact-thread-message">
+697:       ${recent.map((message) => `
+698:         <span><b>${message.label || "Message"}:</b> ${message.message}</span>
+699:         <small>${formatDateTime(message.time)}</small>
+700:       `).join("")}
+701:     </div>
+702:   `;
+703: }
+704: 
+705: function leaveThreadId(request) {
+706:   return String(request?.cloudId || request?.id || "");
+707: }
+708: 
+709: function renderLeaveCalendar() {
+710:   if (!leaveCalendar) return;
+711: 
+712:   const today = new Date();
+713:   const year = today.getFullYear();
+714:   const monthIndex = today.getMonth();
+715:   const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+716:   const days = Array.from({ length: totalDays }, (_, index) =>
+717:     localDateKey(year, monthIndex, index + 1)
+718:   );
+719: 
+720:   leaveCalendar.innerHTML = days.map((dateValue) => {
+721:     const requests = leaveRequests.filter((request) =>
+722:       requestCoversDate(request, dateValue) &&
+723:       ["Approved", "Rejected", "Cancelled", "Pending", "Change the Request", "Adjustment requested"].includes(request.status)
+724:     );
+725: 
+726:     return `
+727:       <article class="calendar-day ${requests.length ? "has-items" : ""}">
+728:         <strong>${dateValue.slice(8, 10)}</strong>
+729:         <small>${shortDayName(dateValue)} - ${formatMonthShort(dateValue)}${requests.length ? ` - ${requests.length} leave record${requests.length === 1 ? "" : "s"}` : " - No leave"}</small>
+730:         <div>
+731:           ${requests.length ? requests.map((request) => `
+732:             <span class="calendar-item ${leavePillClass(request)}">
+733:               ${request.name} - ${leaveRequestTitle(request)} - ${leaveStatusDisplay(request)}
+734:             </span>
+735:           `).join("") : `<span class="calendar-empty">Fully available</span>`}
+736:         </div>
+737:       </article>
+738:     `;
+739:   }).join("");
+740: }
+741: 
+742: 
+743: function addLeaveCalendarMonthsV282(monthKey, amount) {
+744:   const date = new Date(`${monthKey}-01T00:00:00`);
+745:   date.setMonth(date.getMonth() + amount);
+746:   return date.toISOString().slice(0, 7);
+747: }
+748: 
+749: function leaveCalendarMonthsV282() {
+750:   const firstMonth = "2026-07";
+751:   const currentMonth = new Date().toISOString().slice(0, 7);
+752:   const lastMonth = addLeaveCalendarMonthsV282(currentMonth, 1);
+753:   const months = [];
+754:   let cursor = firstMonth;
+755: 
+756:   while (cursor <= lastMonth) {
+757:     months.push(cursor);
+758:     cursor = addLeaveCalendarMonthsV282(cursor, 1);
+759:   }
+760: 
+761:   return months;
+762: }
+763: 
+764: function leaveCalendarMonthLabelV282(monthKey) {
+765:   return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString("en-US", {
+766:     month: "long",
+767:     year: "numeric"
+768:   });
+769: }
+770: 
+771: function renderLeaveCalendarMonthTabsV282() {
+772:   const months = leaveCalendarMonthsV282();
+773: 
+774:   if (!window.staffsyncLeaveCalendarMonthV282 || !months.includes(window.staffsyncLeaveCalendarMonthV282)) {
+775:     window.staffsyncLeaveCalendarMonthV282 = new Date().toISOString().slice(0, 7);
+776:   }
+777: 
+778:   let tabs = document.querySelector("#leave-calendar-month-tabs-v282");
+779:   if (!tabs) {
+780:     tabs = document.createElement("div");
+781:     tabs.id = "leave-calendar-month-tabs-v282";
+782:     tabs.className = "leave-calendar-month-tabs-v282";
+783:     leaveCalendar.parentNode.insertBefore(tabs, leaveCalendar);
+784:   }
+785: 
+786:   tabs.innerHTML = `
+787:     <div class="leave-calendar-month-title-v282">
+788:       <strong>Leave calendar month</strong>
+789:       <small>Saved previous months, current month, and coming month.</small>
+790:     </div>
+791:     <div class="leave-calendar-month-buttons-v282">
+792:       ${months.map((month) => `
+793:         <button type="button" class="${month === window.staffsyncLeaveCalendarMonthV282 ? "primary-action" : "ghost"}" data-leave-calendar-month-v282="${month}">
+794:           ${leaveCalendarMonthLabelV282(month)}
+795:         </button>
+796:       `).join("")}
+797:     </div>
+798:   `;
+799: }
+800: 
+801: document.addEventListener("click", function (event) {
+802:   const button = event.target.closest("[data-leave-calendar-month-v282]");
+803:   if (!button) return;
+804: 
+805:   window.staffsyncLeaveCalendarMonthV282 = button.getAttribute("data-leave-calendar-month-v282");
+806:   renderLeaveCalendar();
+807: });
+808: function renderLeaveCoverage() {
+809:   if (!coverageDate || !coverageGrid) return;
+810: 
+811:   if (!coverageDate.value) {
+812:     coverageDate.value = new Date().toISOString().slice(0, 10);
+813:   }
+814: 
+815:   const selectedDate = coverageDate.value;
+816:   coverageGrid.innerHTML = leaveDepartments.map((department) => {
+817:     const matchingRequests = leaveRequests.filter((request) =>
+818:       requestCoversDate(request, selectedDate) &&
+819:       normalizeDepartment(departmentForLeaveRequest(request)) === normalizeDepartment(department) &&
+820:       request.status !== "Rejected"
+821:     );
+822:     const approved = matchingRequests.filter((request) => request.status === "Approved").length;
+823:     const pending = matchingRequests.filter((request) => ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)).length;
+824: 
+825:     return `
+826:       <article class="coverage-card">
+827:         <strong>${department}</strong>
+828:         <span><b>${approved}</b><small>approved</small></span>
+829:         <span><b>${pending}</b><small>requested</small></span>
+830:       </article>
+831:     `;
+
+==== render / refresh calls 330-390 ====
+331: 
+332:   const rememberedStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localStorage.getItem("staffsync.activeStaffId") || activeStaffId;
+333:   if (rememberedStaffId && staff.some((person) => sameId(person.id, rememberedStaffId))) {
+334:     activeStaffId = rememberedStaffId;
+335:   }
+336:   if (!staff.some((person) => sameId(person.id, activeStaffId))) {
+337:     activeStaffId = staff[0]?.id || 0;
+338:   }
+339:   rememberActiveStaff();
+340:   staffSwitcher.value = String(activeStaffId);
+341:   editStaffSelect.value = "";
+342:   if (liveCheckStaff) liveCheckStaff.value = String(activeStaffId);
+343:   if (wifiStaff) wifiStaff.value = String(activeStaffId);
+344:   if (deviceStaff) deviceStaff.value = String(activeStaffId);
+345:   clearEditStaffForm();
+346:   updateStaffLoginPasswordHint();
+347: }
+348: 
+349: function renderAll() {
+350:   renderMetrics();
+351:   renderStaffTable();
+352:   renderMapPins();
+353:   renderLeaveRequests();
+354:   renderShifts();
+355:   renderDailyRoster();
+356:   renderLeaveCalendar();
+357:   renderShiftCalendar();
+358:   renderDepartmentCharts();
+359:   renderRoleDemo();
+360:   renderPolicy();
+361:   renderStaffDirectory();
+362:   renderLeaveCoverage();
+363:   renderLeavePressure();
+364:   renderManagerBoard();
+365:   renderAttendanceReport();
+366:   renderSession();
+367:   renderNotifications();
+368:   renderActivityLog();
+369:   renderStaffDevices();
+370:   renderApLocationMap();
+371:   applyPageFromHash();
+372: }
+373: 
+374: function applyPageFromHash() {
+375:   const hash = (window.location.hash || "#dashboard").replace("#", "");
+376:   let page = pageSections[hash] ? hash : (pageAliases[hash] || "dashboard");
+377:   if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave"].includes(page)) {
+378:     page = "dashboard";
+379:     if (window.location.hash !== "#dashboard") window.location.hash = "dashboard";
+380:   }
+381:   const visibleIds = new Set(pageSections[page]);
+382: 
+383:   Object.values(pageSections).flat().forEach((id) => {
+384:     const element = document.getElementById(id);
+385:     if (element) element.classList.toggle("page-hidden", !visibleIds.has(id));
+386:   });
+387: 
+388:   document.body.dataset.page = page;
+389:   pageLinks.forEach((link) => {
+390:     link.classList.toggle("active", link.dataset.pageLink === page);
+391:   });
+
+==== leave html area ====
+521:                 <label>
+522:                   AP name
+523:                   <input id="ap-map-name" type="text" placeholder="1_St-Floor_Loby">
+524:                 </label>
+525:                 <div class="form-row">
+526:                   <label>
+527:                     Floor
+528:                     <select id="ap-map-floor">
+529:                       <option value="GF">GF</option>
+530:                       <option value="1F">1F</option>
+531:                       <option value="2F">2F</option>
+532:                       <option value="3F">3F</option>
+533:                     </select>
+534:                   </label>
+535:                   <label>
+536:                     Wing
+537:                     <input id="ap-map-zone" type="text" list="wifi-zone-options" placeholder="New Wing">
+538:                   </label>
+539:                 </div>
+540:                 <button type="submit">Save AP map</button>
+541:                 <div class="mini-list" id="ap-map-list"></div>
+542:               </form>
+543:             </div>
+544:             <datalist id="wifi-zone-options">
+545:               <option value="New Wing"></option>
+546:               <option value="Old Wing"></option>
+547:             </datalist>
+548:           </div>
+549:         </div>
+550: 
+551:         <div class="panel" id="leave">
+552:           <div class="panel-header compact">
+553:             <div>
+554:               <p class="eyebrow">Monthly leave</p>
+555:               <h2>Leave quota and history</h2>
+556:             </div>
+557:           </div>
+558:           <form id="leave-form" class="form">
+559:             <div class="policy-summary compact-policy">
+560:               <strong>Leave policy:</strong>
+561:               Requests need 2 days prior approval. If the leave starts within 2 days, a reason is required.
+562:             </div>
+563:             <label class="leave-staff-field">
+564:               Staff member
+565:               <select id="leave-staff"></select>
+566:             </label>
+567:             <label>
+568:               Leave type
+569:               <select id="leave-type">
+570:                 <option>Sick leave</option>
+571:                 <option>Casual leave</option>
+572:                 <option>Emergency leave</option>
+573:                 <option>NO PAY leave</option>
+574:                 <option>Unpaid leave</option>
+575:               </select>
+576:             </label>
+577:             <label>
+578:               Duration
+579:               <select id="leave-duration">
+580:                 <option value="full">Full day</option>
+581:                 <option value="half">Half day</option>
+582:                 <option value="short">Short leave - 2.5 hours</option>
+583:               </select>
+584:             </label>
+585:             <div class="form-row">
+586:               <label>
+587:                 From
+588:                 <input id="leave-from" type="date" required>
+589:               </label>
+590:               <label>
+591:                 To

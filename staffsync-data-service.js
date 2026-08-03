@@ -1,7 +1,76 @@
 // StaffSync data service skeleton.
 // This is the bridge that will replace localStorage in the current prototype.
 
+// --- StaffSync Netlify function bridge ---
+// Staff (employee-code login) never get a real Supabase Auth session -- they authenticate through
+// /.netlify/functions/auth-login, which issues a signed token stored here. Sensitive staff writes
+// (attendance, leave, leave chat) go through the matching Netlify functions using that token, which
+// verify it and perform the write with the service-role key (bypassing RLS) after checking the
+// staff member is only acting on their own records.
+// Admins/managers still sign in with real Supabase Auth (staffSyncDb.signIn) and keep writing
+// directly through the Supabase client below -- their access is now enforced by RLS policies that
+// check for an admin/manager role, so no token juggling is needed on that side.
+
+function staffSyncSessionToken() {
+  return sessionStorage.getItem("staffsync.sessionToken") || "";
+}
+
+function setStaffSyncSessionToken(token) {
+  if (token) sessionStorage.setItem("staffsync.sessionToken", token);
+  else sessionStorage.removeItem("staffsync.sessionToken");
+}
+
+async function callStaffSyncFunction(functionName, payload, { token } = {}) {
+  const bearer = token || staffSyncSessionToken();
+  const response = await fetch(`/.netlify/functions/${functionName}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(bearer ? { authorization: `Bearer ${bearer}` } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) {
+    throw new Error(result.message || `Request to ${functionName} failed.`);
+  }
+  return result;
+}
+
+async function staffSyncAdminAccessToken() {
+  const { data } = await window.staffSyncSupabase.auth.getSession();
+  return data?.session?.access_token || "";
+}
+
 const staffSyncDb = {
+  // Staff login: verifies the password server-side and stores the returned session token.
+  async loginStaff({ employeeCode, password, newPassword }) {
+    const result = await callStaffSyncFunction("auth-login", {
+      action: "login",
+      employeeCode,
+      password,
+      newPassword: newPassword || undefined
+    });
+    setStaffSyncSessionToken(result.token || "");
+    return result;
+  },
+
+  logoutStaff() {
+    setStaffSyncSessionToken("");
+  },
+
+  // Admin/manager only -- generates a fresh random temp password (replaces the old shared "12345").
+  async adminResetStaffPassword({ employeeCode }) {
+    const token = await staffSyncAdminAccessToken();
+    return callStaffSyncFunction("auth-login", { action: "adminResetPassword", employeeCode }, { token });
+  },
+
+  // Admin/manager only -- sets an exact password chosen by the admin, active immediately.
+  async adminSetStaffPassword({ employeeCode, newPassword }) {
+    const token = await staffSyncAdminAccessToken();
+    return callStaffSyncFunction("auth-login", { action: "adminSetPassword", employeeCode, newPassword }, { token });
+  },
+
   async getCurrentUser() {
     const { data, error } = await window.staffSyncSupabase.auth.getUser();
     if (error) throw error;
@@ -378,42 +447,47 @@ const staffSyncDb = {
     return data;
   },
 
+  // Staff always clock themselves in/out -- routed through the Netlify attendance function so the
+  // write happens with the service-role key instead of the (now write-locked) anon key.
   async clockIn({ staffProfileId, shiftAssignmentId, latitude, longitude }) {
-    const { data, error } = await window.staffSyncSupabase
-      .from("attendance_records")
-      .insert({
-        staff_profile_id: staffProfileId,
-        shift_assignment_id: shiftAssignmentId,
-        clock_in_at: new Date().toISOString(),
-        clock_in_latitude: latitude,
-        clock_in_longitude: longitude,
-        status: "present"
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    const result = await callStaffSyncFunction("attendance", {
+      action: "clockIn",
+      staffProfileId,
+      shiftAssignmentId,
+      latitude,
+      longitude
+    });
+    return result.data;
   },
 
   async clockOut({ attendanceRecordId, latitude, longitude }) {
-    const { data, error } = await window.staffSyncSupabase
-      .from("attendance_records")
-      .update({
-        clock_out_at: new Date().toISOString(),
-        clock_out_latitude: latitude,
-        clock_out_longitude: longitude,
-        status: "completed"
-      })
-      .eq("id", attendanceRecordId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    const result = await callStaffSyncFunction("attendance", {
+      action: "clockOut",
+      attendanceRecordId,
+      latitude,
+      longitude
+    });
+    return result.data;
   },
 
+  // createLeaveRequest/updateLeaveStatus/updateLeaveRequest/deleteAllLeaveRequests are called by both
+  // staff (filing/editing their own leave, no Supabase Auth session) and admins (approving, editing,
+  // clearing -- real Supabase Auth session, protected by RLS). Route through the Netlify leave
+  // function whenever we're holding a staff session token; otherwise fall through to the direct,
+  // RLS-gated admin path.
   async createLeaveRequest({ staffProfileId, leaveTypeId, startDate, endDate, reason }) {
+    if (staffSyncSessionToken()) {
+      const result = await callStaffSyncFunction("leave", {
+        action: "createLeaveRequest",
+        staffProfileId,
+        leaveTypeId,
+        startDate,
+        endDate,
+        reason
+      });
+      return result.data;
+    }
+
     const { data, error } = await window.staffSyncSupabase
       .from("leave_requests")
       .insert({
@@ -432,6 +506,11 @@ const staffSyncDb = {
   },
 
   async updateLeaveStatus({ leaveRequestId, status, approvedBy }) {
+    if (staffSyncSessionToken()) {
+      const result = await callStaffSyncFunction("leave", { action: "updateLeaveStatus", leaveRequestId, status });
+      return result.data;
+    }
+
     const { data, error } = await window.staffSyncSupabase
       .from("leave_requests")
       .update({
@@ -448,6 +527,18 @@ const staffSyncDb = {
   },
 
   async updateLeaveRequest({ leaveRequestId, startDate, endDate, reason, status }) {
+    if (staffSyncSessionToken()) {
+      const result = await callStaffSyncFunction("leave", {
+        action: "updateLeaveRequest",
+        leaveRequestId,
+        startDate,
+        endDate,
+        reason,
+        status
+      });
+      return result.data;
+    }
+
     const { data, error } = await window.staffSyncSupabase
       .from("leave_requests")
       .update({
@@ -467,6 +558,11 @@ const staffSyncDb = {
   },
 
   async deleteAllLeaveRequests() {
+    if (staffSyncSessionToken()) {
+      await callStaffSyncFunction("leave", { action: "deleteAllLeaveRequests" });
+      return;
+    }
+
     const { error } = await window.staffSyncSupabase
       .from("leave_requests")
       .delete()
@@ -515,41 +611,18 @@ const staffSyncDb = {
   },
 
   async recordLocationPing({ staffProfileId, attendanceRecordId, latitude, longitude, accuracyMeters, locationStatus, floorLabel, zoneLabel }) {
-    const payload = {
-      staff_profile_id: staffProfileId,
-      attendance_record_id: attendanceRecordId,
+    const result = await callStaffSyncFunction("attendance", {
+      action: "recordLocationPing",
+      staffProfileId,
+      attendanceRecordId,
       latitude,
       longitude,
-      accuracy_meters: accuracyMeters,
-      location_status: locationStatus || "unknown"
-    };
-
-    if (floorLabel) {
-      payload.floor_label = floorLabel;
-    }
-    if (zoneLabel) {
-      payload.zone_label = zoneLabel;
-    }
-
-    let response = await window.staffSyncSupabase
-      .from("location_pings")
-      .insert(payload)
-      .select()
-      .single();
-
-    if (response.error && floorLabel) {
-      delete payload.floor_label;
-      delete payload.zone_label;
-      response = await window.staffSyncSupabase
-        .from("location_pings")
-        .insert(payload)
-        .select()
-        .single();
-    }
-
-    const { data, error } = response;
-    if (error) throw error;
-    return data;
+      accuracyMeters,
+      locationStatus,
+      floorLabel,
+      zoneLabel
+    });
+    return result.data;
   },
 
   async getLatestLocationPingForStaff(staffProfileId, { attendanceRecordId, sinceIso, untilIso } = {}) {
@@ -704,6 +777,21 @@ const staffSyncDb = {
   },
 
   async addLeaveMessage({ hotelId, leaveRequestId, staffProfileId, senderRole, label, className, message, metadata }) {
+    if (staffSyncSessionToken()) {
+      const result = await callStaffSyncFunction("leave", {
+        action: "addLeaveMessage",
+        hotelId,
+        leaveRequestId,
+        staffProfileId,
+        senderRole,
+        label,
+        className,
+        message,
+        metadata
+      });
+      return result.data;
+    }
+
     const { data, error } = await window.staffSyncSupabase
       .from("staffsync_leave_messages")
       .insert({
@@ -726,6 +814,11 @@ const staffSyncDb = {
   async deleteLeaveMessagesByIds({ ids }) {
     const cleanIds = Array.from(new Set((ids || []).map(String).filter(Boolean)));
     if (!cleanIds.length) return;
+
+    if (staffSyncSessionToken()) {
+      await callStaffSyncFunction("leave", { action: "deleteLeaveMessagesByIds", ids: cleanIds });
+      return;
+    }
 
     const { error } = await window.staffSyncSupabase
       .from("staffsync_leave_messages")
