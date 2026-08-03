@@ -1519,8 +1519,193 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-auto-upload-date-v13-end -->
+<!-- attendance-date-total-fix-v16-start -->
+<script>
+(function () {
+  function pad(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function todayKey() {
+    const now = new Date();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function timeToMinutes(value) {
+    const match = clean(value).match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function totalMinutesFromSegmentsText(text) {
+    const segments = clean(text).split(",").map((part) => part.trim()).filter(Boolean);
+    let total = 0;
+
+    segments.forEach((part) => {
+      const match = part.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (!match) return;
+
+      const start = timeToMinutes(match[1]);
+      const end = timeToMinutes(match[2]);
+      if (start === null || end === null) return;
+
+      total += end >= start ? end - start : (1440 - start) + end;
+    });
+
+    return total;
+  }
+
+  function totalMinutesFromSegmentsJson(value) {
+    try {
+      const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
+      return parsed.reduce((sum, seg) => {
+        const start = timeToMinutes(seg.in);
+        const end = timeToMinutes(seg.out);
+        if (start === null || end === null) return sum;
+        return sum + (end >= start ? end - start : (1440 - start) + end);
+      }, 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  function ensureUploadDateInputV16() {
+    if (document.querySelector("#attendance-upload-date-v16")) return;
+
+    const firstFile = document.querySelector("input[type='file']");
+    const host =
+      firstFile?.closest("section, article, form, .card, .panel, div") ||
+      document.body;
+
+    const wrap = document.createElement("label");
+    wrap.style.display = "grid";
+    wrap.style.gap = "6px";
+    wrap.style.fontWeight = "800";
+    wrap.style.margin = "10px 0";
+    wrap.innerHTML = `
+      Attendance upload date
+      <input id="attendance-upload-date-v16" type="date" value="${localStorage.getItem("staffsync.lastAttendanceUploadDate") || todayKey()}">
+    `;
+
+    host.insertBefore(wrap, host.firstChild);
+  }
+
+  function selectedUploadDateV16() {
+    const explicit = document.querySelector("#attendance-upload-date-v16");
+    if (explicit?.value) return explicit.value;
+
+    return localStorage.getItem("staffsync.lastAttendanceUploadDate") || todayKey();
+  }
+
+  function patchSavedReportTotalsV16() {
+    document.querySelectorAll("#saved-attendance-detail-body tr").forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length < 7) return;
+
+      const segmentsText = cells[4].textContent;
+      const totalCell = cells[5];
+
+      if (clean(totalCell.textContent) === "0:00" && clean(segmentsText)) {
+        const minutes = totalMinutesFromSegmentsText(segmentsText);
+        if (minutes > 0) {
+          totalCell.textContent = `${Math.floor(minutes / 60)}:${pad(minutes % 60)}`;
+        }
+      }
+    });
+  }
+
+  function patchMonthlyTotalsV16() {
+    // This only improves display if report already loaded with segment rows.
+    patchSavedReportTotalsV16();
+  }
+
+  function rememberUploadDateV16() {
+    const date = selectedUploadDateV16();
+    localStorage.setItem("staffsync.lastAttendanceUploadDate", date);
+
+    const dailyDate =
+      document.querySelector("#saved-attendance-date") ||
+      document.querySelector("#staff-daily-attendance-date") ||
+      document.querySelector("#attendance-date");
+
+    if (dailyDate && dailyDate.value !== date) {
+      dailyDate.value = date;
+      dailyDate.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  // Force every save to use the manual upload date, not the Excel sheet date.
+  const originalFetch = window.fetch;
+  window.fetch = async function (url, options) {
+    try {
+      const textUrl = String(url || "");
+      const isAttendanceSave =
+        textUrl.includes("/rest/v1/attendance_imports") &&
+        options &&
+        String(options.method || "").toUpperCase() === "POST" &&
+        options.body;
+
+      if (isAttendanceSave) {
+        const uploadDate = selectedUploadDateV16();
+        const rows = JSON.parse(options.body);
+
+        if (Array.isArray(rows)) {
+          rows.forEach((row) => {
+            row.attendance_date = uploadDate;
+
+            const calc = totalMinutesFromSegmentsJson(row.segments);
+            if (calc > 0) row.total_minutes = calc;
+          });
+
+          options.body = JSON.stringify(rows);
+          localStorage.setItem("staffsync.lastAttendanceUploadDate", uploadDate);
+        }
+      }
+    } catch {}
+
+    return originalFetch.apply(this, arguments);
+  };
+
+  document.addEventListener("change", function (event) {
+    if (event.target?.id === "attendance-upload-date-v16") {
+      rememberUploadDateV16();
+    }
+  });
+
+  document.addEventListener("click", function (event) {
+    const text = String(event.target?.closest("button")?.textContent || "").toLowerCase();
+
+    if (text.includes("save attendance")) {
+      rememberUploadDateV16();
+      setTimeout(rememberUploadDateV16, 600);
+      setTimeout(patchSavedReportTotalsV16, 1500);
+      setTimeout(patchMonthlyTotalsV16, 2500);
+    }
+
+    if (text.includes("load saved") || text.includes("load report")) {
+      setTimeout(patchSavedReportTotalsV16, 800);
+      setTimeout(patchMonthlyTotalsV16, 1600);
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    ensureUploadDateInputV16();
+    rememberUploadDateV16();
+    setTimeout(patchSavedReportTotalsV16, 1200);
+  });
+
+  setTimeout(ensureUploadDateInputV16, 500);
+  setTimeout(rememberUploadDateV16, 900);
+})();
+</script>
+<!-- attendance-date-total-fix-v16-end -->
 </body>
 </html>
+
 
 
 
