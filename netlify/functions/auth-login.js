@@ -37,6 +37,9 @@ function validateNewPassword(newPassword) {
   if (!newPassword || String(newPassword).length < 4) {
     return "New password must be at least 4 characters.";
   }
+  if (String(newPassword) === "1234") {
+    return "New password cannot be the temporary password. Choose your own private password.";
+  }
   return "";
 }
 
