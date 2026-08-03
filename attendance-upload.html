@@ -2013,8 +2013,224 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-common-unmarked-rule-v19-end -->
+<!-- attendance-single-date-save-v20-start -->
+<script>
+(function () {
+  const HOTEL_ID = "00000000-0000-0000-0000-000000000001";
+
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function dateValue() {
+    // Use the original Attendance date only. Do not use duplicate upload-date fields.
+    const inputs = Array.from(document.querySelectorAll("input[type='date']"));
+
+    const attendanceDate =
+      inputs.find((input) => {
+        const text = `${input.id || ""} ${input.name || ""} ${input.closest("label")?.textContent || ""}`.toLowerCase();
+        return text.includes("attendance date") && !text.includes("upload");
+      }) ||
+      inputs.find((input) => {
+        const text = `${input.id || ""} ${input.name || ""}`.toLowerCase();
+        return text.includes("attendance") && !text.includes("upload") && !text.includes("saved");
+      }) ||
+      inputs[0];
+
+    return attendanceDate?.value || new Date().toISOString().slice(0, 10);
+  }
+
+  function removeDuplicateUploadDate() {
+    document.querySelectorAll("#attendance-upload-date-v16").forEach((input) => {
+      const wrap = input.closest("label, div, section");
+      if (wrap) wrap.remove();
+      else input.remove();
+    });
+
+    document.querySelectorAll("label").forEach((label) => {
+      const text = clean(label.textContent).toLowerCase();
+      if (text.includes("attendance upload date")) label.remove();
+    });
+  }
+
+  function statusFromSavedRow(item) {
+    const source = clean(item.source_name).toUpperCase();
+    const hasIn = Boolean(item.clock_in);
+    const hasOut = Boolean(item.clock_out);
+    const hasSegments = Array.isArray(item.segments) ? item.segments.length > 0 : false;
+
+    if (source.includes("SHORT LEAVE")) return "SHORT LEAVE";
+    if (source.includes("HALF DAY")) return "HALF DAY";
+    if (source.includes("LEAVE")) return "LEAVE";
+    if (source.includes("OFF")) return "OFF";
+
+    if (
+      source.includes("UNMARKED") ||
+      source.includes("#VALUE") ||
+      source.includes("ERROR") ||
+      source.includes("STARTING DATE") ||
+      (hasIn && !hasOut) ||
+      (!hasIn && hasOut) ||
+      ((hasIn || hasOut) && !hasSegments)
+    ) {
+      return "UNMARKED";
+    }
+
+    return "OK";
+  }
+
+  function normalizeRowsBeforeSave(rows) {
+    const selectedDate = dateValue();
+
+    rows.forEach((item) => {
+      item.hotel_id = item.hotel_id || HOTEL_ID;
+      item.attendance_date = selectedDate;
+
+      const status = statusFromSavedRow(item);
+
+      if (status === "UNMARKED") {
+        const name = clean(item.source_name).replace(/^UNMARKED\s*-\s*/i, "") || "Attendance row";
+        item.source_name = `UNMARKED - ${name}`;
+        item.clock_out = null;
+        item.segments = [];
+        item.total_minutes = 0;
+      }
+
+      if (status === "OFF") {
+        const name = clean(item.source_name).replace(/^OFF\s*-\s*/i, "") || "Attendance row";
+        item.source_name = `OFF - ${name}`;
+        item.clock_in = null;
+        item.clock_out = null;
+        item.segments = [];
+        item.total_minutes = 0;
+      }
+    });
+
+    localStorage.setItem("staffsync.lastAttendanceUploadDate", selectedDate);
+
+    const savedDaily = document.querySelector("#saved-attendance-date");
+    if (savedDaily) savedDaily.value = selectedDate;
+  }
+
+  async function deleteExistingDateBeforeSave(url, key, selectedDate) {
+    const base = String(url).split("/rest/v1/attendance_imports")[0];
+    const deleteUrl = `${base}/rest/v1/attendance_imports?hotel_id=eq.${HOTEL_ID}&attendance_date=eq.${selectedDate}&source=eq.hikvision_excel`;
+
+    await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: "return=minimal"
+      }
+    });
+  }
+
+  function supabaseKeyFromRequest(options) {
+    return options?.headers?.apikey ||
+      options?.headers?.get?.("apikey") ||
+      window.STAFFSYNC_ENV?.SUPABASE_ANON_KEY ||
+      window.SUPABASE_ANON_KEY ||
+      "";
+  }
+
+  if (!window.staffsyncSingleDateSavePatchedV20) {
+    window.staffsyncSingleDateSavePatchedV20 = true;
+
+    const originalFetch = window.fetch;
+
+    window.fetch = async function (url, options) {
+      try {
+        const textUrl = String(url || "");
+        const isAttendanceSave =
+          textUrl.includes("/rest/v1/attendance_imports") &&
+          options &&
+          String(options.method || "").toUpperCase() === "POST" &&
+          options.body;
+
+        if (isAttendanceSave) {
+          const rows = JSON.parse(options.body);
+          if (Array.isArray(rows)) {
+            const selectedDate = dateValue();
+            normalizeRowsBeforeSave(rows);
+
+            const key = supabaseKeyFromRequest(options);
+            if (key) {
+              await deleteExistingDateBeforeSave(textUrl, key, selectedDate);
+            }
+
+            options.body = JSON.stringify(rows);
+          }
+        }
+      } catch (error) {
+        console.warn("StaffSync attendance save date cleanup skipped:", error);
+      }
+
+      return originalFetch.apply(this, arguments);
+    };
+  }
+
+  function forceVisiblePreviewDateAndUnmarked() {
+    const selectedDate = dateValue();
+
+    document.querySelectorAll("table").forEach((table) => {
+      const headers = Array.from(table.querySelectorAll("thead th")).map((th) =>
+        clean(th.textContent).toLowerCase().replace(/[^a-z0-9]/g, "")
+      );
+
+      const dateIndex = headers.indexOf("date");
+      const statusIndex = headers.indexOf("status");
+
+      table.querySelectorAll("tbody tr").forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        const rowText = clean(row.textContent).toUpperCase();
+
+        if (dateIndex >= 0 && cells[dateIndex]) {
+          cells[dateIndex].textContent = selectedDate;
+        }
+
+        if (statusIndex >= 0 && cells[statusIndex]) {
+          if (
+            rowText.includes("UNMARKED") ||
+            rowText.includes("#VALUE") ||
+            rowText.includes("STARTING DATE")
+          ) {
+            cells[statusIndex].innerHTML = '<strong style="color:#991b1b;background:#fee2e2;border-radius:999px;padding:4px 9px;display:inline-block;">UNMARKED</strong>';
+          }
+        }
+      });
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    removeDuplicateUploadDate();
+    forceVisiblePreviewDateAndUnmarked();
+  });
+
+  document.addEventListener("change", function () {
+    removeDuplicateUploadDate();
+    setTimeout(forceVisiblePreviewDateAndUnmarked, 300);
+    setTimeout(forceVisiblePreviewDateAndUnmarked, 1200);
+  });
+
+  document.addEventListener("click", function () {
+    removeDuplicateUploadDate();
+    setTimeout(forceVisiblePreviewDateAndUnmarked, 300);
+    setTimeout(forceVisiblePreviewDateAndUnmarked, 1200);
+  });
+
+  setTimeout(removeDuplicateUploadDate, 500);
+  setTimeout(forceVisiblePreviewDateAndUnmarked, 900);
+  setInterval(function () {
+    removeDuplicateUploadDate();
+    forceVisiblePreviewDateAndUnmarked();
+  }, 2500);
+})();
+</script>
+<!-- attendance-single-date-save-v20-end -->
 </body>
 </html>
+
 
 
 

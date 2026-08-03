@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - common attendance unmarked rule for all staff.
+StaffSync Beach & Bliss Mirissa Version 1.0 - single attendance date save and common unmarked rule.
