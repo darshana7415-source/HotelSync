@@ -406,9 +406,21 @@ body[data-page="staff"] #admin {
 }
 
 /* #schedule sits between #leave and #leave-organizer in the HTML but is reordered/hidden
-   on the Leave page, which can leave these two panels touching with no visible gap. */
+   on the Leave page, which can leave these two panels touching with no visible gap.
+   Margin on both (not just whichever renders second) so this holds regardless of order. */
+body[data-page="leave"] #leave,
 body[data-page="leave"] #leave-organizer {
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+/* Make "Leave quota and history" read as a clearly separate section: a strong colored
+   underline on its heading plus a light tinted header band. */
+#leave .panel-header {
+  margin: -1rem -1rem 1.1rem;
+  padding: 1rem 1rem 0.9rem;
+  background: linear-gradient(180deg, #eefaf9, #ffffff);
+  border-bottom: 3px solid var(--brand);
+  border-radius: 8px 8px 0 0;
 }
 
 .panel-header {
