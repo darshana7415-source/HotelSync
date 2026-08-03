@@ -9,7 +9,7 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f4fbfb;
+      background: #eef6f6;
       color: #10242b;
     }
     main {
@@ -27,16 +27,29 @@
     h1 {
       margin: 0;
       font-size: 26px;
+      letter-spacing: -0.01em;
     }
     a {
       color: #075f63;
       font-weight: 800;
       text-decoration: none;
     }
+    a.back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid #d7e7e7;
+    }
+    a.back-link:active {
+      background: #eefafa;
+    }
     .card {
       background: white;
       border: 1px solid #d7e7e7;
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 16px;
       box-shadow: 0 8px 24px rgba(15, 65, 70, 0.08);
     }
@@ -45,22 +58,29 @@
       gap: 12px;
       flex-wrap: wrap;
       align-items: end;
-      margin-bottom: 12px;
+      margin-bottom: 4px;
     }
     label {
       display: grid;
       gap: 6px;
       font-weight: 800;
+      font-size: 13px;
+      color: #075f63;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
     input {
       padding: 10px;
       border: 1px solid #bfd7d7;
       border-radius: 8px;
       font: inherit;
+      color: #10242b;
+      background: #fbfffe;
     }
     .note {
       color: #5d6b70;
-      margin: 8px 0 14px;
+      margin: 10px 0 14px;
+      font-size: 14px;
     }
     .table-wrap {
       overflow-x: auto;
@@ -74,20 +94,27 @@
       min-width: 720px;
     }
     th, td {
-      padding: 9px;
+      padding: 10px;
       border-bottom: 1px solid #e1eeee;
       text-align: left;
-      vertical-align: top;
+      vertical-align: middle;
     }
     th {
       color: #075f63;
       background: #eefafa;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tbody tr:hover {
+      background: #f7fdfd;
     }
     .badge {
       border-radius: 999px;
-      padding: 4px 9px;
+      padding: 4px 10px;
       display: inline-block;
       font-weight: 800;
+      font-size: 12px;
       white-space: nowrap;
     }
     .ok { color: #047857; background: #dcfce7; }
@@ -98,20 +125,126 @@
     .half { color: #92400e; background: #fde68a; }
     .short { color: #075985; background: #dbeafe; }
 
-    /* Mobile polish: comfortable tap targets, readable table, sticky header while scrolling. */
+    /* ===== Mobile: the table becomes a stack of readable cards, no sideways scrolling. ===== */
     @media (max-width: 720px) {
-      main { padding: 12px; }
+      main { padding: 10px; }
       h1 { font-size: 20px; }
-      .topbar { flex-wrap: wrap; }
-      .topbar a { min-height: 44px; display: inline-flex; align-items: center; }
-      .controls { gap: 10px; }
+      .topbar { flex-wrap: wrap; margin-bottom: 10px; }
+      a.back-link { min-height: 40px; font-size: 13px; }
+      .controls { gap: 10px; margin-bottom: 2px; }
       .controls label { flex: 1 1 100%; }
-      input, button { min-height: 44px; font-size: 16px; }
-      .card { padding: 12px; }
-      table { min-width: 640px; font-size: 14px; }
-      th, td { padding: 8px 7px; }
-      .table-wrap { -webkit-overflow-scrolling: touch; }
-      .table-wrap thead th { position: sticky; top: 0; z-index: 1; }
+      input { min-height: 46px; font-size: 16px; width: 100%; box-sizing: border-box; }
+      .card { padding: 10px; border-radius: 12px; }
+      .note { font-size: 13px; margin: 8px 2px 12px; }
+
+      .table-wrap {
+        border: 0;
+        background: transparent;
+        overflow: visible;
+        border-radius: 0;
+      }
+
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { display: none; }
+
+      tbody tr {
+        background: #ffffff;
+        border: 1px solid #e1eeee;
+        border-left: 5px solid #22c55e;
+        border-radius: 12px;
+        padding: 10px 12px 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 3px 10px rgba(15, 65, 70, 0.05);
+      }
+
+      /* status/highlight scripts color the <td> backgrounds -- fold that color onto the card
+         and left border instead of every individual line, so cards read as one solid color block. */
+      tbody tr[class] td {
+        background: transparent !important;
+      }
+      tbody tr.daily-status-off { border-left-color: #38bdf8; background: #e0f2fe; }
+      tbody tr.daily-status-half { border-left-color: #f59e0b; background: #fef3c7; }
+      tbody tr.daily-status-short { border-left-color: #3b82f6; background: #dbeafe; }
+      tbody tr.daily-status-leave { border-left-color: #8b5cf6; background: #ede9fe; }
+      tbody tr.daily-status-unmarked,
+      tbody tr.daily-status-error { border-left-color: #ef4444; background: #fee2e2; }
+      tbody tr.daily-status-nofingerprint { border-left-color: #7f1d1d; background: #fdeaea; }
+      tbody tr.daily-status-under10 { border-left-color: #fb7185; background: #fff1f2; }
+
+      tbody td {
+        border-bottom: 0;
+        padding: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      tbody td::before {
+        content: attr(data-col);
+        font-weight: 700;
+        color: #5d6b70;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        flex: none;
+      }
+
+      /* Code + name form the card header row: name large and left-aligned, code as a small chip. */
+      tbody td:nth-child(1) {
+        order: -1;
+        justify-content: flex-start;
+        gap: 8px;
+        padding-bottom: 6px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid #eef4f4;
+      }
+      tbody td:nth-child(1)::before {
+        content: "";
+      }
+      tbody td:nth-child(1)::after {
+        content: attr(data-code);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        height: 22px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: #075f63;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+      }
+      tbody td:nth-child(1) { color: transparent; font-size: 0; }
+      tbody td:nth-child(2) {
+        order: -1;
+        justify-content: flex-start;
+        padding-bottom: 6px;
+        margin-bottom: 2px;
+      }
+      tbody td:nth-child(2)::before { display: none; }
+      tbody td:nth-child(2) {
+        font-weight: 900;
+        font-size: 15px;
+        color: #10242b;
+      }
+
+      tbody td:nth-child(3)::before { content: "In"; }
+      tbody td:nth-child(4)::before { content: "Out"; }
+      tbody td:nth-child(5)::before { content: "Times"; }
+      tbody td:nth-child(6)::before { content: "Total"; }
+      tbody td:nth-child(7) {
+        padding-top: 6px;
+        margin-top: 2px;
+        border-top: 1px solid rgba(0,0,0,0.05);
+      }
+      tbody td:nth-child(7)::before { content: "Status"; }
+
+      /* Empty cells (no clock in/out that day) collapse instead of showing an empty row. */
+      tbody td:empty { display: none; }
+
       .badge { font-size: 12px; }
     }
   </style>
@@ -120,16 +253,16 @@
   <main>
     <div class="topbar">
       <div>
-        <h1>Daily Saved Attendance Records</h1>
-        <p class="note">Select a date to see saved attendance records.</p>
+        <h1>Daily Attendance</h1>
+        <p class="note" style="margin:2px 0 0;">Your hotel's saved daily attendance records.</p>
       </div>
-      <a href="index.html#dashboard">Back to dashboard</a>
+      <a class="back-link" href="index.html#dashboard">&larr; Dashboard</a>
     </div>
 
     <section class="card">
       <div class="controls">
         <label>
-          Daily record date
+          Date
           <input id="attendance-date" type="date">
         </label>
       </div>
@@ -169,6 +302,14 @@
 
     function clean(value) {
       return String(value || "").trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
     }
 
     function isRemovedCode(value) {
@@ -282,12 +423,13 @@
 
       body.innerHTML = people.map((person) => {
         const row = byStaff.get(person.id);
+        const code = clean(person.employee_code);
 
         if (!row) {
           return `
             <tr>
-              <td>${clean(person.employee_code)}</td>
-              <td>${person.full_name || ""}</td>
+              <td data-code="${escapeHtml(code)}">${escapeHtml(code)}</td>
+              <td>${escapeHtml(person.full_name || "")}</td>
               <td></td>
               <td></td>
               <td></td>
@@ -299,8 +441,8 @@
 
         return `
           <tr>
-            <td>${clean(person.employee_code)}</td>
-            <td>${person.full_name || row.source_name || ""}</td>
+            <td data-code="${escapeHtml(code)}">${escapeHtml(code)}</td>
+            <td>${escapeHtml(person.full_name || row.source_name || "")}</td>
             <td>${timeText(row.clock_in)}</td>
             <td>${timeText(row.clock_out)}</td>
             <td>${formatSegments(row.segments)}</td>
@@ -683,16 +825,6 @@
     color: inherit !important;
   }
 
-  .daily-export-button-v21 {
-    margin: 10px 0 12px;
-    padding: 10px 14px;
-    border: 0;
-    border-radius: 8px;
-    background: #075f63;
-    color: #ffffff;
-    font-weight: 800;
-    cursor: pointer;
-  }
 </style>
 
 <script>
@@ -830,32 +962,10 @@
     URL.revokeObjectURL(url);
   }
 
-  function ensureExportButtonV21() {
-    const table = dailyTableV21();
-    if (!table || document.querySelector("#daily-export-button-v21")) return;
-
-    const button = document.createElement("button");
-    button.id = "daily-export-button-v21";
-    button.className = "daily-export-button-v21";
-    button.type = "button";
-    button.textContent = "Export daily saved report";
-    button.addEventListener("click", exportDailyReportV21);
-
-    const title = Array.from(document.querySelectorAll("h2,h3,h1")).find((el) =>
-      clean(el.textContent).toLowerCase().includes("daily saved") ||
-      clean(el.textContent).toLowerCase().includes("daily attendance")
-    );
-
-    if (title && title.parentNode) {
-      title.parentNode.insertBefore(button, title.nextSibling);
-    } else {
-      table.parentNode.insertBefore(button, table);
-    }
-  }
-
+  // Staff-facing page: no export button here (this is a read-only view for staff).
+  // Row color-coding (classifyDailyRowsV21) still runs -- that part stays.
   function runDailyExportHighlightV21() {
     classifyDailyRowsV21();
-    ensureExportButtonV21();
   }
 
   document.addEventListener("DOMContentLoaded", runDailyExportHighlightV21);
@@ -874,210 +984,6 @@
 })();
 </script>
 <!-- daily-attendance-export-highlight-v21-end -->
-<!-- daily-attendance-pdf-export-v22-start -->
-<style>
-  .daily-pdf-button-v22 {
-    margin: 10px 8px 12px 0;
-    padding: 10px 14px;
-    border: 0;
-    border-radius: 8px;
-    background: #7f1d1d;
-    color: #ffffff;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  @media print {
-    body * {
-      visibility: hidden !important;
-    }
-
-    #daily-pdf-print-area-v22,
-    #daily-pdf-print-area-v22 * {
-      visibility: visible !important;
-    }
-
-    #daily-pdf-print-area-v22 {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100% !important;
-      padding: 12mm !important;
-      background: white !important;
-      color: #10242b !important;
-      font-family: Arial, sans-serif !important;
-      print-color-adjust: exact !important;
-      -webkit-print-color-adjust: exact !important;
-    }
-
-    #daily-pdf-print-area-v22 h1 {
-      font-size: 20px !important;
-      margin: 0 0 4px !important;
-    }
-
-    #daily-pdf-print-area-v22 p {
-      font-size: 11px !important;
-      margin: 0 0 10px !important;
-    }
-
-    #daily-pdf-print-area-v22 table {
-      width: 100% !important;
-      border-collapse: collapse !important;
-      font-size: 9px !important;
-    }
-
-    #daily-pdf-print-area-v22 th,
-    #daily-pdf-print-area-v22 td {
-      border: 1px solid #cfe3e3 !important;
-      padding: 5px !important;
-      text-align: left !important;
-      vertical-align: top !important;
-    }
-
-    #daily-pdf-print-area-v22 th {
-      background: #075f63 !important;
-      color: white !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-off td {
-      background: #e0f2fe !important;
-      color: #075985 !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-half td {
-      background: #fef3c7 !important;
-      color: #92400e !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-short td {
-      background: #dbeafe !important;
-      color: #075985 !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-leave td {
-      background: #ede9fe !important;
-      color: #5b21b6 !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-unmarked td,
-    #daily-pdf-print-area-v22 tr.daily-status-error td {
-      background: #fee2e2 !important;
-      color: #991b1b !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-nofingerprint td {
-      background: #7f1d1d !important;
-      color: white !important;
-    }
-
-    #daily-pdf-print-area-v22 tr.daily-status-under10 td {
-      background: #fff1f2 !important;
-      color: #7f1d1d !important;
-    }
-  }
-</style>
-
-<script>
-(function () {
-  function clean(value) {
-    return String(value || "").trim();
-  }
-
-  function dailyTableV22() {
-    const bodies = [
-      document.querySelector("#saved-attendance-detail-body"),
-      document.querySelector("#staff-daily-attendance-body"),
-      document.querySelector("#body")
-    ].filter(Boolean);
-
-    for (const body of bodies) {
-      const table = body.closest("table");
-      if (table) return table;
-    }
-
-    return null;
-  }
-
-  function selectedDateV22() {
-    return (
-      document.querySelector("#saved-attendance-date")?.value ||
-      document.querySelector("#staff-daily-attendance-date")?.value ||
-      document.querySelector("#attendance-date")?.value ||
-      new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-    );
-  }
-
-  function exportDailyPdfV22() {
-    const table = dailyTableV22();
-    if (!table) {
-      alert("Daily saved report table not found.");
-      return;
-    }
-
-    document.querySelector("#daily-pdf-print-area-v22")?.remove();
-
-    const area = document.createElement("section");
-    area.id = "daily-pdf-print-area-v22";
-
-    const date = selectedDateV22();
-    const clonedTable = table.cloneNode(true);
-
-    area.innerHTML = `
-      <h1>StaffSync Daily Saved Attendance Report</h1>
-      <p>Beach & Bliss Mirissa | Date: ${date}</p>
-    `;
-
-    area.appendChild(clonedTable);
-    document.body.appendChild(area);
-
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => area.remove(), 1500);
-    }, 200);
-  }
-
-  function ensurePdfButtonV22() {
-    if (document.querySelector("#daily-pdf-button-v22")) return;
-
-    const table = dailyTableV22();
-    if (!table) return;
-
-    document.querySelector("#daily-export-button-v21")?.remove();
-
-    const button = document.createElement("button");
-    button.id = "daily-pdf-button-v22";
-    button.className = "daily-pdf-button-v22";
-    button.type = "button";
-    button.textContent = "Export PDF report";
-    button.addEventListener("click", exportDailyPdfV22);
-
-    const title = Array.from(document.querySelectorAll("h1,h2,h3")).find((el) =>
-      clean(el.textContent).toLowerCase().includes("daily")
-    );
-
-    if (title && title.parentNode) {
-      title.parentNode.insertBefore(button, title.nextSibling);
-    } else {
-      table.parentNode.insertBefore(button, table);
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", ensurePdfButtonV22);
-  document.addEventListener("change", function () {
-    setTimeout(ensurePdfButtonV22, 500);
-    setTimeout(ensurePdfButtonV22, 1500);
-  });
-  document.addEventListener("click", function () {
-    setTimeout(ensurePdfButtonV22, 500);
-    setTimeout(ensurePdfButtonV22, 1500);
-  });
-
-  setTimeout(ensurePdfButtonV22, 800);
-  setTimeout(ensurePdfButtonV22, 1800);
-  setInterval(ensurePdfButtonV22, 3000);
-})();
-</script>
-<!-- daily-attendance-pdf-export-v22-end -->
 </body>
 </html>
 
