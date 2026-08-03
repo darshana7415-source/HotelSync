@@ -1801,8 +1801,220 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- attendance-daily-highlight-v17-end -->
+<!-- attendance-common-unmarked-rule-v19-start -->
+<style>
+  .att-unmarked {
+    color: #991b1b !important;
+    background: #fee2e2 !important;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-block;
+    font-weight: 800;
+  }
+
+  tr.att-unmarked-row td {
+    background: #fee2e2 !important;
+    color: #7f1d1d !important;
+  }
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function normalizedHeaders(table) {
+    return Array.from(table.querySelectorAll("thead th")).map((th) =>
+      clean(th.textContent).toLowerCase().replace(/[^a-z0-9]/g, "")
+    );
+  }
+
+  function selectedUploadDateV19() {
+    return (
+      document.querySelector("#attendance-upload-date-v16")?.value ||
+      localStorage.getItem("staffsync.lastAttendanceUploadDate") ||
+      new Date().toISOString().slice(0, 10)
+    );
+  }
+
+  function commonAttendanceStatusV19(rowText, clockIn, clockOut, segments, totalText) {
+    const text = clean(rowText).toUpperCase();
+
+    if (text.includes("SHORT LEAVE")) return "SHORT LEAVE";
+    if (text.includes("HALF DAY")) return "HALF DAY";
+    if (text.includes("LEAVE")) return "LEAVE";
+    if (text.includes("OFF")) return "OFF";
+
+    if (
+      text.includes("UNMARKED") ||
+      text.includes("#VALUE") ||
+      text.includes("STARTING DATE") ||
+      text.includes("ERROR")
+    ) {
+      return "UNMARKED";
+    }
+
+    const hasIn = Boolean(clean(clockIn));
+    const hasOut = Boolean(clean(clockOut));
+    const hasSegments = Boolean(clean(segments));
+    const total = clean(totalText);
+
+    if ((hasIn && !hasOut) || (!hasIn && hasOut)) return "UNMARKED";
+    if ((hasIn || hasOut) && !hasSegments) return "UNMARKED";
+    if (total.includes("#VALUE")) return "UNMARKED";
+
+    return "";
+  }
+
+  function forcePreviewDateAndStatusV19() {
+    const uploadDate = selectedUploadDateV19();
+
+    document.querySelectorAll("table").forEach((table) => {
+      const headers = normalizedHeaders(table);
+      const dateIndex = headers.indexOf("date");
+      const clockInIndex = headers.indexOf("clockin");
+      const clockOutIndex = headers.indexOf("clockout");
+      const segmentsIndex = headers.indexOf("segments");
+      const totalIndex = headers.indexOf("total") >= 0 ? headers.indexOf("total") : headers.indexOf("totalhours");
+      const statusIndex = headers.indexOf("status");
+
+      if (dateIndex < 0 && statusIndex < 0) return;
+
+      table.querySelectorAll("tbody tr").forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        const rowText = row.textContent || "";
+
+        if (dateIndex >= 0 && cells[dateIndex]) {
+          cells[dateIndex].textContent = uploadDate;
+        }
+
+        if (statusIndex >= 0 && cells[statusIndex]) {
+          const common = commonAttendanceStatusV19(
+            rowText,
+            cells[clockInIndex]?.textContent,
+            cells[clockOutIndex]?.textContent,
+            cells[segmentsIndex]?.textContent,
+            cells[totalIndex]?.textContent
+          );
+
+          if (common === "UNMARKED") {
+            cells[statusIndex].innerHTML = '<span class="att-unmarked">UNMARKED</span>';
+            row.classList.add("att-unmarked-row");
+          } else if (common) {
+            cells[statusIndex].innerHTML = `<strong>${common}</strong>`;
+          }
+        }
+      });
+    });
+  }
+
+  function patchFetchSaveUnmarkedV19() {
+    if (window.staffsyncUnmarkedFetchPatchedV19) return;
+    window.staffsyncUnmarkedFetchPatchedV19 = true;
+
+    const originalFetch = window.fetch;
+
+    window.fetch = async function (url, options) {
+      try {
+        const textUrl = String(url || "");
+        const isAttendanceSave =
+          textUrl.includes("/rest/v1/attendance_imports") &&
+          options &&
+          String(options.method || "").toUpperCase() === "POST" &&
+          options.body;
+
+        if (isAttendanceSave) {
+          const rows = JSON.parse(options.body);
+
+          if (Array.isArray(rows)) {
+            rows.forEach((item) => {
+              const rowText = `${item.source_name || ""} ${JSON.stringify(item.segments || [])}`;
+              const hasIn = Boolean(item.clock_in);
+              const hasOut = Boolean(item.clock_out);
+              const hasSegments = Array.isArray(item.segments) ? item.segments.length > 0 : false;
+
+              const source = clean(item.source_name).toUpperCase();
+
+              if (
+                !source.includes("LEAVE") &&
+                !source.includes("HALF DAY") &&
+                !source.includes("SHORT LEAVE") &&
+                !source.includes("OFF")
+              ) {
+                if (
+                  source.includes("UNMARKED") ||
+                  source.includes("#VALUE") ||
+                  source.includes("ERROR") ||
+                  source.includes("STARTING DATE") ||
+                  (hasIn && !hasOut) ||
+                  (!hasIn && hasOut) ||
+                  ((hasIn || hasOut) && !hasSegments)
+                ) {
+                  item.source_name = item.source_name && item.source_name.includes("UNMARKED")
+                    ? item.source_name
+                    : `UNMARKED - ${item.source_name || "Attendance row"}`;
+                  item.clock_out = null;
+                  item.segments = [];
+                  item.total_minutes = 0;
+                }
+              }
+            });
+
+            options.body = JSON.stringify(rows);
+          }
+        }
+      } catch {}
+
+      return originalFetch.apply(this, arguments);
+    };
+  }
+
+  function patchSavedReportUnmarkedV19() {
+    document.querySelectorAll("table tbody tr").forEach((row) => {
+      const text = clean(row.textContent).toUpperCase();
+      if (!text.includes("UNMARKED")) return;
+
+      row.classList.add("att-unmarked-row");
+
+      row.querySelectorAll("td, span, strong").forEach((el) => {
+        if (clean(el.textContent).toUpperCase() === "UNMARKED") {
+          el.classList.add("att-unmarked");
+        }
+      });
+    });
+  }
+
+  patchFetchSaveUnmarkedV19();
+
+  document.addEventListener("change", function () {
+    setTimeout(forcePreviewDateAndStatusV19, 300);
+    setTimeout(patchSavedReportUnmarkedV19, 700);
+  });
+
+  document.addEventListener("click", function () {
+    setTimeout(forcePreviewDateAndStatusV19, 300);
+    setTimeout(patchSavedReportUnmarkedV19, 700);
+    setTimeout(forcePreviewDateAndStatusV19, 1500);
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    forcePreviewDateAndStatusV19();
+    patchSavedReportUnmarkedV19();
+  });
+
+  setTimeout(forcePreviewDateAndStatusV19, 800);
+  setTimeout(patchSavedReportUnmarkedV19, 1200);
+  setInterval(function () {
+    forcePreviewDateAndStatusV19();
+    patchSavedReportUnmarkedV19();
+  }, 2500);
+})();
+</script>
+<!-- attendance-common-unmarked-rule-v19-end -->
 </body>
 </html>
+
 
 
 
