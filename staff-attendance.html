@@ -617,8 +617,249 @@
 })();
 </script>
 <!-- attendance-common-unmarked-rule-v19-end -->
+<!-- daily-attendance-export-highlight-v21-start -->
+<style>
+  tr.daily-status-off td {
+    background: #e0f2fe !important;
+    color: #075985 !important;
+  }
+
+  tr.daily-status-half td {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+  }
+
+  tr.daily-status-short td {
+    background: #dbeafe !important;
+    color: #075985 !important;
+  }
+
+  tr.daily-status-leave td {
+    background: #ede9fe !important;
+    color: #5b21b6 !important;
+  }
+
+  tr.daily-status-unmarked td,
+  tr.daily-status-error td {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+
+  tr.daily-status-nofingerprint td {
+    background: #7f1d1d !important;
+    color: #ffffff !important;
+  }
+
+  tr.daily-status-under10 td {
+    background: #fff1f2 !important;
+    color: #7f1d1d !important;
+  }
+
+  tr.daily-status-nofingerprint td *,
+  tr.daily-status-off td *,
+  tr.daily-status-half td *,
+  tr.daily-status-short td *,
+  tr.daily-status-leave td *,
+  tr.daily-status-unmarked td *,
+  tr.daily-status-error td *,
+  tr.daily-status-under10 td * {
+    color: inherit !important;
+  }
+
+  .daily-export-button-v21 {
+    margin: 10px 0 12px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #075f63;
+    color: #ffffff;
+    font-weight: 800;
+    cursor: pointer;
+  }
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function norm(value) {
+    return clean(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function minutesFromText(value) {
+    const match = clean(value).match(/^(\d{1,3}):(\d{2})$/);
+    if (!match) return 0;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  function dailyTableV21() {
+    const bodies = [
+      document.querySelector("#saved-attendance-detail-body"),
+      document.querySelector("#staff-daily-attendance-body"),
+      document.querySelector("#body")
+    ].filter(Boolean);
+
+    for (const body of bodies) {
+      const table = body.closest("table");
+      if (!table) continue;
+
+      const headers = Array.from(table.querySelectorAll("thead th")).map((th) => norm(th.textContent));
+      if (
+        headers.includes("code") &&
+        headers.includes("name") &&
+        headers.includes("clockin") &&
+        headers.includes("clockout") &&
+        headers.includes("segments") &&
+        headers.includes("total") &&
+        headers.includes("status")
+      ) {
+        return table;
+      }
+    }
+
+    return null;
+  }
+
+  function classifyDailyRowsV21() {
+    const table = dailyTableV21();
+    if (!table) return;
+
+    const headers = Array.from(table.querySelectorAll("thead th")).map((th) => norm(th.textContent));
+    const codeIndex = headers.indexOf("code");
+    const totalIndex = headers.indexOf("total");
+    const statusIndex = headers.indexOf("status");
+
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      row.classList.remove(
+        "daily-status-off",
+        "daily-status-half",
+        "daily-status-short",
+        "daily-status-leave",
+        "daily-status-unmarked",
+        "daily-status-error",
+        "daily-status-nofingerprint",
+        "daily-status-under10"
+      );
+
+      const cells = row.querySelectorAll("td");
+      const code = clean(cells[codeIndex]?.textContent);
+      const totalMinutes = minutesFromText(cells[totalIndex]?.textContent);
+      const status = clean(cells[statusIndex]?.textContent).toUpperCase();
+
+      if (status.includes("SHORT LEAVE")) {
+        row.classList.add("daily-status-short");
+      } else if (status.includes("HALF DAY")) {
+        row.classList.add("daily-status-half");
+      } else if (status === "LEAVE" || status.includes(" LEAVE")) {
+        row.classList.add("daily-status-leave");
+      } else if (status.includes("OFF")) {
+        row.classList.add("daily-status-off");
+      } else if (status.includes("UNMARKED")) {
+        row.classList.add("daily-status-unmarked");
+      } else if (status.includes("ERROR")) {
+        row.classList.add("daily-status-error");
+      } else if (status.includes("NO FINGERPRINT") || status.includes("MISSING")) {
+        if (code !== "01") row.classList.add("daily-status-nofingerprint");
+      } else if (totalMinutes > 0 && totalMinutes < 600) {
+        row.classList.add("daily-status-under10");
+      }
+    });
+  }
+
+  function csvEscape(value) {
+    const text = clean(value).replace(/\s+/g, " ");
+    if (/[",\r\n]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  function selectedDailyDateV21() {
+    return (
+      document.querySelector("#saved-attendance-date")?.value ||
+      document.querySelector("#staff-daily-attendance-date")?.value ||
+      document.querySelector("#attendance-date")?.value ||
+      new Date().toISOString().slice(0, 10)
+    );
+  }
+
+  function exportDailyReportV21() {
+    const table = dailyTableV21();
+    if (!table) {
+      alert("Daily saved report table not found.");
+      return;
+    }
+
+    const rows = [];
+    const headerCells = Array.from(table.querySelectorAll("thead th"));
+    rows.push(headerCells.map((cell) => csvEscape(cell.textContent)).join(","));
+
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      const cells = Array.from(row.querySelectorAll("td"));
+      rows.push(cells.map((cell) => csvEscape(cell.textContent)).join(","));
+    });
+
+    const csv = rows.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const date = selectedDailyDateV21();
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `staffsync-daily-attendance-${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function ensureExportButtonV21() {
+    const table = dailyTableV21();
+    if (!table || document.querySelector("#daily-export-button-v21")) return;
+
+    const button = document.createElement("button");
+    button.id = "daily-export-button-v21";
+    button.className = "daily-export-button-v21";
+    button.type = "button";
+    button.textContent = "Export daily saved report";
+    button.addEventListener("click", exportDailyReportV21);
+
+    const title = Array.from(document.querySelectorAll("h2,h3,h1")).find((el) =>
+      clean(el.textContent).toLowerCase().includes("daily saved") ||
+      clean(el.textContent).toLowerCase().includes("daily attendance")
+    );
+
+    if (title && title.parentNode) {
+      title.parentNode.insertBefore(button, title.nextSibling);
+    } else {
+      table.parentNode.insertBefore(button, table);
+    }
+  }
+
+  function runDailyExportHighlightV21() {
+    classifyDailyRowsV21();
+    ensureExportButtonV21();
+  }
+
+  document.addEventListener("DOMContentLoaded", runDailyExportHighlightV21);
+  document.addEventListener("change", function () {
+    setTimeout(runDailyExportHighlightV21, 400);
+    setTimeout(runDailyExportHighlightV21, 1200);
+  });
+  document.addEventListener("click", function () {
+    setTimeout(runDailyExportHighlightV21, 400);
+    setTimeout(runDailyExportHighlightV21, 1200);
+  });
+
+  setTimeout(runDailyExportHighlightV21, 800);
+  setTimeout(runDailyExportHighlightV21, 1800);
+  setInterval(runDailyExportHighlightV21, 3000);
+})();
+</script>
+<!-- daily-attendance-export-highlight-v21-end -->
 </body>
 </html>
+
 
 
 

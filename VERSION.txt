@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - single attendance date save and common unmarked rule.
+StaffSync Beach & Bliss Mirissa Version 1.0 - daily attendance report highlighted and export ready.
