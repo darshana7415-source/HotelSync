@@ -144,7 +144,13 @@
         border-radius: 0;
       }
 
-      table, thead, tbody, tr, td { display: block; width: 100%; }
+      table, thead, tbody, tr, td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
       thead { display: none; }
 
       tbody tr {
