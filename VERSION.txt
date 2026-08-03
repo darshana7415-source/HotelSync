@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - daily attendance report highlighted and export ready.
+StaffSync Beach & Bliss Mirissa Version 1.0 - daily attendance PDF export with color coding.

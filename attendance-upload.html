@@ -2468,8 +2468,213 @@ document.addEventListener("click",e=>{
 })();
 </script>
 <!-- daily-attendance-export-highlight-v21-end -->
+<!-- daily-attendance-pdf-export-v22-start -->
+<style>
+  .daily-pdf-button-v22 {
+    margin: 10px 8px 12px 0;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #7f1d1d;
+    color: #ffffff;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  @media print {
+    body * {
+      visibility: hidden !important;
+    }
+
+    #daily-pdf-print-area-v22,
+    #daily-pdf-print-area-v22 * {
+      visibility: visible !important;
+    }
+
+    #daily-pdf-print-area-v22 {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      padding: 12mm !important;
+      background: white !important;
+      color: #10242b !important;
+      font-family: Arial, sans-serif !important;
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+
+    #daily-pdf-print-area-v22 h1 {
+      font-size: 20px !important;
+      margin: 0 0 4px !important;
+    }
+
+    #daily-pdf-print-area-v22 p {
+      font-size: 11px !important;
+      margin: 0 0 10px !important;
+    }
+
+    #daily-pdf-print-area-v22 table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      font-size: 9px !important;
+    }
+
+    #daily-pdf-print-area-v22 th,
+    #daily-pdf-print-area-v22 td {
+      border: 1px solid #cfe3e3 !important;
+      padding: 5px !important;
+      text-align: left !important;
+      vertical-align: top !important;
+    }
+
+    #daily-pdf-print-area-v22 th {
+      background: #075f63 !important;
+      color: white !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-off td {
+      background: #e0f2fe !important;
+      color: #075985 !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-half td {
+      background: #fef3c7 !important;
+      color: #92400e !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-short td {
+      background: #dbeafe !important;
+      color: #075985 !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-leave td {
+      background: #ede9fe !important;
+      color: #5b21b6 !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-unmarked td,
+    #daily-pdf-print-area-v22 tr.daily-status-error td {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-nofingerprint td {
+      background: #7f1d1d !important;
+      color: white !important;
+    }
+
+    #daily-pdf-print-area-v22 tr.daily-status-under10 td {
+      background: #fff1f2 !important;
+      color: #7f1d1d !important;
+    }
+  }
+</style>
+
+<script>
+(function () {
+  function clean(value) {
+    return String(value || "").trim();
+  }
+
+  function dailyTableV22() {
+    const bodies = [
+      document.querySelector("#saved-attendance-detail-body"),
+      document.querySelector("#staff-daily-attendance-body"),
+      document.querySelector("#body")
+    ].filter(Boolean);
+
+    for (const body of bodies) {
+      const table = body.closest("table");
+      if (table) return table;
+    }
+
+    return null;
+  }
+
+  function selectedDateV22() {
+    return (
+      document.querySelector("#saved-attendance-date")?.value ||
+      document.querySelector("#staff-daily-attendance-date")?.value ||
+      document.querySelector("#attendance-date")?.value ||
+      new Date().toISOString().slice(0, 10)
+    );
+  }
+
+  function exportDailyPdfV22() {
+    const table = dailyTableV22();
+    if (!table) {
+      alert("Daily saved report table not found.");
+      return;
+    }
+
+    document.querySelector("#daily-pdf-print-area-v22")?.remove();
+
+    const area = document.createElement("section");
+    area.id = "daily-pdf-print-area-v22";
+
+    const date = selectedDateV22();
+    const clonedTable = table.cloneNode(true);
+
+    area.innerHTML = `
+      <h1>StaffSync Daily Saved Attendance Report</h1>
+      <p>Beach & Bliss Mirissa | Date: ${date}</p>
+    `;
+
+    area.appendChild(clonedTable);
+    document.body.appendChild(area);
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => area.remove(), 1500);
+    }, 200);
+  }
+
+  function ensurePdfButtonV22() {
+    if (document.querySelector("#daily-pdf-button-v22")) return;
+
+    const table = dailyTableV22();
+    if (!table) return;
+
+    document.querySelector("#daily-export-button-v21")?.remove();
+
+    const button = document.createElement("button");
+    button.id = "daily-pdf-button-v22";
+    button.className = "daily-pdf-button-v22";
+    button.type = "button";
+    button.textContent = "Export PDF report";
+    button.addEventListener("click", exportDailyPdfV22);
+
+    const title = Array.from(document.querySelectorAll("h1,h2,h3")).find((el) =>
+      clean(el.textContent).toLowerCase().includes("daily")
+    );
+
+    if (title && title.parentNode) {
+      title.parentNode.insertBefore(button, title.nextSibling);
+    } else {
+      table.parentNode.insertBefore(button, table);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", ensurePdfButtonV22);
+  document.addEventListener("change", function () {
+    setTimeout(ensurePdfButtonV22, 500);
+    setTimeout(ensurePdfButtonV22, 1500);
+  });
+  document.addEventListener("click", function () {
+    setTimeout(ensurePdfButtonV22, 500);
+    setTimeout(ensurePdfButtonV22, 1500);
+  });
+
+  setTimeout(ensurePdfButtonV22, 800);
+  setTimeout(ensurePdfButtonV22, 1800);
+  setInterval(ensurePdfButtonV22, 3000);
+})();
+</script>
+<!-- daily-attendance-pdf-export-v22-end -->
 </body>
 </html>
+
 
 
 
