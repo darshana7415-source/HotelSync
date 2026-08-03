@@ -73,164 +73,168 @@ exports.handler = async function handler(event) {
     return json(400, { ok: false, message: "Invalid request body." });
   }
 
-  if (payload.action === "adminResetPassword" || payload.action === "adminSetPassword") {
-    const admin = await authenticateAdminRequest(event);
-    if (!admin) {
-      return json(401, { ok: false, message: "Not authorized." });
+  try {
+    if (payload.action === "adminResetPassword" || payload.action === "adminSetPassword") {
+      const admin = await authenticateAdminRequest(event);
+      if (!admin) {
+        return json(401, { ok: false, message: "Not authorized." });
+      }
+
+      const target = await findActiveStaffByEmployeeCode(payload.employeeCode);
+      if (!target) {
+        return json(404, { ok: false, message: "Employee code not found." });
+      }
+
+      if (payload.action === "adminSetPassword") {
+        const validationError = validateNewPassword(payload.newPassword);
+        if (validationError) {
+          return json(200, { ok: false, message: validationError });
+        }
+        await upsertRow(
+          "staff_login_passwords",
+          {
+            staff_profile_id: target.id,
+            password_hash: hashPassword(payload.newPassword),
+            reset_required: false,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: "staff_profile_id" }
+        );
+        return json(200, { ok: true, employeeCode: target.employee_code, fullName: target.full_name });
+      }
+
+      const tempPassword = generateTempPassword();
+      await upsertRow(
+        "staff_login_passwords",
+        {
+          staff_profile_id: target.id,
+          password_hash: hashPassword(tempPassword),
+          reset_required: true,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "staff_profile_id" }
+      );
+
+      return json(200, {
+        ok: true,
+        employeeCode: target.employee_code,
+        fullName: target.full_name,
+        tempPassword
+      });
     }
 
-    const target = await findActiveStaffByEmployeeCode(payload.employeeCode);
-    if (!target) {
-      return json(404, { ok: false, message: "Employee code not found." });
+    if (payload.action !== "login") {
+      return json(400, { ok: false, message: "Unknown action." });
     }
 
-    if (payload.action === "adminSetPassword") {
-      const validationError = validateNewPassword(payload.newPassword);
+    const { employeeCode, password, newPassword } = payload;
+    if (!employeeCode || !password) {
+      return json(400, { ok: false, message: "Employee code and password are required." });
+    }
+
+    const staff = await findActiveStaffByEmployeeCode(employeeCode);
+    if (!staff) {
+      return json(200, { ok: false, message: "Employee code not found." });
+    }
+
+    const normalizedCode = normalizeEmployeeCode(staff.employee_code);
+    const passwordRow = await selectOne("staff_login_passwords", {
+      select: "staff_profile_id,password_hash,reset_required",
+      eq: { staff_profile_id: staff.id }
+    });
+
+    if (!passwordRow) {
+      return json(200, {
+        ok: false,
+        message: "This account has no password set up yet. Ask an admin to reset your password."
+      });
+    }
+
+    const { ok: passwordOk, isLegacy } = verifyPassword({
+      password,
+      employeeCode: normalizedCode,
+      stored: passwordRow.password_hash
+    });
+
+    if (!passwordOk) {
+      return json(200, { ok: false, message: "Incorrect password." });
+    }
+
+    if (passwordRow.reset_required) {
+      if (!newPassword) {
+        return json(200, {
+          ok: false,
+          needsNewPassword: true,
+          message: "Enter a new private password to finish setting up your account."
+        });
+      }
+      const validationError = validateNewPassword(newPassword);
       if (validationError) {
         return json(200, { ok: false, message: validationError });
       }
       await upsertRow(
         "staff_login_passwords",
         {
-          staff_profile_id: target.id,
-          password_hash: hashPassword(payload.newPassword),
+          staff_profile_id: staff.id,
+          password_hash: hashPassword(newPassword),
           reset_required: false,
           updated_at: new Date().toISOString()
         },
         { onConflict: "staff_profile_id" }
       );
-      return json(200, { ok: true, employeeCode: target.employee_code, fullName: target.full_name });
+    } else if (newPassword) {
+      // Voluntary password change alongside a normal login.
+      const validationError = validateNewPassword(newPassword);
+      if (validationError) {
+        return json(200, { ok: false, message: validationError });
+      }
+      await upsertRow(
+        "staff_login_passwords",
+        {
+          staff_profile_id: staff.id,
+          password_hash: hashPassword(newPassword),
+          reset_required: false,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "staff_profile_id" }
+      );
+    } else if (isLegacy) {
+      // Passive upgrade: the stored hash was in the old client-side sha256 format. Now that we've
+      // verified it server-side, re-save it in the stronger scrypt format without bothering the user.
+      await upsertRow(
+        "staff_login_passwords",
+        {
+          staff_profile_id: staff.id,
+          password_hash: hashPassword(password),
+          reset_required: false,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "staff_profile_id" }
+      );
     }
 
-    const tempPassword = generateTempPassword();
-    await upsertRow(
-      "staff_login_passwords",
-      {
-        staff_profile_id: target.id,
-        password_hash: hashPassword(tempPassword),
-        reset_required: true,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "staff_profile_id" }
-    );
-
-    return json(200, {
-      ok: true,
-      employeeCode: target.employee_code,
-      fullName: target.full_name,
-      tempPassword
-    });
-  }
-
-  if (payload.action !== "login") {
-    return json(400, { ok: false, message: "Unknown action." });
-  }
-
-  const { employeeCode, password, newPassword } = payload;
-  if (!employeeCode || !password) {
-    return json(400, { ok: false, message: "Employee code and password are required." });
-  }
-
-  const staff = await findActiveStaffByEmployeeCode(employeeCode);
-  if (!staff) {
-    return json(200, { ok: false, message: "Employee code not found." });
-  }
-
-  const normalizedCode = normalizeEmployeeCode(staff.employee_code);
-  const passwordRow = await selectOne("staff_login_passwords", {
-    select: "staff_profile_id,password_hash,reset_required",
-    eq: { staff_profile_id: staff.id }
-  });
-
-  if (!passwordRow) {
-    return json(200, {
-      ok: false,
-      message: "This account has no password set up yet. Ask an admin to reset your password."
-    });
-  }
-
-  const { ok: passwordOk, isLegacy } = verifyPassword({
-    password,
-    employeeCode: normalizedCode,
-    stored: passwordRow.password_hash
-  });
-
-  if (!passwordOk) {
-    return json(200, { ok: false, message: "Incorrect password." });
-  }
-
-  if (passwordRow.reset_required) {
-    if (!newPassword) {
-      return json(200, {
-        ok: false,
-        needsNewPassword: true,
-        message: "Enter a new private password to finish setting up your account."
-      });
-    }
-    const validationError = validateNewPassword(newPassword);
-    if (validationError) {
-      return json(200, { ok: false, message: validationError });
-    }
-    await upsertRow(
-      "staff_login_passwords",
-      {
-        staff_profile_id: staff.id,
-        password_hash: hashPassword(newPassword),
-        reset_required: false,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "staff_profile_id" }
-    );
-  } else if (newPassword) {
-    // Voluntary password change alongside a normal login.
-    const validationError = validateNewPassword(newPassword);
-    if (validationError) {
-      return json(200, { ok: false, message: validationError });
-    }
-    await upsertRow(
-      "staff_login_passwords",
-      {
-        staff_profile_id: staff.id,
-        password_hash: hashPassword(newPassword),
-        reset_required: false,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "staff_profile_id" }
-    );
-  } else if (isLegacy) {
-    // Passive upgrade: the stored hash was in the old client-side sha256 format. Now that we've
-    // verified it server-side, re-save it in the stronger scrypt format without bothering the user.
-    await upsertRow(
-      "staff_login_passwords",
-      {
-        staff_profile_id: staff.id,
-        password_hash: hashPassword(password),
-        reset_required: false,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: "staff_profile_id" }
-    );
-  }
-
-  const role = normalizeRole(staff.app_users?.role);
-  const token = signToken({
-    staffProfileId: staff.id,
-    appUserId: staff.app_users?.id || null,
-    employeeCode: staff.employee_code,
-    hotelId: staff.hotel_id,
-    role
-  });
-
-  return json(200, {
-    ok: true,
-    token,
-    changedPassword: Boolean(newPassword),
-    profile: {
+    const role = normalizeRole(staff.app_users?.role);
+    const token = signToken({
       staffProfileId: staff.id,
       appUserId: staff.app_users?.id || null,
       employeeCode: staff.employee_code,
-      fullName: staff.full_name,
+      hotelId: staff.hotel_id,
       role
-    }
-  });
+    });
+
+    return json(200, {
+      ok: true,
+      token,
+      changedPassword: Boolean(newPassword),
+      profile: {
+        staffProfileId: staff.id,
+        appUserId: staff.app_users?.id || null,
+        employeeCode: staff.employee_code,
+        fullName: staff.full_name,
+        role
+      }
+    });
+  } catch (error) {
+    return json(500, { ok: false, message: error.message || "Login request failed." });
+  }
 };
