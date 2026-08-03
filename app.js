@@ -167,7 +167,7 @@ let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "
 let currentCloudEmail = sessionStorage.getItem("staffsync.cloudEmail") || "";
 let currentAppUserId = sessionStorage.getItem("staffsync.appUserId") || "";
 let staffActionNotice = sessionStorage.getItem("staffsync.staffActionNotice") || "";
-let adminDashboardDate = localStorage.getItem("staffsync.adminDashboardDate") || new Date().toISOString().slice(0, 10);
+let adminDashboardDate = localStorage.getItem("staffsync.adminDashboardDate") || todayLocalKey();
 let leaveTypes = [];
 let locationPingTimer = null;
 let locationWatchId = null;
@@ -223,7 +223,7 @@ function init() {
   applyMonthEndLeaveDashboardCleanup();
   populateFilters();
   if (locationHistoryDate && !locationHistoryDate.value) {
-    locationHistoryDate.value = new Date().toISOString().slice(0, 10);
+    locationHistoryDate.value = todayLocalKey();
   }
   applyHotelMapImage();
   setDefaultShiftPlannerValues();
@@ -401,7 +401,7 @@ function lockStaffOnlyView() {
 }
 
 function renderMetrics() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   document.querySelector("#on-duty-count").textContent = staff.filter((person) => isOnShift(person)).length;
   document.querySelector("#late-count").textContent = staff.filter((person) => person.status === "On break").length;
   document.querySelector("#pending-leave-count").textContent = leaveRequests.filter((request) => request.status === "Pending").length;
@@ -809,7 +809,7 @@ function renderLeaveCoverage() {
   if (!coverageDate || !coverageGrid) return;
 
   if (!coverageDate.value) {
-    coverageDate.value = new Date().toISOString().slice(0, 10);
+    coverageDate.value = todayLocalKey();
   }
 
   const selectedDate = coverageDate.value;
@@ -836,7 +836,7 @@ function renderLeavePressure() {
   if (!leavePressureDate || !leavePressureThreshold || !leavePressureList) return;
 
   if (!leavePressureDate.value) {
-    leavePressureDate.value = coverageDate?.value || new Date().toISOString().slice(0, 10);
+    leavePressureDate.value = coverageDate?.value || todayLocalKey();
   }
 
   const selectedDate = leavePressureDate.value;
@@ -886,7 +886,7 @@ function renderManagerBoard() {
   if (!managerBoardDate || !managerBoard) return;
 
   if (!managerBoardDate.value) {
-    managerBoardDate.value = new Date().toISOString().slice(0, 10);
+    managerBoardDate.value = todayLocalKey();
   }
 
   const selectedDate = managerBoardDate.value;
@@ -932,7 +932,7 @@ function renderAttendanceReport() {
   if (!attendanceReportDate || !attendanceReportPeriod || !attendanceSummaryGrid || !attendanceReportList) return;
 
   if (!attendanceReportDate.value) {
-    attendanceReportDate.value = new Date().toISOString().slice(0, 10);
+    attendanceReportDate.value = todayLocalKey();
   }
 
   const records = attendanceReportRecords.length
@@ -1051,7 +1051,7 @@ function renderDailyRoster() {
   if (!dailyRosterDate || !dailyRosterBody) return;
 
   if (!dailyRosterDate.value) {
-    dailyRosterDate.value = new Date().toISOString().slice(0, 10);
+    dailyRosterDate.value = todayLocalKey();
   }
 
   const dateValue = dailyRosterDate.value;
@@ -1215,7 +1215,7 @@ function renderDepartmentCharts() {
 function renderLeaveDepartmentChart() {
   if (!leaveDepartmentChart) return;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   const rows = leaveDepartments.map((department) => {
     const requests = leaveRequests.filter((request) =>
       requestCoversDate(request, today) &&
@@ -1352,7 +1352,7 @@ function clearEditStaffForm() {
 }
 
 function renderNotifications() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   const pendingLeave = leaveRequests.filter((request) => request.status === "Pending");
   const approvedToday = leaveRequests.filter((request) =>
     request.status === "Approved" && request.from <= today && request.to >= today
@@ -1635,7 +1635,7 @@ function renderSession() {
 }
 
 function renderAdminDashboardCard() {
-  const selectedDate = adminDashboardDate || new Date().toISOString().slice(0, 10);
+  const selectedDate = adminDashboardDate || todayLocalKey();
   const onDuty = sortStaffByEmployeeCode(staff.filter((person) => isOnShift(person)));
   const onBreak = sortStaffByEmployeeCode(staff.filter((person) => person.status === "On break"));
   const clockedOut = sortStaffByEmployeeCode(staff.filter((person) => person.clockOut && !isOnShift(person)));
@@ -1984,7 +1984,7 @@ async function performLiveCheck() {
 async function renderMovementHistory(person) {
   if (!movementList || !person?.cloudId || !isCloudReady()) return;
 
-  const selectedDate = locationHistoryDate?.value || new Date().toISOString().slice(0, 10);
+  const selectedDate = locationHistoryDate?.value || todayLocalKey();
   const since = new Date(`${selectedDate}T00:00:00`);
   const until = new Date(`${selectedDate}T23:59:59`);
   try {
@@ -2015,7 +2015,7 @@ async function renderMovementHistory(person) {
 async function deleteSelectedLocationHistory() {
   if (!liveCheckStaff || !locationHistoryDate) return;
   const person = staff.find((item) => sameId(item.id, liveCheckStaff.value));
-  const selectedDate = locationHistoryDate.value || new Date().toISOString().slice(0, 10);
+  const selectedDate = locationHistoryDate.value || todayLocalKey();
   if (!person?.cloudId || !isCloudReady()) {
     showToast("Cloud location history is not ready for this staff member.");
     return;
@@ -2533,7 +2533,7 @@ function bindEvents() {
   staffCard.addEventListener("change", (event) => {
     const adminDate = event.target.closest("input[data-admin-dashboard-date]");
     if (adminDate) {
-      adminDashboardDate = adminDate.value || new Date().toISOString().slice(0, 10);
+      adminDashboardDate = adminDate.value || todayLocalKey();
       localStorage.setItem("staffsync.adminDashboardDate", adminDashboardDate);
       renderRoleDemo();
       return;
@@ -3093,7 +3093,7 @@ function bindEvents() {
 
   copyTodayRoster?.addEventListener("click", async () => {
     const days = Math.max(1, Number(rosterCopyDays?.value || 1));
-    saveDailyRosterFromTable(new Date().toISOString().slice(0, 10));
+    saveDailyRosterFromTable(todayLocalKey());
     const copied = copyTodayRosterForward(days);
     try {
       await saveDailyRosterRangeToCloud(days);
@@ -3168,7 +3168,7 @@ function bindEvents() {
   });
 
   document.querySelector("#export-report").addEventListener("click", () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocalKey();
     const backup = buildStaffSyncBackup();
     downloadTextFile(`staffsync-backup-${today}.json`, JSON.stringify(backup, null, 2), "application/json");
     showToast("StaffSync backup downloaded.");
@@ -3182,13 +3182,13 @@ function bindEvents() {
   });
 
   exportLeaveReport?.addEventListener("click", () => {
-    const date = coverageDate?.value || new Date().toISOString().slice(0, 10);
+    const date = coverageDate?.value || todayLocalKey();
     downloadTextFile(`staffsync-leave-${date}.csv`, buildLeaveCsvReport());
     showToast("Leave report downloaded.");
   });
 
   exportShiftReport?.addEventListener("click", () => {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = todayLocalKey();
     downloadTextFile(`staffsync-shifts-${date}.csv`, buildShiftCsvReport());
     showToast("Shift report downloaded.");
   });
@@ -4940,14 +4940,14 @@ function normalizeImportTime(value) {
 
 function copyTodayRosterForward(days) {
   const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
+  const todayKey = isoDate(today);
   const source = dailyRosters[todayKey] || buildRosterEntriesForDate(todayKey);
   let copied = 0;
 
   for (let day = 1; day <= days; day += 1) {
     const target = new Date(today);
     target.setDate(today.getDate() + day);
-    dailyRosters[target.toISOString().slice(0, 10)] = structuredClone(source);
+    dailyRosters[isoDate(target)] = structuredClone(source);
     copied += 1;
   }
 
@@ -5209,11 +5209,11 @@ async function notifyShiftPlanSaved(person, dateValue, entry) {
 
 async function notifyDailyRosterRangeSaved(days) {
   const today = new Date();
-  const dates = [today.toISOString().slice(0, 10)];
+  const dates = [isoDate(today)];
   for (let day = 1; day <= days; day += 1) {
     const target = new Date(today);
     target.setDate(today.getDate() + day);
-    dates.push(target.toISOString().slice(0, 10));
+    dates.push(isoDate(target));
   }
 
   for (const dateValue of dates) {
@@ -5223,11 +5223,11 @@ async function notifyDailyRosterRangeSaved(days) {
 
 async function saveDailyRosterRangeToCloud(days) {
   const today = new Date();
-  const dates = [today.toISOString().slice(0, 10)];
+  const dates = [isoDate(today)];
   for (let day = 1; day <= days; day += 1) {
     const target = new Date(today);
     target.setDate(today.getDate() + day);
-    dates.push(target.toISOString().slice(0, 10));
+    dates.push(isoDate(target));
   }
 
   for (const dateValue of dates) {
@@ -5636,8 +5636,8 @@ function formatLeaveUnits(value) {
   return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
-function monthKeyForDate(dateValue = new Date().toISOString().slice(0, 10)) {
-  return String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 7);
+function monthKeyForDate(dateValue = todayLocalKey()) {
+  return String(dateValue || todayLocalKey()).slice(0, 7);
 }
 
 function pad2(value) {
@@ -5703,7 +5703,7 @@ function approvedLeaveUsedInMonth(person, monthKey, excludeRequestId = "") {
     .reduce((sum, request) => sum + leaveUnitsInMonth(request, monthKey), 0);
 }
 
-function monthlyLeaveBalance(person, dateValue = new Date().toISOString().slice(0, 10), excludeRequestId = "") {
+function monthlyLeaveBalance(person, dateValue = todayLocalKey(), excludeRequestId = "") {
   const used = approvedLeaveUsedInMonth(person, monthKeyForDate(dateValue), excludeRequestId);
   return Number(Math.max(0, monthlyLeaveQuota - used).toFixed(2));
 }
@@ -6424,7 +6424,7 @@ function timeFromIso(value) {
 }
 
 function attendanceReportRange() {
-  const selected = new Date(`${attendanceReportDate.value || new Date().toISOString().slice(0, 10)}T00:00:00`);
+  const selected = new Date(`${attendanceReportDate.value || todayLocalKey()}T00:00:00`);
   const period = attendanceReportPeriod?.value || "daily";
 
   if (period === "weekly") {
@@ -6869,8 +6869,8 @@ async function loadCloudDailyRosterData() {
   try {
     const rows = await window.staffSyncDb.getDailyRosters({
       hotelId,
-      startDate: start.toISOString().slice(0, 10),
-      endDate: end.toISOString().slice(0, 10)
+      startDate: isoDate(start),
+      endDate: isoDate(end)
     });
     dailyRosters = mapCloudDailyRosters(rows);
   } catch {
@@ -7008,7 +7008,7 @@ async function loadStaffTargetedActivityLogs({ hotelId, targetUserId }) {
 }
 
 async function loadCloudAttendanceData() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalKey();
   const activeSnapshots = new Map(staff
     .filter((person) => person.clockIn && !person.clockOut)
     .map((person) => [String(person.cloudId || person.id), {
@@ -7086,7 +7086,7 @@ async function loadAttendanceReportForSelectedDate() {
   if (!attendanceReportDate) return;
 
   if (!attendanceReportDate.value) {
-    attendanceReportDate.value = new Date().toISOString().slice(0, 10);
+    attendanceReportDate.value = todayLocalKey();
   }
   const range = attendanceReportRange();
 
@@ -8252,7 +8252,7 @@ function staffsyncAdminThreeDayShiftPageV210() {
     document.querySelector("main") ||
     document.body;
 
-  const baseDate = typeof todayLocalKey === "function" ? todayLocalKey() : new Date().toISOString().slice(0, 10);
+  const baseDate = todayLocalKey();
   const dates = typeof nextDateKeys === "function" ? nextDateKeys(baseDate, 3) : [baseDate];
 
   const people = typeof sortStaffByEmployeeCode === "function"
@@ -8381,7 +8381,7 @@ document.addEventListener("click", (event) => {
 function staffsyncDatePlusDaysV214(days) {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return isoDate(date);
 }
 
 function staffsyncAddHoursV214(timeValue, hours) {
@@ -8965,13 +8965,13 @@ function renderShiftCalendar() {
   }
 
   function todayKey() {
-    try { return todayLocalKey(); } catch (e) { return new Date().toISOString().slice(0, 10); }
+    try { return todayLocalKey(); } catch (e) { return isoDate(new Date()); }
   }
 
   function addDays(key, n) {
     var d = new Date(key + "T00:00:00");
     d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0, 10);
+    return isoDate(d);
   }
 
   function dateLabel(key) {
@@ -9319,7 +9319,7 @@ function renderShiftCalendar() {
   function todayKey(offset) {
     const d = new Date();
     d.setDate(d.getDate() + offset);
-    return d.toISOString().slice(0, 10);
+    return isoDate(d);
   }
 
   function labelDate(key) {
@@ -9535,7 +9535,7 @@ function renderShiftCalendar() {
     });
   }
 
-  function localKey(date){ return date.toISOString().slice(0,10); }
+  function localKey(date){ return isoDate(date); }
   function monthDays(){
     var now = new Date();
     var y = now.getFullYear();
