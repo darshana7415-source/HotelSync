@@ -407,6 +407,11 @@ const staffSyncDb = {
   async getAttendanceRecords({ date, startDate, endDate }) {
     const rangeStart = new Date(`${startDate || date}T00:00:00`);
     const rangeEnd = new Date(`${endDate || date}T23:59:59`);
+    const rangeStartIso = rangeStart.toISOString();
+    const rangeEndIso = rangeEnd.toISOString();
+    // Filter server-side (clock_in OR clock_out inside the range) instead of
+    // pulling the whole table every poll and filtering in JS -- that was
+    // fetching every attendance row ever recorded on every refresh.
     const { data, error } = await window.staffSyncSupabase
       .from("attendance_records")
       .select(`
@@ -424,15 +429,11 @@ const staffSyncDb = {
           )
         )
       `)
+      .or(`and(clock_in_at.gte.${rangeStartIso},clock_in_at.lte.${rangeEndIso}),and(clock_out_at.gte.${rangeStartIso},clock_out_at.lte.${rangeEndIso})`)
       .order("clock_in_at", { ascending: false });
 
     if (error) throw error;
-    return (data || []).filter((record) => {
-      const clockIn = record.clock_in_at ? new Date(record.clock_in_at) : null;
-      const clockOut = record.clock_out_at ? new Date(record.clock_out_at) : null;
-      return (clockIn && clockIn >= rangeStart && clockIn <= rangeEnd) ||
-        (clockOut && clockOut >= rangeStart && clockOut <= rangeEnd);
-    });
+    return data || [];
   },
 
   async assignShift({ staffProfileId, shiftId, assignedDate, assignedBy }) {

@@ -7171,7 +7171,7 @@ function startCloudAutoRefresh() {
 
   syncCloudDashboard();
   window.setTimeout(syncCloudDashboard, 1200);
-  cloudSyncTimer = window.setInterval(syncCloudDashboard, currentRole === "staff" ? 2000 : 3000);
+  cloudSyncTimer = window.setInterval(syncCloudDashboard, currentRole === "staff" ? 20000 : 25000);
 }
 
 function startLeaveLiveRefresh() {
@@ -7181,7 +7181,9 @@ function startLeaveLiveRefresh() {
     refreshLiveLeaveOnly(true);
   }
   if (!leaveLiveForceTimer) {
-    leaveLiveForceTimer = window.setInterval(() => refreshLiveLeaveOnly(true), currentRole === "staff" ? 2200 : 3000);
+    // Realtime subscription (setupLeaveRealtime) pushes changes instantly;
+    // this timer is just a backstop in case a realtime connection drops.
+    leaveLiveForceTimer = window.setInterval(() => refreshLiveLeaveOnly(true), 30000);
   }
 }
 
