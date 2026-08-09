@@ -166,6 +166,7 @@ let activeStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localSt
 let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "");
 let currentCloudEmail = sessionStorage.getItem("staffsync.cloudEmail") || "";
 let currentAppUserId = sessionStorage.getItem("staffsync.appUserId") || "";
+let manualSignOutInProgress = false;
 let staffActionNotice = sessionStorage.getItem("staffsync.staffActionNotice") || "";
 let adminDashboardDate = localStorage.getItem("staffsync.adminDashboardDate") || todayLocalKey();
 let leaveTypes = [];
@@ -236,6 +237,7 @@ function init() {
   applyPageFromHash();
   updateCloudStatus();
   restoreCloudSession();
+  watchForUnexpectedSignOut();
   startLeaveLiveRefresh();
   if (currentRole) {
     startCloudAutoRefresh();
@@ -2404,6 +2406,7 @@ function bindEvents() {
   document.querySelector("#logout-demo").addEventListener("click", async () => {
     addActivity("Login", `${titleCase(currentRole)} logged out`);
     saveState();
+    manualSignOutInProgress = true;
     if (isCloudReady()) {
       try {
         await window.staffSyncDb.signOut();
@@ -2411,6 +2414,7 @@ function bindEvents() {
         // Keep logout local if the browser is offline.
       }
     }
+    manualSignOutInProgress = false;
     currentRole = "";
     currentCloudEmail = "";
     currentAppUserId = "";
@@ -3962,6 +3966,12 @@ async function handleChatHistoryClick(event) {
     showToast("Selected chat thread was deleted.");
     return;
   }
+
+  const confirmed = window.confirm(
+    "This deletes ALL chat messages for EVERY staff member and EVERY leave/shift thread, hotel-wide. " +
+    "This cannot be undone. Are you sure you want to clear all chat history?"
+  );
+  if (!confirmed) return;
 
   const messages = visibleStaffMessages();
   const threadIds = messages.map((message) => message.leaveRequestId).filter(Boolean);
@@ -6754,6 +6764,33 @@ function updateCloudStatus(message) {
     : "Cloud login is waiting for env.js with your Supabase Project URL and anon key.";
 }
 
+function watchForUnexpectedSignOut() {
+  if (!isCloudReady() || !window.staffSyncSupabase?.auth?.onAuthStateChange) return;
+
+  window.staffSyncSupabase.auth.onAuthStateChange((event) => {
+    if (event !== "SIGNED_OUT") return;
+    if (manualSignOutInProgress) return;
+    if (!currentRole) return;
+
+    // Supabase forced this session out from under us -- most commonly because the same
+    // login was open on another device/tab and its refresh token rotation invalidated
+    // this one. Tell the person clearly instead of silently leaving them on a stale
+    // screen where actions (like submitting leave) quietly fail or never save.
+    currentRole = "";
+    currentCloudEmail = "";
+    currentAppUserId = "";
+    sessionStorage.removeItem("staffsync.role");
+    sessionStorage.removeItem("staffsync.cloudEmail");
+    sessionStorage.removeItem("staffsync.appUserId");
+    stopLocationMonitoring();
+    stopCloudAutoRefresh();
+    stopLeaveLiveRefresh();
+    renderSession();
+    updateCloudStatus("You were signed out because this login was opened somewhere else at the same time. Please sign in again -- if you were mid-way through submitting something, please check and resend it.");
+    showToast("Signed out: this account was opened on another device. Please sign in again and resend anything you just submitted.");
+  });
+}
+
 async function restoreCloudSession() {
   if (!isCloudReady()) return;
 
@@ -6763,7 +6800,7 @@ async function restoreCloudSession() {
       await applyCloudUser(user, false);
     }
   } catch {
-    updateCloudStatus("Cloud is connected, but no active login session was found.");
+    updateCloudStatus("Signed out (session expired or not found). If you were in the middle of submitting a leave request, please sign in again and check whether it needs to be resent.");
   }
 }
 
