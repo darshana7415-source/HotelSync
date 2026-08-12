@@ -168,6 +168,7 @@ const suppliesUnit = document.querySelector("#supplies-unit");
 const suppliesUnitCustom = document.querySelector("#supplies-unit-custom");
 const suppliesReceivedBy = document.querySelector("#supplies-received-by");
 const suppliesRoom = document.querySelector("#supplies-room");
+const suppliesDate = document.querySelector("#supplies-date");
 const suppliesNote = document.querySelector("#supplies-note");
 const suppliesRecentList = document.querySelector("#supplies-recent-list");
 const suppliesRoleNote = document.querySelector("#supplies-role-note");
@@ -184,6 +185,7 @@ const suppliesItemUnit = document.querySelector("#supplies-item-unit");
 const suppliesItemUnitCustom = document.querySelector("#supplies-item-unit-custom");
 const suppliesItemList = document.querySelector("#supplies-item-list");
 const suppliesAdminOnlyElements = Array.from(document.querySelectorAll(".supplies-admin-only"));
+const suppliesOversightOnlyElements = Array.from(document.querySelectorAll(".supplies-oversight-only"));
 const commonSupplyUnits = ["bottle", "100ml", "250ml", "500ml", "1L", "pcs", "pair", "sachet", "pack", "box", "kg", "g"];
 const suppliesCustomUnitValue = "__custom__";
 
@@ -214,6 +216,7 @@ let latestAttendanceEventLogs = [];
 let openShiftChatThreadId = "";
 let supplyItems = [];
 let supplyDistributions = [];
+let supplyRooms = [];
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -1203,14 +1206,29 @@ function renderSupplies() {
     if (selected) suppliesReceivedBy.value = selected;
   }
 
+  if (suppliesRoom) {
+    const selected = suppliesRoom.value;
+    suppliesRoom.innerHTML = `<option value="">Choose room</option>` +
+      supplyRooms.map((room) => `<option value="${escapeAttribute(room)}">${escapeText(room)}</option>`).join("");
+    if (selected) suppliesRoom.value = selected;
+  }
+
+  if (suppliesDate && !suppliesDate.value) {
+    suppliesDate.value = todayLocalKey();
+  }
+
   if (suppliesItemUnit && !suppliesItemUnit.options.length) {
     populateUnitSelect(suppliesItemUnit, "");
     syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
   }
 
   const canManageSupplies = ["admin", "manager", "store_keeper"].includes(currentRole);
+  const canSeeOversight = ["admin", "manager"].includes(currentRole);
   suppliesAdminOnlyElements.forEach((element) => {
     element.style.display = canManageSupplies ? "" : "none";
+  });
+  suppliesOversightOnlyElements.forEach((element) => {
+    element.style.display = canSeeOversight ? "" : "none";
   });
   if (suppliesRoleNote) {
     suppliesRoleNote.textContent = currentRole === "store_keeper" ? "Store room handoffs" : "Log entries and oversee distribution";
@@ -1235,47 +1253,49 @@ function renderSupplies() {
     `).join("") || `<p>No supplies logged yet.</p>`;
   }
 
-  if (suppliesFilterStaff) {
-    const selected = suppliesFilterStaff.value;
-    suppliesFilterStaff.innerHTML = `<option value="">All staff</option>` +
-      sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
-    suppliesFilterStaff.value = selected;
-  }
-  if (suppliesFilterItem) {
-    const selected = suppliesFilterItem.value;
-    suppliesFilterItem.innerHTML = `<option value="">All items</option>` +
-      activeItems.map((item) => `<option value="${item.id}">${escapeText(item.name)}</option>`).join("");
-    suppliesFilterItem.value = selected;
-  }
+  if (canSeeOversight) {
+    if (suppliesFilterStaff) {
+      const selected = suppliesFilterStaff.value;
+      suppliesFilterStaff.innerHTML = `<option value="">All staff</option>` +
+        sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
+      suppliesFilterStaff.value = selected;
+    }
+    if (suppliesFilterItem) {
+      const selected = suppliesFilterItem.value;
+      suppliesFilterItem.innerHTML = `<option value="">All items</option>` +
+        activeItems.map((item) => `<option value="${item.id}">${escapeText(item.name)}</option>`).join("");
+      suppliesFilterItem.value = selected;
+    }
 
-  const fromValue = suppliesFilterFrom?.value || "";
-  const toValue = suppliesFilterTo?.value || "";
-  const staffValue = suppliesFilterStaff?.value || "";
-  const itemValue = suppliesFilterItem?.value || "";
-  const roomValue = (suppliesFilterRoom?.value || "").trim().toLowerCase();
+    const fromValue = suppliesFilterFrom?.value || "";
+    const toValue = suppliesFilterTo?.value || "";
+    const staffValue = suppliesFilterStaff?.value || "";
+    const itemValue = suppliesFilterItem?.value || "";
+    const roomValue = (suppliesFilterRoom?.value || "").trim().toLowerCase();
 
-  const filtered = supplyDistributions.filter((entry) => {
-    const entryDate = entry.distributedAt ? entry.distributedAt.slice(0, 10) : "";
-    if (fromValue && entryDate < fromValue) return false;
-    if (toValue && entryDate > toValue) return false;
-    if (staffValue && !sameId(entry.receivedByStaffProfileId, staffValue)) return false;
-    if (itemValue && !sameId(entry.itemId, itemValue)) return false;
-    if (roomValue && !String(entry.roomNumber || "").toLowerCase().includes(roomValue)) return false;
-    return true;
-  });
+    const filtered = supplyDistributions.filter((entry) => {
+      const entryDate = entry.distributedAt ? entry.distributedAt.slice(0, 10) : "";
+      if (fromValue && entryDate < fromValue) return false;
+      if (toValue && entryDate > toValue) return false;
+      if (staffValue && !sameId(entry.receivedByStaffProfileId, staffValue)) return false;
+      if (itemValue && !sameId(entry.itemId, itemValue)) return false;
+      if (roomValue && !String(entry.roomNumber || "").toLowerCase().includes(roomValue)) return false;
+      return true;
+    });
 
-  if (suppliesLogBody) {
-    suppliesLogBody.innerHTML = filtered.map((entry) => `
-      <tr>
-        <td>${formatDateTime(entry.distributedAt)}</td>
-        <td>${escapeText(entry.givenByName || "-")}</td>
-        <td>${escapeText(entry.receivedByName)}</td>
-        <td>${escapeText(entry.itemName)}</td>
-        <td>${entry.quantity}${entry.unit ? ` ${escapeText(entry.unit)}` : ""}</td>
-        <td>${escapeText(entry.roomNumber)}</td>
-        <td>${escapeText(entry.note || "")}</td>
-      </tr>
-    `).join("") || `<tr><td colspan="7">No distribution entries yet.</td></tr>`;
+    if (suppliesLogBody) {
+      suppliesLogBody.innerHTML = filtered.map((entry) => `
+        <tr>
+          <td>${formatDateTime(entry.distributedAt)}</td>
+          <td>${escapeText(entry.givenByName || "-")}</td>
+          <td>${escapeText(entry.receivedByName)}</td>
+          <td>${escapeText(entry.itemName)}</td>
+          <td>${entry.quantity}${entry.unit ? ` ${escapeText(entry.unit)}` : ""}</td>
+          <td>${escapeText(entry.roomNumber)}</td>
+          <td>${escapeText(entry.note || "")}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="7">No distribution entries yet.</td></tr>`;
+    }
   }
 
   if (suppliesItemList) {
@@ -2906,7 +2926,8 @@ function bindEvents() {
       const quantity = Number(suppliesQuantity.value);
       const unit = resolvedUnitValue(suppliesUnit, suppliesUnitCustom) || selectedItem.unit;
       const receivedByPerson = staff.find((person) => sameId(person.id, suppliesReceivedBy?.value));
-      const roomNumber = suppliesRoom.value.trim();
+      const roomNumber = suppliesRoom.value;
+      const dateValue = suppliesDate?.value || todayLocalKey();
       const note = suppliesNote.value.trim();
       if (!quantity || quantity <= 0) {
         showToast("Enter a quantity of 1 or more.");
@@ -2917,9 +2938,14 @@ function bindEvents() {
         return;
       }
       if (!roomNumber) {
-        showToast("Enter the room number.");
+        showToast("Choose the room number.");
         return;
       }
+
+      const now = new Date();
+      const distributedAt = new Date(
+        `${dateValue}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`
+      ).toISOString();
 
       const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
       const receivedByStaffProfileId = receivedByPerson.cloudId || receivedByPerson.id;
@@ -2935,7 +2961,8 @@ function bindEvents() {
             quantity,
             unit,
             roomNumber,
-            note
+            note,
+            distributedAt
           });
           supplyDistributions = [mapCloudSupplyDistribution(created), ...supplyDistributions];
           try {
@@ -2962,11 +2989,12 @@ function bindEvents() {
             quantity,
             roomNumber,
             note,
-            distributedAt: new Date().toISOString()
+            distributedAt
           }, ...supplyDistributions];
         }
         suppliesForm.reset();
         suppliesQuantity.value = "1";
+        suppliesDate.value = todayLocalKey();
         renderAll();
         showToast(isCloudReady() && hotelId
           ? "Logged."
@@ -7221,6 +7249,7 @@ async function applyCloudUser(user, showMessage) {
   await loadCloudDailyRosterData();
   await loadCloudSupplyItems();
   await loadCloudSupplyDistributions();
+  await loadCloudSupplyRooms();
 
   if (currentRole === "staff") {
     await matchCloudStaffProfile(data.id);
@@ -7332,6 +7361,18 @@ async function loadCloudSupplyItems() {
     supplyItems = rows.map(mapCloudSupplyItem);
   } catch {
     // Supplies module is optional until the upgrade SQL is run.
+  }
+}
+
+async function loadCloudSupplyRooms() {
+  const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+  if (!hotelId || !isCloudReady()) return;
+
+  try {
+    const rows = await window.staffSyncDb.getSupplyRooms(hotelId);
+    supplyRooms = rows.map((room) => room.room_number);
+  } catch {
+    // Room list is optional until the upgrade SQL is run.
   }
 }
 
@@ -7798,6 +7839,7 @@ async function syncCloudDashboard() {
     try {
       await loadCloudSupplyItems();
       await loadCloudSupplyDistributions();
+      await loadCloudSupplyRooms();
       shouldRender = true;
     } catch {
       // Supplies module is optional until the upgrade SQL is run.

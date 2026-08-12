@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies module: added a Store Keeper role (Supplies-only login), given-by/received-by tracking, and per-entry units (e.g. bottle vs 100ml) for the housekeeping store-room distribution log.
+StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies: room number dropdown (25 rooms), backdatable date field on the handoff log (defaults to today), and the Store Keeper's view now skips the full distribution-log/filters (admin/manager only) while keeping her own log form, recent entries, and item manager.

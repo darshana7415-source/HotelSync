@@ -879,6 +879,18 @@ const staffSyncDb = {
     return data || [];
   },
 
+  async getSupplyRooms(hotelId) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("supply_rooms")
+      .select("id, room_number, is_active")
+      .eq("hotel_id", hotelId)
+      .eq("is_active", true)
+      .order("room_number");
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async createSupplyItem({ hotelId, name, category, unit }) {
     const { data, error } = await window.staffSyncSupabase
       .from("supply_items")
@@ -952,7 +964,7 @@ const staffSyncDb = {
     return data || [];
   },
 
-  async createSupplyDistribution({ hotelId, itemId, receivedByStaffProfileId, givenByStaffProfileId, quantity, unit, roomNumber, note }) {
+  async createSupplyDistribution({ hotelId, itemId, receivedByStaffProfileId, givenByStaffProfileId, quantity, unit, roomNumber, note, distributedAt }) {
     const { data, error } = await window.staffSyncSupabase
       .from("supply_distributions")
       .insert({
@@ -963,7 +975,8 @@ const staffSyncDb = {
         quantity,
         unit: unit || null,
         room_number: roomNumber.trim(),
-        note: note || null
+        note: note || null,
+        distributed_at: distributedAt || new Date().toISOString()
       })
       .select(`
         id,

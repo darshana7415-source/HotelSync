@@ -809,25 +809,31 @@
               </label>
               <label>
                 Room number
-                <input id="supplies-room" type="text" placeholder="e.g. 204" required>
+                <select id="supplies-room" required></select>
               </label>
             </div>
-            <label>
-              Note (optional)
-              <input id="supplies-note" type="text" placeholder="Any detail worth adding">
-            </label>
+            <div class="form-row">
+              <label>
+                Date
+                <input id="supplies-date" type="date" required>
+              </label>
+              <label>
+                Note (optional)
+                <input id="supplies-note" type="text" placeholder="Any detail worth adding">
+              </label>
+            </div>
             <button type="submit">Log items taken</button>
           </form>
 
           <div class="request-list" id="supplies-recent-list"></div>
 
-          <div class="panel-header compact supplies-admin-only" id="supplies-log-header">
+          <div class="panel-header compact supplies-oversight-only" id="supplies-log-header">
             <div>
               <p class="eyebrow">Oversight</p>
               <h3>Distribution log</h3>
             </div>
           </div>
-          <div class="form-row supplies-admin-only" id="supplies-filters">
+          <div class="form-row supplies-oversight-only" id="supplies-filters">
             <label>
               From
               <input id="supplies-filter-from" type="date">
@@ -849,7 +855,7 @@
               <input id="supplies-filter-room" type="text" placeholder="Room number">
             </label>
           </div>
-          <div class="table-wrap supplies-admin-only" id="supplies-log-wrap">
+          <div class="table-wrap supplies-oversight-only" id="supplies-log-wrap">
             <table class="roster-table">
               <thead>
                 <tr>
@@ -1019,8 +1025,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=196"></script>
-  <script src="app.js?v=304"></script>
+  <script src="staffsync-data-service.js?v=197"></script>
+  <script src="app.js?v=305"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>
