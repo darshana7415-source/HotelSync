@@ -797,6 +797,17 @@
                 <input id="supplies-quantity" type="number" min="1" step="1" value="1" required>
               </label>
               <label>
+                Unit
+                <select id="supplies-unit"></select>
+                <input id="supplies-unit-custom" type="text" placeholder="Type unit" style="display:none; margin-top:6px;">
+              </label>
+            </div>
+            <div class="form-row">
+              <label>
+                Received by
+                <select id="supplies-received-by" required></select>
+              </label>
+              <label>
                 Room number
                 <input id="supplies-room" type="text" placeholder="e.g. 204" required>
               </label>
@@ -826,7 +837,7 @@
               <input id="supplies-filter-to" type="date">
             </label>
             <label>
-              Staff
+              Received by
               <select id="supplies-filter-staff"><option value="">All staff</option></select>
             </label>
             <label>
@@ -843,7 +854,8 @@
               <thead>
                 <tr>
                   <th>When</th>
-                  <th>Staff</th>
+                  <th>Given by</th>
+                  <th>Received by</th>
                   <th>Item</th>
                   <th>Qty</th>
                   <th>Room</th>
@@ -868,7 +880,8 @@
                 </label>
                 <label>
                   Unit
-                  <input id="supplies-item-unit" type="text" placeholder="e.g. pcs, bottle, sachet">
+                  <select id="supplies-item-unit"></select>
+                  <input id="supplies-item-unit-custom" type="text" placeholder="Type unit" style="display:none; margin-top:6px;">
                 </label>
               </div>
               <div class="form-actions">
@@ -1006,8 +1019,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=195"></script>
-  <script src="app.js?v=303"></script>
+  <script src="staffsync-data-service.js?v=196"></script>
+  <script src="app.js?v=304"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>

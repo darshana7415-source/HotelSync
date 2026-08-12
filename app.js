@@ -38,7 +38,7 @@ const demoRolePasswords = {
 
 function normalizeAppRole(role) {
   const cleanRole = String(role || "").trim().toLowerCase();
-  return ["admin", "manager", "staff"].includes(cleanRole) ? cleanRole : "";
+  return ["admin", "manager", "staff", "store_keeper"].includes(cleanRole) ? cleanRole : "";
 }
 
 function canManageStaffCloud() {
@@ -164,6 +164,9 @@ const pageLinks = Array.from(document.querySelectorAll("[data-page-link]"));
 const suppliesForm = document.querySelector("#supplies-form");
 const suppliesItem = document.querySelector("#supplies-item");
 const suppliesQuantity = document.querySelector("#supplies-quantity");
+const suppliesUnit = document.querySelector("#supplies-unit");
+const suppliesUnitCustom = document.querySelector("#supplies-unit-custom");
+const suppliesReceivedBy = document.querySelector("#supplies-received-by");
 const suppliesRoom = document.querySelector("#supplies-room");
 const suppliesNote = document.querySelector("#supplies-note");
 const suppliesRecentList = document.querySelector("#supplies-recent-list");
@@ -178,8 +181,11 @@ const suppliesItemForm = document.querySelector("#supplies-item-form");
 const suppliesItemName = document.querySelector("#supplies-item-name");
 const suppliesItemCategory = document.querySelector("#supplies-item-category");
 const suppliesItemUnit = document.querySelector("#supplies-item-unit");
+const suppliesItemUnitCustom = document.querySelector("#supplies-item-unit-custom");
 const suppliesItemList = document.querySelector("#supplies-item-list");
 const suppliesAdminOnlyElements = Array.from(document.querySelectorAll(".supplies-admin-only"));
+const commonSupplyUnits = ["bottle", "100ml", "250ml", "500ml", "1L", "pcs", "pair", "sachet", "pack", "box", "kg", "g"];
+const suppliesCustomUnitValue = "__custom__";
 
 let activeStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localStorage.getItem("staffsync.activeStaffId") || staff[0]?.id || "";
 let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "");
@@ -399,7 +405,10 @@ function renderAll() {
 function applyPageFromHash() {
   const hash = (window.location.hash || "#dashboard").replace("#", "");
   let page = pageSections[hash] ? hash : (pageAliases[hash] || "dashboard");
-  if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave", "supplies"].includes(page)) {
+  if (currentRole === "store_keeper" && page !== "supplies") {
+    page = "supplies";
+    if (window.location.hash !== "#supplies") window.location.hash = "supplies";
+  } else if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave"].includes(page)) {
     page = "dashboard";
     if (window.location.hash !== "#dashboard") window.location.hash = "dashboard";
   }
@@ -413,6 +422,16 @@ function applyPageFromHash() {
   document.body.dataset.page = page;
   pageLinks.forEach((link) => {
     link.classList.toggle("active", link.dataset.pageLink === page);
+  });
+
+  document.querySelectorAll(".sidebar nav a").forEach((link) => {
+    if (currentRole === "store_keeper") {
+      link.style.display = link.dataset.pageLink === "supplies" ? "" : "none";
+    } else if (currentRole === "staff" && link.dataset.pageLink === "supplies") {
+      link.style.display = "none";
+    } else {
+      link.style.display = "";
+    }
   });
 }
 
@@ -1128,6 +1147,32 @@ function activeStaffForCurrentLogin() {
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
 }
 
+function populateUnitSelect(selectEl, selectedValue) {
+  if (!selectEl) return;
+  const options = commonSupplyUnits.map((unit) => `<option value="${escapeAttribute(unit)}">${escapeText(unit)}</option>`).join("");
+  selectEl.innerHTML = `${options}<option value="${suppliesCustomUnitValue}">Other (type below)</option>`;
+  selectEl.value = selectedValue && commonSupplyUnits.includes(selectedValue) ? selectedValue : suppliesCustomUnitValue;
+}
+
+function syncUnitCustomVisibility(selectEl, customEl, fallbackValue) {
+  if (!selectEl || !customEl) return;
+  const isCustom = selectEl.value === suppliesCustomUnitValue;
+  customEl.style.display = isCustom ? "" : "none";
+  if (isCustom) {
+    customEl.value = fallbackValue && !commonSupplyUnits.includes(fallbackValue) ? fallbackValue : customEl.value;
+  } else {
+    customEl.value = "";
+  }
+}
+
+function resolvedUnitValue(selectEl, customEl) {
+  if (!selectEl) return "";
+  if (selectEl.value === suppliesCustomUnitValue) {
+    return (customEl?.value || "").trim();
+  }
+  return selectEl.value;
+}
+
 function renderSupplies() {
   if (!suppliesForm || !suppliesItem) return;
 
@@ -1147,17 +1192,35 @@ function renderSupplies() {
     suppliesItem.value = previousItemValue;
   }
 
-  const isStaffOnly = currentRole === "staff";
+  const selectedItemForUnit = activeItems.find((item) => sameId(item.id, suppliesItem.value)) || activeItems[0];
+  populateUnitSelect(suppliesUnit, selectedItemForUnit?.unit);
+  syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom, selectedItemForUnit?.unit);
+
+  if (suppliesReceivedBy) {
+    const selected = suppliesReceivedBy.value;
+    suppliesReceivedBy.innerHTML = `<option value="">Choose staff member</option>` +
+      sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
+    if (selected) suppliesReceivedBy.value = selected;
+  }
+
+  if (suppliesItemUnit && !suppliesItemUnit.options.length) {
+    populateUnitSelect(suppliesItemUnit, "");
+    syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
+  }
+
+  const canManageSupplies = ["admin", "manager", "store_keeper"].includes(currentRole);
   suppliesAdminOnlyElements.forEach((element) => {
-    element.style.display = isStaffOnly ? "none" : "";
+    element.style.display = canManageSupplies ? "" : "none";
   });
   if (suppliesRoleNote) {
-    suppliesRoleNote.textContent = isStaffOnly ? "Log what you took" : "Log entries and oversee distribution";
+    suppliesRoleNote.textContent = currentRole === "store_keeper" ? "Store room handoffs" : "Log entries and oversee distribution";
   }
+
+  if (!canManageSupplies) return;
 
   const activePerson = activeStaffForCurrentLogin();
   const mine = activePerson
-    ? supplyDistributions.filter((entry) => sameId(entry.staffProfileId, activePerson.id) || sameId(entry.staffProfileId, activePerson.cloudId))
+    ? supplyDistributions.filter((entry) => sameId(entry.givenByStaffProfileId, activePerson.id) || sameId(entry.givenByStaffProfileId, activePerson.cloudId))
     : [];
   if (suppliesRecentList) {
     suppliesRecentList.innerHTML = mine.slice(0, 10).map((entry) => `
@@ -1166,13 +1229,11 @@ function renderSupplies() {
           <strong>${escapeText(entry.itemName)} x${entry.quantity}</strong>
           <span class="pill">${escapeText(entry.unit || "")}</span>
         </div>
-        <small>Room ${escapeText(entry.roomNumber)} - ${formatDateTime(entry.distributedAt)}</small>
+        <small>To ${escapeText(entry.receivedByName)} - Room ${escapeText(entry.roomNumber)} - ${formatDateTime(entry.distributedAt)}</small>
         ${entry.note ? `<span>${escapeText(entry.note)}</span>` : ""}
       </article>
     `).join("") || `<p>No supplies logged yet.</p>`;
   }
-
-  if (isStaffOnly) return;
 
   if (suppliesFilterStaff) {
     const selected = suppliesFilterStaff.value;
@@ -1197,7 +1258,7 @@ function renderSupplies() {
     const entryDate = entry.distributedAt ? entry.distributedAt.slice(0, 10) : "";
     if (fromValue && entryDate < fromValue) return false;
     if (toValue && entryDate > toValue) return false;
-    if (staffValue && !sameId(entry.staffProfileId, staffValue)) return false;
+    if (staffValue && !sameId(entry.receivedByStaffProfileId, staffValue)) return false;
     if (itemValue && !sameId(entry.itemId, itemValue)) return false;
     if (roomValue && !String(entry.roomNumber || "").toLowerCase().includes(roomValue)) return false;
     return true;
@@ -1207,13 +1268,14 @@ function renderSupplies() {
     suppliesLogBody.innerHTML = filtered.map((entry) => `
       <tr>
         <td>${formatDateTime(entry.distributedAt)}</td>
-        <td>${escapeText(entry.staffName)}</td>
+        <td>${escapeText(entry.givenByName || "-")}</td>
+        <td>${escapeText(entry.receivedByName)}</td>
         <td>${escapeText(entry.itemName)}</td>
         <td>${entry.quantity}${entry.unit ? ` ${escapeText(entry.unit)}` : ""}</td>
         <td>${escapeText(entry.roomNumber)}</td>
         <td>${escapeText(entry.note || "")}</td>
       </tr>
-    `).join("") || `<tr><td colspan="6">No distribution entries yet.</td></tr>`;
+    `).join("") || `<tr><td colspan="7">No distribution entries yet.</td></tr>`;
   }
 
   if (suppliesItemList) {
@@ -2826,23 +2888,32 @@ function bindEvents() {
   });
 
   if (suppliesForm) {
+    suppliesItem?.addEventListener("change", () => {
+      const selected = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
+      populateUnitSelect(suppliesUnit, selected?.unit);
+      syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom, selected?.unit);
+    });
+    suppliesUnit?.addEventListener("change", () => syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom));
+
     suppliesForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const activePerson = activeStaffForCurrentLogin();
-      if (!activePerson) {
-        showToast("Please sign in as a staff member first.");
-        return;
-      }
+      const givenByPerson = activeStaffForCurrentLogin();
       const selectedItem = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
       if (!selectedItem) {
         showToast("Please choose an item.");
         return;
       }
       const quantity = Number(suppliesQuantity.value);
+      const unit = resolvedUnitValue(suppliesUnit, suppliesUnitCustom) || selectedItem.unit;
+      const receivedByPerson = staff.find((person) => sameId(person.id, suppliesReceivedBy?.value));
       const roomNumber = suppliesRoom.value.trim();
       const note = suppliesNote.value.trim();
       if (!quantity || quantity <= 0) {
         showToast("Enter a quantity of 1 or more.");
+        return;
+      }
+      if (!receivedByPerson) {
+        showToast("Choose who is receiving the items.");
         return;
       }
       if (!roomNumber) {
@@ -2851,15 +2922,18 @@ function bindEvents() {
       }
 
       const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
-      const staffProfileId = activePerson.cloudId || activePerson.id;
+      const receivedByStaffProfileId = receivedByPerson.cloudId || receivedByPerson.id;
+      const givenByStaffProfileId = givenByPerson ? (givenByPerson.cloudId || givenByPerson.id) : null;
 
       try {
         if (isCloudReady() && hotelId) {
           const created = await window.staffSyncDb.createSupplyDistribution({
             hotelId,
             itemId: selectedItem.id,
-            staffProfileId,
+            receivedByStaffProfileId,
+            givenByStaffProfileId,
             quantity,
+            unit,
             roomNumber,
             note
           });
@@ -2869,7 +2943,7 @@ function bindEvents() {
               hotelId,
               actorUserId: currentAppUserId || null,
               eventType: "Supplies",
-              message: `${activePerson.name} took ${quantity} x ${selectedItem.name} to room ${roomNumber}`
+              message: `${givenByPerson?.name || "Store"} gave ${quantity} ${unit} ${selectedItem.name} to ${receivedByPerson.name} for room ${roomNumber}`
             });
           } catch {
             // Audit log write failing should not block the distribution entry itself.
@@ -2879,10 +2953,12 @@ function bindEvents() {
             id: `local-${Date.now()}`,
             itemId: selectedItem.id,
             itemName: selectedItem.name,
-            unit: selectedItem.unit,
+            unit,
             category: selectedItem.category,
-            staffProfileId,
-            staffName: activePerson.name,
+            receivedByStaffProfileId,
+            receivedByName: receivedByPerson.name,
+            givenByStaffProfileId,
+            givenByName: givenByPerson?.name || "",
             quantity,
             roomNumber,
             note,
@@ -2902,6 +2978,8 @@ function bindEvents() {
   }
 
   if (suppliesItemForm) {
+    suppliesItemUnit?.addEventListener("change", () => syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom));
+
     suppliesItemForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const name = suppliesItemName.value.trim();
@@ -2910,7 +2988,7 @@ function bindEvents() {
         return;
       }
       const category = suppliesItemCategory.value.trim() || "General";
-      const unit = suppliesItemUnit.value.trim() || "pcs";
+      const unit = resolvedUnitValue(suppliesItemUnit, suppliesItemUnitCustom) || "pcs";
       const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
 
       try {
@@ -2921,6 +2999,8 @@ function bindEvents() {
           supplyItems = [...supplyItems, { id: `local-${Date.now()}`, name, category, unit, isActive: true }];
         }
         suppliesItemForm.reset();
+        populateUnitSelect(suppliesItemUnit, "");
+        syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
         renderAll();
         showToast(`${name} added.`);
       } catch (error) {
@@ -5818,6 +5898,11 @@ function titleCase(value) {
   return value ? `${value[0].toUpperCase()}${value.slice(1)}` : "";
 }
 
+function roleDisplayName(role) {
+  if (role === "store_keeper") return "Store Keeper";
+  return titleCase(role);
+}
+
 function updateLeavePolicyNote() {
   syncLeaveDateFields();
   const startDate = document.querySelector("#leave-from").value;
@@ -6351,7 +6436,7 @@ async function cleanupCloudLeaveDashboardData() {
 
 async function openDemoRole(role) {
   role = normalizeAppRole(role);
-  if (currentRole === "staff" && role !== "staff") {
+  if (["staff", "store_keeper"].includes(currentRole) && role !== currentRole) {
     roleSelect.value = "staff";
     if (loginRoleSelect) loginRoleSelect.value = "staff";
     lockStaffOnlyView();
@@ -6364,19 +6449,25 @@ async function openDemoRole(role) {
   currentCloudEmail = "";
   currentAppUserId = "";
 
-  if (role === "staff" && !(await prepareStaffDemoLogin())) {
-    currentRole = previousRole || "";
-    return;
+  if (role === "staff") {
+    if (!(await prepareStaffDemoLogin())) {
+      currentRole = previousRole || "";
+      return;
+    }
+    // Employee-code login identifies a specific person -- adopt their real
+    // app_users.role (e.g. store_keeper) instead of assuming plain "staff".
+    const loggedInPerson = staff.find((person) => sameId(person.id, activeStaffId));
+    currentRole = normalizeAppRole(loggedInPerson?.appRole) || "staff";
   }
 
   sessionStorage.setItem("staffsync.role", currentRole);
   sessionStorage.removeItem("staffsync.cloudEmail");
-  if (currentRole === "staff" && currentAppUserId) {
+  if (["staff", "store_keeper"].includes(currentRole) && currentAppUserId) {
     sessionStorage.setItem("staffsync.appUserId", currentAppUserId);
   } else {
     sessionStorage.removeItem("staffsync.appUserId");
   }
-  addActivity("Login", `${titleCase(currentRole)} opened the demo`);
+  addActivity("Login", `${roleDisplayName(currentRole)} opened the demo`);
   saveState();
   renderAll();
   if (currentRole === "staff") {
@@ -6388,7 +6479,7 @@ async function openDemoRole(role) {
   if (isCloudReady()) {
     syncCloudDashboard();
   }
-  showToast(`${titleCase(currentRole)} view opened.`);
+  showToast(`${roleDisplayName(currentRole)} view opened.`);
 }
 
 function updateLoginMode() {
@@ -7219,10 +7310,12 @@ function mapCloudSupplyDistribution(entry) {
     id: entry.id,
     itemId: entry.supply_items?.id || "",
     itemName: entry.supply_items?.name || "Unknown item",
-    unit: entry.supply_items?.unit || "",
+    unit: entry.unit || entry.supply_items?.unit || "",
     category: entry.supply_items?.category || "",
-    staffProfileId: entry.staff_profiles?.id || "",
-    staffName: entry.staff_profiles?.full_name || "Unknown staff",
+    receivedByStaffProfileId: entry.received_by?.id || "",
+    receivedByName: entry.received_by?.full_name || "Unknown staff",
+    givenByStaffProfileId: entry.given_by?.id || "",
+    givenByName: entry.given_by?.full_name || "",
     quantity: entry.quantity,
     roomNumber: entry.room_number,
     note: entry.note || "",
@@ -7818,6 +7911,7 @@ function mapCloudStaffProfile(profile, index) {
     name: profile.full_name,
     department: departmentName,
     role,
+    appRole: normalizeAppRole(profile.app_users?.role) || "staff",
     shift,
     shiftTime: shiftTimeFor(shift),
     clockIn: "",

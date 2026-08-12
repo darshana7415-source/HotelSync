@@ -919,6 +919,7 @@ const staffSyncDb = {
       .select(`
         id,
         quantity,
+        unit,
         room_number,
         note,
         distributed_at,
@@ -928,7 +929,12 @@ const staffSyncDb = {
           unit,
           category
         ),
-        staff_profiles (
+        received_by:staff_profiles!supply_distributions_staff_profile_id_fkey (
+          id,
+          full_name,
+          employee_code
+        ),
+        given_by:staff_profiles!supply_distributions_given_by_staff_profile_id_fkey (
           id,
           full_name,
           employee_code
@@ -946,20 +952,23 @@ const staffSyncDb = {
     return data || [];
   },
 
-  async createSupplyDistribution({ hotelId, itemId, staffProfileId, quantity, roomNumber, note }) {
+  async createSupplyDistribution({ hotelId, itemId, receivedByStaffProfileId, givenByStaffProfileId, quantity, unit, roomNumber, note }) {
     const { data, error } = await window.staffSyncSupabase
       .from("supply_distributions")
       .insert({
         hotel_id: hotelId,
         item_id: itemId,
-        staff_profile_id: staffProfileId,
+        received_by_staff_profile_id: receivedByStaffProfileId,
+        given_by_staff_profile_id: givenByStaffProfileId || null,
         quantity,
+        unit: unit || null,
         room_number: roomNumber.trim(),
         note: note || null
       })
       .select(`
         id,
         quantity,
+        unit,
         room_number,
         note,
         distributed_at,
@@ -969,7 +978,12 @@ const staffSyncDb = {
           unit,
           category
         ),
-        staff_profiles (
+        received_by:staff_profiles!supply_distributions_staff_profile_id_fkey (
+          id,
+          full_name,
+          employee_code
+        ),
+        given_by:staff_profiles!supply_distributions_given_by_staff_profile_id_fkey (
           id,
           full_name,
           employee_code
