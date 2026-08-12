@@ -81,6 +81,30 @@ exports.handler = async function handler(event) {
       }
 
       case "updateLeaveStatus": {
+        // Cancelling your own request needs no one's permission, at any status --
+        // only approve/reject (and cancelling someone else's request) requires admin/manager.
+        if (payload.status === "cancelled") {
+          const existing = await selectOne("leave_requests", {
+            select: "id,staff_profile_id",
+            eq: { id: payload.leaveRequestId }
+          });
+          if (!existing) return json(404, { ok: false, message: "Leave request not found." });
+          const ownsRequest = existing.staff_profile_id === claims.staffProfileId;
+
+          if (ownsRequest || isManager(claims)) {
+            const rows = await updateRows("leave_requests", {
+              eq: { id: payload.leaveRequestId },
+              patch: {
+                status: "cancelled",
+                approved_by: null,
+                approved_at: new Date().toISOString()
+              }
+            });
+            return json(200, { ok: true, data: rows[0] || null });
+          }
+          return json(403, { ok: false, message: "Not authorized to cancel this leave request." });
+        }
+
         if (!isManager(claims)) {
           return json(403, { ok: false, message: "Only admins/managers can approve or reject leave." });
         }

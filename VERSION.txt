@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies split into Log/Oversight/Items tabs with a single action dropdown per item row; staff can now cancel an already-approved leave request, and staff-cancelled leave shows in a distinct color on the calendar vs admin-cancelled.
+StaffSync Beach & Bliss Mirissa Version 1.0 - Fixed the leave-cancel server function: it was rejecting every staff self-cancel with "only admins/managers can do that" because the permission check never distinguished cancelling your own request from approving/rejecting someone else's.
