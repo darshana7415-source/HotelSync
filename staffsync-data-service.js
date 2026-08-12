@@ -865,6 +865,120 @@ const staffSyncDb = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getSupplyItems(hotelId) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("supply_items")
+      .select("id, name, category, unit, is_active")
+      .eq("hotel_id", hotelId)
+      .order("category")
+      .order("name");
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createSupplyItem({ hotelId, name, category, unit }) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("supply_items")
+      .insert({
+        hotel_id: hotelId,
+        name: name.trim(),
+        category: (category || "General").trim(),
+        unit: (unit || "pcs").trim()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateSupplyItem({ itemId, name, category, unit, isActive }) {
+    const patch = {};
+    if (name !== undefined) patch.name = name.trim();
+    if (category !== undefined) patch.category = category.trim();
+    if (unit !== undefined) patch.unit = unit.trim();
+    if (isActive !== undefined) patch.is_active = isActive;
+
+    const { data, error } = await window.staffSyncSupabase
+      .from("supply_items")
+      .update(patch)
+      .eq("id", itemId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getSupplyDistributions({ hotelId, startDate, endDate, limit = 500 }) {
+    let query = window.staffSyncSupabase
+      .from("supply_distributions")
+      .select(`
+        id,
+        quantity,
+        room_number,
+        note,
+        distributed_at,
+        supply_items (
+          id,
+          name,
+          unit,
+          category
+        ),
+        staff_profiles (
+          id,
+          full_name,
+          employee_code
+        )
+      `)
+      .eq("hotel_id", hotelId)
+      .order("distributed_at", { ascending: false })
+      .limit(limit);
+
+    if (startDate) query = query.gte("distributed_at", `${startDate}T00:00:00`);
+    if (endDate) query = query.lte("distributed_at", `${endDate}T23:59:59`);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createSupplyDistribution({ hotelId, itemId, staffProfileId, quantity, roomNumber, note }) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("supply_distributions")
+      .insert({
+        hotel_id: hotelId,
+        item_id: itemId,
+        staff_profile_id: staffProfileId,
+        quantity,
+        room_number: roomNumber.trim(),
+        note: note || null
+      })
+      .select(`
+        id,
+        quantity,
+        room_number,
+        note,
+        distributed_at,
+        supply_items (
+          id,
+          name,
+          unit,
+          category
+        ),
+        staff_profiles (
+          id,
+          full_name,
+          employee_code
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 };
 

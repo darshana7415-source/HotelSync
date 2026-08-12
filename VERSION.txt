@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - daily attendance PDF export with color coding.
+StaffSync Beach & Bliss Mirissa Version 1.0 - added Supplies module: housekeeping staff log store-room items taken (item, quantity, room), admin/manager get a filterable distribution log plus an item manager.

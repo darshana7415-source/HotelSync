@@ -161,6 +161,25 @@ const sessionLabel = document.querySelector("#session-label");
 const activityList = document.querySelector("#activity-list");
 const notificationList = document.querySelector("#notification-list");
 const pageLinks = Array.from(document.querySelectorAll("[data-page-link]"));
+const suppliesForm = document.querySelector("#supplies-form");
+const suppliesItem = document.querySelector("#supplies-item");
+const suppliesQuantity = document.querySelector("#supplies-quantity");
+const suppliesRoom = document.querySelector("#supplies-room");
+const suppliesNote = document.querySelector("#supplies-note");
+const suppliesRecentList = document.querySelector("#supplies-recent-list");
+const suppliesRoleNote = document.querySelector("#supplies-role-note");
+const suppliesFilterFrom = document.querySelector("#supplies-filter-from");
+const suppliesFilterTo = document.querySelector("#supplies-filter-to");
+const suppliesFilterStaff = document.querySelector("#supplies-filter-staff");
+const suppliesFilterItem = document.querySelector("#supplies-filter-item");
+const suppliesFilterRoom = document.querySelector("#supplies-filter-room");
+const suppliesLogBody = document.querySelector("#supplies-log-body");
+const suppliesItemForm = document.querySelector("#supplies-item-form");
+const suppliesItemName = document.querySelector("#supplies-item-name");
+const suppliesItemCategory = document.querySelector("#supplies-item-category");
+const suppliesItemUnit = document.querySelector("#supplies-item-unit");
+const suppliesItemList = document.querySelector("#supplies-item-list");
+const suppliesAdminOnlyElements = Array.from(document.querySelectorAll(".supplies-admin-only"));
 
 let activeStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localStorage.getItem("staffsync.activeStaffId") || staff[0]?.id || "";
 let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "");
@@ -187,6 +206,8 @@ let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let openShiftChatThreadId = "";
+let supplyItems = [];
+let supplyDistributions = [];
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -199,6 +220,7 @@ const pageSections = {
   staff: ["admin"],
   shifts: ["schedule"],
   leave: ["leave", "leave-organizer"],
+  supplies: ["supplies-panel"],
   location: ["location"],
   reports: ["reports"], attendance: ["attendance"]
 };
@@ -355,6 +377,7 @@ function renderAll() {
   renderLeaveRequests();
   renderShifts();
   renderDailyRoster();
+  renderSupplies();
   renderLeaveCalendar();
   renderShiftCalendar();
   renderDepartmentCharts();
@@ -376,7 +399,7 @@ function renderAll() {
 function applyPageFromHash() {
   const hash = (window.location.hash || "#dashboard").replace("#", "");
   let page = pageSections[hash] ? hash : (pageAliases[hash] || "dashboard");
-  if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave"].includes(page)) {
+  if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave", "supplies"].includes(page)) {
     page = "dashboard";
     if (window.location.hash !== "#dashboard") window.location.hash = "dashboard";
   }
@@ -1103,6 +1126,110 @@ function activeStaffForCurrentLogin() {
   return staff.find((person) => sameId(person.id, activeStaffId)) ||
     staff.find((person) => sameId(person.cloudId, activeStaffId)) ||
     staff.find((person) => currentAppUserId && sameId(person.appUserId, currentAppUserId));
+}
+
+function renderSupplies() {
+  if (!suppliesForm || !suppliesItem) return;
+
+  const activeItems = supplyItems.filter((item) => item.isActive !== false);
+  const groupedItems = activeItems.reduce((groups, item) => {
+    const key = item.category || "General";
+    (groups[key] = groups[key] || []).push(item);
+    return groups;
+  }, {});
+  const previousItemValue = suppliesItem.value;
+  suppliesItem.innerHTML = Object.keys(groupedItems).sort().map((category) => `
+    <optgroup label="${escapeAttribute(category)}">
+      ${groupedItems[category].map((item) => `<option value="${item.id}">${escapeText(item.name)} (${escapeText(item.unit)})</option>`).join("")}
+    </optgroup>
+  `).join("");
+  if (previousItemValue && activeItems.some((item) => sameId(item.id, previousItemValue))) {
+    suppliesItem.value = previousItemValue;
+  }
+
+  const isStaffOnly = currentRole === "staff";
+  suppliesAdminOnlyElements.forEach((element) => {
+    element.style.display = isStaffOnly ? "none" : "";
+  });
+  if (suppliesRoleNote) {
+    suppliesRoleNote.textContent = isStaffOnly ? "Log what you took" : "Log entries and oversee distribution";
+  }
+
+  const activePerson = activeStaffForCurrentLogin();
+  const mine = activePerson
+    ? supplyDistributions.filter((entry) => sameId(entry.staffProfileId, activePerson.id) || sameId(entry.staffProfileId, activePerson.cloudId))
+    : [];
+  if (suppliesRecentList) {
+    suppliesRecentList.innerHTML = mine.slice(0, 10).map((entry) => `
+      <article class="request-card">
+        <div class="request-top">
+          <strong>${escapeText(entry.itemName)} x${entry.quantity}</strong>
+          <span class="pill">${escapeText(entry.unit || "")}</span>
+        </div>
+        <small>Room ${escapeText(entry.roomNumber)} - ${formatDateTime(entry.distributedAt)}</small>
+        ${entry.note ? `<span>${escapeText(entry.note)}</span>` : ""}
+      </article>
+    `).join("") || `<p>No supplies logged yet.</p>`;
+  }
+
+  if (isStaffOnly) return;
+
+  if (suppliesFilterStaff) {
+    const selected = suppliesFilterStaff.value;
+    suppliesFilterStaff.innerHTML = `<option value="">All staff</option>` +
+      sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
+    suppliesFilterStaff.value = selected;
+  }
+  if (suppliesFilterItem) {
+    const selected = suppliesFilterItem.value;
+    suppliesFilterItem.innerHTML = `<option value="">All items</option>` +
+      activeItems.map((item) => `<option value="${item.id}">${escapeText(item.name)}</option>`).join("");
+    suppliesFilterItem.value = selected;
+  }
+
+  const fromValue = suppliesFilterFrom?.value || "";
+  const toValue = suppliesFilterTo?.value || "";
+  const staffValue = suppliesFilterStaff?.value || "";
+  const itemValue = suppliesFilterItem?.value || "";
+  const roomValue = (suppliesFilterRoom?.value || "").trim().toLowerCase();
+
+  const filtered = supplyDistributions.filter((entry) => {
+    const entryDate = entry.distributedAt ? entry.distributedAt.slice(0, 10) : "";
+    if (fromValue && entryDate < fromValue) return false;
+    if (toValue && entryDate > toValue) return false;
+    if (staffValue && !sameId(entry.staffProfileId, staffValue)) return false;
+    if (itemValue && !sameId(entry.itemId, itemValue)) return false;
+    if (roomValue && !String(entry.roomNumber || "").toLowerCase().includes(roomValue)) return false;
+    return true;
+  });
+
+  if (suppliesLogBody) {
+    suppliesLogBody.innerHTML = filtered.map((entry) => `
+      <tr>
+        <td>${formatDateTime(entry.distributedAt)}</td>
+        <td>${escapeText(entry.staffName)}</td>
+        <td>${escapeText(entry.itemName)}</td>
+        <td>${entry.quantity}${entry.unit ? ` ${escapeText(entry.unit)}` : ""}</td>
+        <td>${escapeText(entry.roomNumber)}</td>
+        <td>${escapeText(entry.note || "")}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="6">No distribution entries yet.</td></tr>`;
+  }
+
+  if (suppliesItemList) {
+    suppliesItemList.innerHTML = supplyItems.map((item) => `
+      <article class="request-card">
+        <div class="request-top">
+          <strong>${escapeText(item.name)}</strong>
+          <span class="pill">${item.isActive === false ? "Inactive" : "Active"}</span>
+        </div>
+        <small>${escapeText(item.category)} - ${escapeText(item.unit)}</small>
+        <div class="request-actions">
+          <button type="button" class="ghost" data-toggle-supply-item="${item.id}">${item.isActive === false ? "Reactivate" : "Deactivate"}</button>
+        </div>
+      </article>
+    `).join("");
+  }
 }
 
 // shift-calendar-clean-v218
@@ -2696,6 +2823,137 @@ function bindEvents() {
     } catch (error) {
       showToast(error.message || "Leave request could not be saved.");
     }
+  });
+
+  if (suppliesForm) {
+    suppliesForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const activePerson = activeStaffForCurrentLogin();
+      if (!activePerson) {
+        showToast("Please sign in as a staff member first.");
+        return;
+      }
+      const selectedItem = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
+      if (!selectedItem) {
+        showToast("Please choose an item.");
+        return;
+      }
+      const quantity = Number(suppliesQuantity.value);
+      const roomNumber = suppliesRoom.value.trim();
+      const note = suppliesNote.value.trim();
+      if (!quantity || quantity <= 0) {
+        showToast("Enter a quantity of 1 or more.");
+        return;
+      }
+      if (!roomNumber) {
+        showToast("Enter the room number.");
+        return;
+      }
+
+      const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+      const staffProfileId = activePerson.cloudId || activePerson.id;
+
+      try {
+        if (isCloudReady() && hotelId) {
+          const created = await window.staffSyncDb.createSupplyDistribution({
+            hotelId,
+            itemId: selectedItem.id,
+            staffProfileId,
+            quantity,
+            roomNumber,
+            note
+          });
+          supplyDistributions = [mapCloudSupplyDistribution(created), ...supplyDistributions];
+          try {
+            await window.staffSyncDb.addActivityLog({
+              hotelId,
+              actorUserId: currentAppUserId || null,
+              eventType: "Supplies",
+              message: `${activePerson.name} took ${quantity} x ${selectedItem.name} to room ${roomNumber}`
+            });
+          } catch {
+            // Audit log write failing should not block the distribution entry itself.
+          }
+        } else {
+          supplyDistributions = [{
+            id: `local-${Date.now()}`,
+            itemId: selectedItem.id,
+            itemName: selectedItem.name,
+            unit: selectedItem.unit,
+            category: selectedItem.category,
+            staffProfileId,
+            staffName: activePerson.name,
+            quantity,
+            roomNumber,
+            note,
+            distributedAt: new Date().toISOString()
+          }, ...supplyDistributions];
+        }
+        suppliesForm.reset();
+        suppliesQuantity.value = "1";
+        renderAll();
+        showToast(isCloudReady() && hotelId
+          ? "Logged."
+          : "Logged on this device. Cloud login is needed for the manager dashboard to see it.");
+      } catch (error) {
+        showToast(error.message || "Could not log this item.");
+      }
+    });
+  }
+
+  if (suppliesItemForm) {
+    suppliesItemForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const name = suppliesItemName.value.trim();
+      if (!name) {
+        showToast("Enter an item name.");
+        return;
+      }
+      const category = suppliesItemCategory.value.trim() || "General";
+      const unit = suppliesItemUnit.value.trim() || "pcs";
+      const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+
+      try {
+        if (isCloudReady() && hotelId) {
+          const created = await window.staffSyncDb.createSupplyItem({ hotelId, name, category, unit });
+          supplyItems = [...supplyItems, mapCloudSupplyItem(created)];
+        } else {
+          supplyItems = [...supplyItems, { id: `local-${Date.now()}`, name, category, unit, isActive: true }];
+        }
+        suppliesItemForm.reset();
+        renderAll();
+        showToast(`${name} added.`);
+      } catch (error) {
+        showToast(error.message || "Could not add this item.");
+      }
+    });
+  }
+
+  if (suppliesItemList) {
+    suppliesItemList.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-toggle-supply-item]");
+      if (!button) return;
+      const itemId = button.dataset.toggleSupplyItem;
+      const item = supplyItems.find((entry) => sameId(entry.id, itemId));
+      if (!item) return;
+      const nextActive = item.isActive === false;
+
+      try {
+        if (isCloudReady()) {
+          await window.staffSyncDb.updateSupplyItem({ itemId, isActive: nextActive });
+        }
+        item.isActive = nextActive;
+        renderAll();
+      } catch (error) {
+        showToast(error.message || "Could not update this item.");
+      }
+    });
+  }
+
+  [suppliesFilterFrom, suppliesFilterTo, suppliesFilterStaff, suppliesFilterItem, suppliesFilterRoom].forEach((element) => {
+    if (!element) return;
+    element.addEventListener("input", () => renderSupplies());
+    element.addEventListener("change", () => renderSupplies());
   });
 
   leaveList.addEventListener("click", handleApprovalClick);
@@ -6870,6 +7128,8 @@ async function applyCloudUser(user, showMessage) {
   await loadAttendanceReportForSelectedDate();
   await loadCloudLeaveData();
   await loadCloudDailyRosterData();
+  await loadCloudSupplyItems();
+  await loadCloudSupplyDistributions();
 
   if (currentRole === "staff") {
     await matchCloudStaffProfile(data.id);
@@ -6941,6 +7201,56 @@ async function loadCloudDailyRosterData() {
     dailyRosters = mapCloudDailyRosters(rows);
   } catch {
     // The daily_rosters table is optional until the upgrade SQL is run.
+  }
+}
+
+function mapCloudSupplyItem(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    unit: item.unit,
+    isActive: item.is_active
+  };
+}
+
+function mapCloudSupplyDistribution(entry) {
+  return {
+    id: entry.id,
+    itemId: entry.supply_items?.id || "",
+    itemName: entry.supply_items?.name || "Unknown item",
+    unit: entry.supply_items?.unit || "",
+    category: entry.supply_items?.category || "",
+    staffProfileId: entry.staff_profiles?.id || "",
+    staffName: entry.staff_profiles?.full_name || "Unknown staff",
+    quantity: entry.quantity,
+    roomNumber: entry.room_number,
+    note: entry.note || "",
+    distributedAt: entry.distributed_at
+  };
+}
+
+async function loadCloudSupplyItems() {
+  const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+  if (!hotelId || !isCloudReady()) return;
+
+  try {
+    const rows = await window.staffSyncDb.getSupplyItems(hotelId);
+    supplyItems = rows.map(mapCloudSupplyItem);
+  } catch {
+    // Supplies module is optional until the upgrade SQL is run.
+  }
+}
+
+async function loadCloudSupplyDistributions() {
+  const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+  if (!hotelId || !isCloudReady()) return;
+
+  try {
+    const rows = await window.staffSyncDb.getSupplyDistributions({ hotelId });
+    supplyDistributions = rows.map(mapCloudSupplyDistribution);
+  } catch {
+    // Supplies module is optional until the upgrade SQL is run.
   }
 }
 
@@ -7390,6 +7700,14 @@ async function syncCloudDashboard() {
       shouldRender = true;
     } catch {
       // Daily roster is optional.
+    }
+
+    try {
+      await loadCloudSupplyItems();
+      await loadCloudSupplyDistributions();
+      shouldRender = true;
+    } catch {
+      // Supplies module is optional until the upgrade SQL is run.
     }
 
     try {

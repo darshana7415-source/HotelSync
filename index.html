@@ -81,6 +81,7 @@
         <a href="staff-shifts-v250.html" data-page-link="shifts">Shifts</a>
         <a href="shift-allocation.html" data-admin-only="true">Shift Allocation</a>
         <a href="#leave" data-page-link="leave">Leave</a>
+        <a href="#supplies" data-page-link="supplies">Supplies</a>
         <a href="#location" data-page-link="location">Location</a>
         <a href="attendance-upload.html">Attendance Reports</a>
       </nav>
@@ -776,6 +777,108 @@
           <div class="organizer-grid" id="leave-calendar"></div>
         </div>
 
+        <div class="panel span-2" id="supplies-panel">
+          <div class="panel-header compact">
+            <div>
+              <p class="eyebrow">Store room</p>
+              <h2>Housekeeping supplies</h2>
+            </div>
+            <span class="pill blue" id="supplies-role-note">Log what you took</span>
+          </div>
+
+          <form id="supplies-form" class="form">
+            <label>
+              Item
+              <select id="supplies-item" required></select>
+            </label>
+            <div class="form-row">
+              <label>
+                Quantity
+                <input id="supplies-quantity" type="number" min="1" step="1" value="1" required>
+              </label>
+              <label>
+                Room number
+                <input id="supplies-room" type="text" placeholder="e.g. 204" required>
+              </label>
+            </div>
+            <label>
+              Note (optional)
+              <input id="supplies-note" type="text" placeholder="Any detail worth adding">
+            </label>
+            <button type="submit">Log items taken</button>
+          </form>
+
+          <div class="request-list" id="supplies-recent-list"></div>
+
+          <div class="panel-header compact supplies-admin-only" id="supplies-log-header">
+            <div>
+              <p class="eyebrow">Oversight</p>
+              <h3>Distribution log</h3>
+            </div>
+          </div>
+          <div class="form-row supplies-admin-only" id="supplies-filters">
+            <label>
+              From
+              <input id="supplies-filter-from" type="date">
+            </label>
+            <label>
+              To
+              <input id="supplies-filter-to" type="date">
+            </label>
+            <label>
+              Staff
+              <select id="supplies-filter-staff"><option value="">All staff</option></select>
+            </label>
+            <label>
+              Item
+              <select id="supplies-filter-item"><option value="">All items</option></select>
+            </label>
+            <label>
+              Room
+              <input id="supplies-filter-room" type="text" placeholder="Room number">
+            </label>
+          </div>
+          <div class="table-wrap supplies-admin-only" id="supplies-log-wrap">
+            <table class="roster-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Staff</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Room</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody id="supplies-log-body"></tbody>
+            </table>
+          </div>
+
+          <details class="supplies-admin-only" id="supplies-manage-items">
+            <summary>Manage items</summary>
+            <form id="supplies-item-form" class="form">
+              <div class="form-row">
+                <label>
+                  Name
+                  <input id="supplies-item-name" type="text" required>
+                </label>
+                <label>
+                  Category
+                  <input id="supplies-item-category" type="text" placeholder="e.g. Bathroom">
+                </label>
+                <label>
+                  Unit
+                  <input id="supplies-item-unit" type="text" placeholder="e.g. pcs, bottle, sachet">
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Add item</button>
+              </div>
+            </form>
+            <div class="request-list" id="supplies-item-list"></div>
+          </details>
+        </div>
+
         <div class="panel span-2" id="reports">
           <div class="panel-header">
             <div>
@@ -903,8 +1006,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=194"></script>
-  <script src="app.js?v=302"></script>
+  <script src="staffsync-data-service.js?v=195"></script>
+  <script src="app.js?v=303"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>
