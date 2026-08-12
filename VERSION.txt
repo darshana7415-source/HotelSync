@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies: room number dropdown (25 rooms), backdatable date field on the handoff log (defaults to today), and the Store Keeper's view now skips the full distribution-log/filters (admin/manager only) while keeping her own log form, recent entries, and item manager.
+StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies: delete for both the log and item lists, item Edit/Delete, a "+ Add new item" shortcut right in the item picker, and clearer section dividers on the page.

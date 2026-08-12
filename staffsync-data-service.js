@@ -925,6 +925,15 @@ const staffSyncDb = {
     return data;
   },
 
+  async deleteSupplyItem(itemId) {
+    const { error } = await window.staffSyncSupabase
+      .from("supply_items")
+      .delete()
+      .eq("id", itemId);
+
+    if (error) throw error;
+  },
+
   async getSupplyDistributions({ hotelId, startDate, endDate, limit = 500 }) {
     let query = window.staffSyncSupabase
       .from("supply_distributions")
@@ -1006,6 +1015,15 @@ const staffSyncDb = {
 
     if (error) throw error;
     return data;
+  },
+
+  async deleteSupplyDistribution(id) {
+    const { error } = await window.staffSyncSupabase
+      .from("supply_distributions")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
   }
 };
 

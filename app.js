@@ -184,10 +184,13 @@ const suppliesItemCategory = document.querySelector("#supplies-item-category");
 const suppliesItemUnit = document.querySelector("#supplies-item-unit");
 const suppliesItemUnitCustom = document.querySelector("#supplies-item-unit-custom");
 const suppliesItemList = document.querySelector("#supplies-item-list");
+const suppliesItemSubmit = document.querySelector("#supplies-item-submit");
+const suppliesItemCancelEdit = document.querySelector("#supplies-item-cancel-edit");
 const suppliesAdminOnlyElements = Array.from(document.querySelectorAll(".supplies-admin-only"));
 const suppliesOversightOnlyElements = Array.from(document.querySelectorAll(".supplies-oversight-only"));
 const commonSupplyUnits = ["bottle", "100ml", "250ml", "500ml", "1L", "pcs", "pair", "sachet", "pack", "box", "kg", "g"];
 const suppliesCustomUnitValue = "__custom__";
+const suppliesAddNewItemValue = "__add_new__";
 
 let activeStaffId = sessionStorage.getItem("staffsync.activeStaffId") || localStorage.getItem("staffsync.activeStaffId") || staff[0]?.id || "";
 let currentRole = normalizeAppRole(sessionStorage.getItem("staffsync.role") || "");
@@ -217,6 +220,7 @@ let openShiftChatThreadId = "";
 let supplyItems = [];
 let supplyDistributions = [];
 let supplyRooms = [];
+let editingSupplyItemId = "";
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -1190,7 +1194,7 @@ function renderSupplies() {
     <optgroup label="${escapeAttribute(category)}">
       ${groupedItems[category].map((item) => `<option value="${item.id}">${escapeText(item.name)} (${escapeText(item.unit)})</option>`).join("")}
     </optgroup>
-  `).join("");
+  `).join("") + `<option value="${suppliesAddNewItemValue}">+ Add new item...</option>`;
   if (previousItemValue && activeItems.some((item) => sameId(item.id, previousItemValue))) {
     suppliesItem.value = previousItemValue;
   }
@@ -1249,6 +1253,9 @@ function renderSupplies() {
         </div>
         <small>To ${escapeText(entry.receivedByName)} - Room ${escapeText(entry.roomNumber)} - ${formatDateTime(entry.distributedAt)}</small>
         ${entry.note ? `<span>${escapeText(entry.note)}</span>` : ""}
+        <div class="request-actions">
+          <button type="button" class="ghost danger" data-delete-supply-distribution="${entry.id}">Delete</button>
+        </div>
       </article>
     `).join("") || `<p>No supplies logged yet.</p>`;
   }
@@ -1293,8 +1300,9 @@ function renderSupplies() {
           <td>${entry.quantity}${entry.unit ? ` ${escapeText(entry.unit)}` : ""}</td>
           <td>${escapeText(entry.roomNumber)}</td>
           <td>${escapeText(entry.note || "")}</td>
+          <td><button type="button" class="ghost danger small-button" data-delete-supply-distribution="${entry.id}">Delete</button></td>
         </tr>
-      `).join("") || `<tr><td colspan="7">No distribution entries yet.</td></tr>`;
+      `).join("") || `<tr><td colspan="8">No distribution entries yet.</td></tr>`;
     }
   }
 
@@ -1307,7 +1315,9 @@ function renderSupplies() {
         </div>
         <small>${escapeText(item.category)} - ${escapeText(item.unit)}</small>
         <div class="request-actions">
+          <button type="button" class="ghost" data-edit-supply-item="${item.id}">Edit</button>
           <button type="button" class="ghost" data-toggle-supply-item="${item.id}">${item.isActive === false ? "Reactivate" : "Deactivate"}</button>
+          <button type="button" class="ghost danger" data-delete-supply-item="${item.id}">Delete</button>
         </div>
       </article>
     `).join("");
@@ -2909,6 +2919,15 @@ function bindEvents() {
 
   if (suppliesForm) {
     suppliesItem?.addEventListener("change", () => {
+      if (suppliesItem.value === suppliesAddNewItemValue) {
+        suppliesItem.value = "";
+        const activeItems = supplyItems.filter((item) => item.isActive !== false);
+        if (activeItems[0]) suppliesItem.value = activeItems[0].id;
+        document.getElementById("supplies-manage-items")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        suppliesItemName?.focus();
+        showToast("Add the new item below, then come back and pick it here.");
+        return;
+      }
       const selected = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
       populateUnitSelect(suppliesUnit, selected?.unit);
       syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom, selected?.unit);
@@ -3005,8 +3024,18 @@ function bindEvents() {
     });
   }
 
+  function cancelSupplyItemEdit() {
+    editingSupplyItemId = "";
+    suppliesItemForm?.reset();
+    populateUnitSelect(suppliesItemUnit, "");
+    syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
+    if (suppliesItemSubmit) suppliesItemSubmit.textContent = "Add item";
+    if (suppliesItemCancelEdit) suppliesItemCancelEdit.style.display = "none";
+  }
+
   if (suppliesItemForm) {
     suppliesItemUnit?.addEventListener("change", () => syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom));
+    suppliesItemCancelEdit?.addEventListener("click", cancelSupplyItemEdit);
 
     suppliesItemForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -3018,45 +3047,118 @@ function bindEvents() {
       const category = suppliesItemCategory.value.trim() || "General";
       const unit = resolvedUnitValue(suppliesItemUnit, suppliesItemUnitCustom) || "pcs";
       const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+      const editingId = editingSupplyItemId;
 
       try {
-        if (isCloudReady() && hotelId) {
-          const created = await window.staffSyncDb.createSupplyItem({ hotelId, name, category, unit });
-          supplyItems = [...supplyItems, mapCloudSupplyItem(created)];
+        if (editingId) {
+          const item = supplyItems.find((entry) => sameId(entry.id, editingId));
+          if (isCloudReady()) {
+            await window.staffSyncDb.updateSupplyItem({ itemId: editingId, name, category, unit });
+          }
+          if (item) Object.assign(item, { name, category, unit });
+          cancelSupplyItemEdit();
+          renderAll();
+          showToast(`${name} updated.`);
         } else {
-          supplyItems = [...supplyItems, { id: `local-${Date.now()}`, name, category, unit, isActive: true }];
+          if (isCloudReady() && hotelId) {
+            const created = await window.staffSyncDb.createSupplyItem({ hotelId, name, category, unit });
+            supplyItems = [...supplyItems, mapCloudSupplyItem(created)];
+          } else {
+            supplyItems = [...supplyItems, { id: `local-${Date.now()}`, name, category, unit, isActive: true }];
+          }
+          suppliesItemForm.reset();
+          populateUnitSelect(suppliesItemUnit, "");
+          syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
+          renderAll();
+          showToast(`${name} added.`);
         }
-        suppliesItemForm.reset();
-        populateUnitSelect(suppliesItemUnit, "");
-        syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom);
-        renderAll();
-        showToast(`${name} added.`);
       } catch (error) {
-        showToast(error.message || "Could not add this item.");
+        showToast(error.message || "Could not save this item.");
       }
     });
   }
 
   if (suppliesItemList) {
     suppliesItemList.addEventListener("click", async (event) => {
-      const button = event.target.closest("[data-toggle-supply-item]");
-      if (!button) return;
-      const itemId = button.dataset.toggleSupplyItem;
-      const item = supplyItems.find((entry) => sameId(entry.id, itemId));
-      if (!item) return;
-      const nextActive = item.isActive === false;
+      const toggleButton = event.target.closest("[data-toggle-supply-item]");
+      if (toggleButton) {
+        const itemId = toggleButton.dataset.toggleSupplyItem;
+        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
+        if (!item) return;
+        const nextActive = item.isActive === false;
 
-      try {
-        if (isCloudReady()) {
-          await window.staffSyncDb.updateSupplyItem({ itemId, isActive: nextActive });
+        try {
+          if (isCloudReady()) {
+            await window.staffSyncDb.updateSupplyItem({ itemId, isActive: nextActive });
+          }
+          item.isActive = nextActive;
+          renderAll();
+        } catch (error) {
+          showToast(error.message || "Could not update this item.");
         }
-        item.isActive = nextActive;
-        renderAll();
-      } catch (error) {
-        showToast(error.message || "Could not update this item.");
+        return;
+      }
+
+      const editButton = event.target.closest("[data-edit-supply-item]");
+      if (editButton) {
+        const itemId = editButton.dataset.editSupplyItem;
+        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
+        if (!item) return;
+        editingSupplyItemId = item.id;
+        suppliesItemName.value = item.name;
+        suppliesItemCategory.value = item.category;
+        populateUnitSelect(suppliesItemUnit, item.unit);
+        syncUnitCustomVisibility(suppliesItemUnit, suppliesItemUnitCustom, item.unit);
+        if (suppliesItemSubmit) suppliesItemSubmit.textContent = "Save changes";
+        if (suppliesItemCancelEdit) suppliesItemCancelEdit.style.display = "";
+        suppliesItemName.focus();
+        return;
+      }
+
+      const deleteButton = event.target.closest("[data-delete-supply-item]");
+      if (deleteButton) {
+        const itemId = deleteButton.dataset.deleteSupplyItem;
+        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
+        if (!item) return;
+        if (!window.confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+
+        try {
+          if (isCloudReady()) {
+            await window.staffSyncDb.deleteSupplyItem(itemId);
+          }
+          supplyItems = supplyItems.filter((entry) => !sameId(entry.id, itemId));
+          if (sameId(editingSupplyItemId, itemId)) cancelSupplyItemEdit();
+          renderAll();
+          showToast(`${item.name} deleted.`);
+        } catch (error) {
+          showToast(error.message || "Could not delete this item. It may already be used in the log -- try Deactivate instead.");
+        }
       }
     });
   }
+
+  async function handleDeleteSupplyDistributionClick(event) {
+    const button = event.target.closest("[data-delete-supply-distribution]");
+    if (!button) return;
+    const id = button.dataset.deleteSupplyDistribution;
+    const entry = supplyDistributions.find((row) => sameId(row.id, id));
+    if (!entry) return;
+    if (!window.confirm(`Delete this entry (${entry.itemName} x${entry.quantity} to room ${entry.roomNumber})? This cannot be undone.`)) return;
+
+    try {
+      if (isCloudReady() && !String(id).startsWith("local-")) {
+        await window.staffSyncDb.deleteSupplyDistribution(id);
+      }
+      supplyDistributions = supplyDistributions.filter((row) => !sameId(row.id, id));
+      renderAll();
+      showToast("Entry deleted.");
+    } catch (error) {
+      showToast(error.message || "Could not delete this entry.");
+    }
+  }
+
+  suppliesRecentList?.addEventListener("click", handleDeleteSupplyDistributionClick);
+  suppliesLogBody?.addEventListener("click", handleDeleteSupplyDistributionClick);
 
   [suppliesFilterFrom, suppliesFilterTo, suppliesFilterStaff, suppliesFilterItem, suppliesFilterRoom].forEach((element) => {
     if (!element) return;
