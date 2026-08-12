@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="StaffSync Beach & Bliss Mirissa">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css?v=303">
+  <link rel="stylesheet" href="style.css?v=304">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -786,6 +786,13 @@
             <span class="pill blue" id="supplies-role-note">Log what you took</span>
           </div>
 
+          <nav class="supplies-tabs" aria-label="Supplies views">
+            <button type="button" class="supplies-tab-btn" data-supplies-tab="log">Log</button>
+            <button type="button" class="supplies-tab-btn supplies-oversight-only" data-supplies-tab="oversight">Oversight</button>
+            <button type="button" class="supplies-tab-btn supplies-admin-only" data-supplies-tab="items">Items</button>
+          </nav>
+
+          <div class="supplies-tab-panel" id="supplies-tab-log">
           <form id="supplies-form" class="form">
             <label>
               Item
@@ -826,14 +833,16 @@
           </form>
 
           <div class="request-list" id="supplies-recent-list"></div>
+          </div>
 
-          <div class="panel-header compact supplies-oversight-only" id="supplies-log-header">
+          <div class="supplies-tab-panel supplies-oversight-only supplies-tab-hidden" id="supplies-tab-oversight">
+          <div class="panel-header compact" id="supplies-log-header">
             <div>
               <p class="eyebrow">Oversight</p>
               <h3>Distribution log</h3>
             </div>
           </div>
-          <div class="form-row supplies-oversight-only" id="supplies-filters">
+          <div class="form-row" id="supplies-filters">
             <label>
               From
               <input id="supplies-filter-from" type="date">
@@ -855,7 +864,7 @@
               <input id="supplies-filter-room" type="text" placeholder="Room number">
             </label>
           </div>
-          <div class="table-wrap supplies-oversight-only" id="supplies-log-wrap">
+          <div class="table-wrap" id="supplies-log-wrap">
             <table class="roster-table">
               <thead>
                 <tr>
@@ -872,8 +881,9 @@
               <tbody id="supplies-log-body"></tbody>
             </table>
           </div>
+          </div>
 
-          <div class="supplies-admin-only" id="supplies-manage-items">
+          <div class="supplies-tab-panel supplies-admin-only supplies-tab-hidden" id="supplies-tab-items">
             <div class="panel-header compact">
               <div>
                 <p class="eyebrow">Store room</p>
@@ -901,7 +911,20 @@
                 <button type="button" class="ghost" id="supplies-item-cancel-edit" style="display:none;">Cancel</button>
               </div>
             </form>
-            <div class="request-list" id="supplies-item-list"></div>
+            <div class="table-wrap">
+              <table class="roster-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th>Unit</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="supplies-item-list"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1032,8 +1055,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=198"></script>
-  <script src="app.js?v=306"></script>
+  <script src="staffsync-data-service.js?v=199"></script>
+  <script src="app.js?v=307"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>

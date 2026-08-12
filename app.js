@@ -188,6 +188,12 @@ const suppliesItemSubmit = document.querySelector("#supplies-item-submit");
 const suppliesItemCancelEdit = document.querySelector("#supplies-item-cancel-edit");
 const suppliesAdminOnlyElements = Array.from(document.querySelectorAll(".supplies-admin-only"));
 const suppliesOversightOnlyElements = Array.from(document.querySelectorAll(".supplies-oversight-only"));
+const suppliesTabButtons = Array.from(document.querySelectorAll(".supplies-tab-btn"));
+const suppliesTabPanels = {
+  log: document.querySelector("#supplies-tab-log"),
+  oversight: document.querySelector("#supplies-tab-oversight"),
+  items: document.querySelector("#supplies-tab-items")
+};
 const commonSupplyUnits = ["bottle", "100ml", "250ml", "500ml", "1L", "pcs", "pair", "sachet", "pack", "box", "kg", "g"];
 const suppliesCustomUnitValue = "__custom__";
 const suppliesAddNewItemValue = "__add_new__";
@@ -221,6 +227,7 @@ let supplyItems = [];
 let supplyDistributions = [];
 let supplyRooms = [];
 let editingSupplyItemId = "";
+let activeSuppliesTab = "log";
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -577,7 +584,7 @@ function renderLeaveRequests() {
           <button class="ghost" data-action="cancel" data-id="${request.id}">Cancel approved leave</button>
         </div>
       ` : ""}
-      ${currentRole === "staff" && ["Pending", "Change the Request", "Adjustment requested"].includes(request.status) ? `
+      ${currentRole === "staff" && ["Pending", "Change the Request", "Adjustment requested", "Approved"].includes(request.status) ? `
         ${leaveChatBoxMarkup(request, "staff")}
         <div class="request-actions">
           <button class="ghost" type="button" data-staff-cancel-leave="${request.id}">Cancel request</button>
@@ -1238,6 +1245,13 @@ function renderSupplies() {
     suppliesRoleNote.textContent = currentRole === "store_keeper" ? "Store room handoffs" : "Log entries and oversee distribution";
   }
 
+  suppliesTabButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.suppliesTab === activeSuppliesTab);
+  });
+  Object.entries(suppliesTabPanels).forEach(([name, panel]) => {
+    panel?.classList.toggle("supplies-tab-hidden", name !== activeSuppliesTab);
+  });
+
   if (!canManageSupplies) return;
 
   const activePerson = activeStaffForCurrentLogin();
@@ -1308,19 +1322,21 @@ function renderSupplies() {
 
   if (suppliesItemList) {
     suppliesItemList.innerHTML = supplyItems.map((item) => `
-      <article class="request-card">
-        <div class="request-top">
-          <strong>${escapeText(item.name)}</strong>
-          <span class="pill">${item.isActive === false ? "Inactive" : "Active"}</span>
-        </div>
-        <small>${escapeText(item.category)} - ${escapeText(item.unit)}</small>
-        <div class="request-actions">
-          <button type="button" class="ghost" data-edit-supply-item="${item.id}">Edit</button>
-          <button type="button" class="ghost" data-toggle-supply-item="${item.id}">${item.isActive === false ? "Reactivate" : "Deactivate"}</button>
-          <button type="button" class="ghost danger" data-delete-supply-item="${item.id}">Delete</button>
-        </div>
-      </article>
-    `).join("");
+      <tr>
+        <td>${escapeText(item.name)}</td>
+        <td>${escapeText(item.category)}</td>
+        <td>${escapeText(item.unit)}</td>
+        <td>${item.isActive === false ? "Inactive" : "Active"}</td>
+        <td>
+          <select data-supply-item-action="${item.id}">
+            <option value="">Choose action</option>
+            <option value="edit">Edit</option>
+            <option value="toggle">${item.isActive === false ? "Reactivate" : "Deactivate"}</option>
+            <option value="delete">Delete</option>
+          </select>
+        </td>
+      </tr>
+    `).join("") || `<tr><td colspan="5">No items yet.</td></tr>`;
   }
 }
 
@@ -1747,7 +1763,7 @@ function renderRoleDemo() {
               <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
             </div>
             ${leaveThreadMessagesMarkup(request, 4)}
-            ${["Pending", "Change the Request", "Adjustment requested"].includes(request.status) ? `
+            ${["Pending", "Change the Request", "Adjustment requested", "Approved"].includes(request.status) ? `
               <details class="leave-chat-panel staff-chat-panel dashboard-chat-panel" open>
                 <summary>Continue chat for this request</summary>
                 <form class="leave-chat-form staff-chat-form" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="staff">
@@ -2923,9 +2939,10 @@ function bindEvents() {
         suppliesItem.value = "";
         const activeItems = supplyItems.filter((item) => item.isActive !== false);
         if (activeItems[0]) suppliesItem.value = activeItems[0].id;
-        document.getElementById("supplies-manage-items")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        activeSuppliesTab = "items";
+        renderSupplies();
         suppliesItemName?.focus();
-        showToast("Add the new item below, then come back and pick it here.");
+        showToast("Add the new item, then come back to Log and pick it there.");
         return;
       }
       const selected = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
@@ -3079,14 +3096,17 @@ function bindEvents() {
   }
 
   if (suppliesItemList) {
-    suppliesItemList.addEventListener("click", async (event) => {
-      const toggleButton = event.target.closest("[data-toggle-supply-item]");
-      if (toggleButton) {
-        const itemId = toggleButton.dataset.toggleSupplyItem;
-        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
-        if (!item) return;
-        const nextActive = item.isActive === false;
+    suppliesItemList.addEventListener("change", async (event) => {
+      const select = event.target.closest("[data-supply-item-action]");
+      if (!select) return;
+      const itemId = select.dataset.supplyItemAction;
+      const action = select.value;
+      select.value = "";
+      const item = supplyItems.find((entry) => sameId(entry.id, itemId));
+      if (!item || !action) return;
 
+      if (action === "toggle") {
+        const nextActive = item.isActive === false;
         try {
           if (isCloudReady()) {
             await window.staffSyncDb.updateSupplyItem({ itemId, isActive: nextActive });
@@ -3099,11 +3119,7 @@ function bindEvents() {
         return;
       }
 
-      const editButton = event.target.closest("[data-edit-supply-item]");
-      if (editButton) {
-        const itemId = editButton.dataset.editSupplyItem;
-        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
-        if (!item) return;
+      if (action === "edit") {
         editingSupplyItemId = item.id;
         suppliesItemName.value = item.name;
         suppliesItemCategory.value = item.category;
@@ -3115,11 +3131,7 @@ function bindEvents() {
         return;
       }
 
-      const deleteButton = event.target.closest("[data-delete-supply-item]");
-      if (deleteButton) {
-        const itemId = deleteButton.dataset.deleteSupplyItem;
-        const item = supplyItems.find((entry) => sameId(entry.id, itemId));
-        if (!item) return;
+      if (action === "delete") {
         if (!window.confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
 
         try {
@@ -3164,6 +3176,13 @@ function bindEvents() {
     if (!element) return;
     element.addEventListener("input", () => renderSupplies());
     element.addEventListener("change", () => renderSupplies());
+  });
+
+  suppliesTabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeSuppliesTab = btn.dataset.suppliesTab;
+      renderSupplies();
+    });
   });
 
   leaveList.addEventListener("click", handleApprovalClick);
@@ -3738,6 +3757,7 @@ async function handleApprovalClick(event) {
     }
 
     request.status = nextStatus;
+    request.approvedBy = currentAppUserId || null;
     if (card?.classList.contains("approval-item") && managerApprovals) {
       card.remove();
       if (!managerApprovals.querySelector(".approval-item")) {
@@ -3778,8 +3798,8 @@ async function handleStaffLeaveCancelClick(event) {
     return;
   }
 
-  if (!["Pending", "Change the Request", "Adjustment requested"].includes(request.status)) {
-    showToast("Only pending leave requests can be cancelled by staff.");
+  if (!["Pending", "Change the Request", "Adjustment requested", "Approved"].includes(request.status)) {
+    showToast("This leave request can no longer be cancelled.");
     return;
   }
 
@@ -3797,6 +3817,7 @@ async function handleStaffLeaveCancelClick(event) {
     }
 
     request.status = "Cancelled";
+    request.approvedBy = null;
     await applyLeaveBalanceDecision(request, previousStatus, request.status);
     await addLeaveThreadMessage(request, `Request cancelled by staff: ${leaveRequestTitle(request)} for ${leaveDateRangeLabel(request)}.`, "Cancelled", "blue", activeStaff);
     addActivity("Leave", `${request.name} cancelled a leave request`);
@@ -7161,14 +7182,22 @@ function isAdminGrantedLeave(request) {
   return Boolean(request?.adminGranted);
 }
 
+function isStaffCancelledLeave(request) {
+  return Boolean(request && typeof request === "object" && request.status === "Cancelled" && !request.approvedBy);
+}
+
 function leavePillClass(request) {
-  if ((request?.status || request) === "Cancelled") return "cancelled";
+  if ((request?.status || request) === "Cancelled") {
+    return isStaffCancelledLeave(request) ? "cancelled-by-staff" : "cancelled";
+  }
   return isAdminGrantedLeave(request) ? "admin-granted" : leaveStatusClass(request?.status || request);
 }
 
 function leaveStatusDisplay(requestOrStatus) {
   const status = typeof requestOrStatus === "object" ? requestOrStatus?.status : requestOrStatus;
-  if (status === "Cancelled") return "Cancelled";
+  if (status === "Cancelled") {
+    return isStaffCancelledLeave(requestOrStatus) ? "Cancelled by staff" : "Cancelled";
+  }
   if (typeof requestOrStatus === "object" && isAdminGrantedLeave(requestOrStatus)) return "Admin granted";
   return status === "Adjustment requested" ? "Change the Request" : status;
 }
@@ -8131,6 +8160,7 @@ function mapCloudLeaveRequest(request) {
     reason: decodedReason.reason,
     status: leaveStatusLabel(request.status || "pending"),
     adminGranted: Boolean(decodedReason.adminGranted),
+    approvedBy: request.approved_by || null,
     updatedAt: request.approved_at || request.created_at
   };
 }

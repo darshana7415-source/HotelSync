@@ -1,1 +1,1 @@
-StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies: delete for both the log and item lists, item Edit/Delete, a "+ Add new item" shortcut right in the item picker, and clearer section dividers on the page.
+StaffSync Beach & Bliss Mirissa Version 1.0 - Supplies split into Log/Oversight/Items tabs with a single action dropdown per item row; staff can now cancel an already-approved leave request, and staff-cancelled leave shows in a distinct color on the calendar vs admin-cancelled.

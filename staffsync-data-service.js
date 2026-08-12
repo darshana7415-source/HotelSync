@@ -228,6 +228,7 @@ const staffSyncDb = {
         status,
         created_at,
         approved_at,
+        approved_by,
         leave_types (
           id,
           name
