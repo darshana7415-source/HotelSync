@@ -169,6 +169,11 @@ const suppliesUnitCustom = document.querySelector("#supplies-unit-custom");
 const suppliesReceivedBy = document.querySelector("#supplies-received-by");
 const suppliesRoom = document.querySelector("#supplies-room");
 const suppliesDate = document.querySelector("#supplies-date");
+const suppliesAddToBatch = document.querySelector("#supplies-add-to-batch");
+const suppliesBatchWrap = document.querySelector("#supplies-batch-wrap");
+const suppliesBatchBody = document.querySelector("#supplies-batch-body");
+const suppliesBatchSubmit = document.querySelector("#supplies-batch-submit");
+const suppliesBatchClear = document.querySelector("#supplies-batch-clear");
 const suppliesNote = document.querySelector("#supplies-note");
 const suppliesRecentList = document.querySelector("#supplies-recent-list");
 const suppliesRoleNote = document.querySelector("#supplies-role-note");
@@ -228,6 +233,7 @@ let supplyDistributions = [];
 let supplyRooms = [];
 let editingSupplyItemId = "";
 let activeSuppliesTab = "log";
+let suppliesBatch = [];
 const leaveDepartments = ["Kitchen", "Restaurant", "Front Office", "Housekeeping", "Maintenance", "General"];
 const hotelMapStorageKey = "staffsync.hotelMapImage.v2";
 const mapFloorStorageKey = "staffsync.mapFloor";
@@ -1187,6 +1193,27 @@ function resolvedUnitValue(selectEl, customEl) {
   return selectEl.value;
 }
 
+// Rebuilding a <select>'s options (or a table's rows) on every poll tick even when
+// nothing changed is what causes the visible flicker on the Supplies page -- these
+// helpers skip the rebuild unless the underlying data actually changed.
+function syncSelectOptions(selectEl, signature, buildOptionsHtml) {
+  if (!selectEl) return;
+  if (selectEl.dataset.optionsSignature === signature) return;
+  const previousValue = selectEl.value;
+  selectEl.innerHTML = buildOptionsHtml();
+  selectEl.dataset.optionsSignature = signature;
+  if (previousValue && Array.from(selectEl.options).some((option) => option.value === previousValue)) {
+    selectEl.value = previousValue;
+  }
+}
+
+function renderIfChanged(el, signature, buildHtml) {
+  if (!el) return;
+  if (el.dataset.renderSignature === signature) return;
+  el.innerHTML = buildHtml();
+  el.dataset.renderSignature = signature;
+}
+
 function renderSupplies() {
   if (!suppliesForm || !suppliesItem) return;
 
@@ -1196,33 +1223,31 @@ function renderSupplies() {
     (groups[key] = groups[key] || []).push(item);
     return groups;
   }, {});
-  const previousItemValue = suppliesItem.value;
-  suppliesItem.innerHTML = Object.keys(groupedItems).sort().map((category) => `
-    <optgroup label="${escapeAttribute(category)}">
-      ${groupedItems[category].map((item) => `<option value="${item.id}">${escapeText(item.name)} (${escapeText(item.unit)})</option>`).join("")}
-    </optgroup>
-  `).join("") + `<option value="${suppliesAddNewItemValue}">+ Add new item...</option>`;
-  if (previousItemValue && activeItems.some((item) => sameId(item.id, previousItemValue))) {
-    suppliesItem.value = previousItemValue;
-  }
+  syncSelectOptions(
+    suppliesItem,
+    activeItems.map((item) => `${item.id}:${item.name}:${item.unit}`).join("|"),
+    () => Object.keys(groupedItems).sort().map((category) => `
+      <optgroup label="${escapeAttribute(category)}">
+        ${groupedItems[category].map((item) => `<option value="${item.id}">${escapeText(item.name)} (${escapeText(item.unit)})</option>`).join("")}
+      </optgroup>
+    `).join("") + `<option value="${suppliesAddNewItemValue}">+ Add new item...</option>`
+  );
 
   const selectedItemForUnit = activeItems.find((item) => sameId(item.id, suppliesItem.value)) || activeItems[0];
   populateUnitSelect(suppliesUnit, selectedItemForUnit?.unit);
   syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom, selectedItemForUnit?.unit);
 
-  if (suppliesReceivedBy) {
-    const selected = suppliesReceivedBy.value;
-    suppliesReceivedBy.innerHTML = `<option value="">Choose staff member</option>` +
-      sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
-    if (selected) suppliesReceivedBy.value = selected;
-  }
+  const sortedStaffForSupplies = sortStaffByEmployeeCode(staff);
+  const staffSignature = sortedStaffForSupplies.map((person) => `${person.id}:${person.name}`).join("|");
+  syncSelectOptions(suppliesReceivedBy, staffSignature, () =>
+    `<option value="">Choose staff member</option>` +
+    sortedStaffForSupplies.map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("")
+  );
 
-  if (suppliesRoom) {
-    const selected = suppliesRoom.value;
-    suppliesRoom.innerHTML = `<option value="">Choose room</option>` +
-      supplyRooms.map((room) => `<option value="${escapeAttribute(room)}">${escapeText(room)}</option>`).join("");
-    if (selected) suppliesRoom.value = selected;
-  }
+  syncSelectOptions(suppliesRoom, supplyRooms.join("|"), () =>
+    `<option value="">Choose room</option>` +
+    supplyRooms.map((room) => `<option value="${escapeAttribute(room)}">${escapeText(room)}</option>`).join("")
+  );
 
   if (suppliesDate && !suppliesDate.value) {
     suppliesDate.value = todayLocalKey();
@@ -1258,8 +1283,11 @@ function renderSupplies() {
   const mine = activePerson
     ? supplyDistributions.filter((entry) => sameId(entry.givenByStaffProfileId, activePerson.id) || sameId(entry.givenByStaffProfileId, activePerson.cloudId))
     : [];
-  if (suppliesRecentList) {
-    suppliesRecentList.innerHTML = mine.slice(0, 10).map((entry) => `
+  const recent = mine.slice(0, 10);
+  renderIfChanged(
+    suppliesRecentList,
+    recent.map((entry) => `${entry.id}:${entry.quantity}:${entry.unit}:${entry.roomNumber}:${entry.note}`).join("|"),
+    () => recent.map((entry) => `
       <article class="request-card">
         <div class="request-top">
           <strong>${escapeText(entry.itemName)} x${entry.quantity}</strong>
@@ -1271,22 +1299,20 @@ function renderSupplies() {
           <button type="button" class="ghost danger" data-delete-supply-distribution="${entry.id}">Delete</button>
         </div>
       </article>
-    `).join("") || `<p>No supplies logged yet.</p>`;
-  }
+    `).join("") || `<p>No supplies logged yet.</p>`
+  );
 
   if (canSeeOversight) {
-    if (suppliesFilterStaff) {
-      const selected = suppliesFilterStaff.value;
-      suppliesFilterStaff.innerHTML = `<option value="">All staff</option>` +
-        sortStaffByEmployeeCode(staff).map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("");
-      suppliesFilterStaff.value = selected;
-    }
-    if (suppliesFilterItem) {
-      const selected = suppliesFilterItem.value;
-      suppliesFilterItem.innerHTML = `<option value="">All items</option>` +
-        activeItems.map((item) => `<option value="${item.id}">${escapeText(item.name)}</option>`).join("");
-      suppliesFilterItem.value = selected;
-    }
+    syncSelectOptions(suppliesFilterStaff, staffSignature, () =>
+      `<option value="">All staff</option>` +
+      sortedStaffForSupplies.map((person) => `<option value="${person.id}">${escapeText(person.name)}</option>`).join("")
+    );
+    syncSelectOptions(
+      suppliesFilterItem,
+      activeItems.map((item) => `${item.id}:${item.name}`).join("|"),
+      () => `<option value="">All items</option>` +
+        activeItems.map((item) => `<option value="${item.id}">${escapeText(item.name)}</option>`).join("")
+    );
 
     const fromValue = suppliesFilterFrom?.value || "";
     const toValue = suppliesFilterTo?.value || "";
@@ -1304,8 +1330,10 @@ function renderSupplies() {
       return true;
     });
 
-    if (suppliesLogBody) {
-      suppliesLogBody.innerHTML = filtered.map((entry) => `
+    renderIfChanged(
+      suppliesLogBody,
+      filtered.map((entry) => `${entry.id}:${entry.quantity}:${entry.unit}:${entry.roomNumber}:${entry.note}`).join("|"),
+      () => filtered.map((entry) => `
         <tr>
           <td>${formatDateTime(entry.distributedAt)}</td>
           <td>${escapeText(entry.givenByName || "-")}</td>
@@ -1316,12 +1344,14 @@ function renderSupplies() {
           <td>${escapeText(entry.note || "")}</td>
           <td><button type="button" class="ghost danger small-button" data-delete-supply-distribution="${entry.id}">Delete</button></td>
         </tr>
-      `).join("") || `<tr><td colspan="8">No distribution entries yet.</td></tr>`;
-    }
+      `).join("") || `<tr><td colspan="8">No distribution entries yet.</td></tr>`
+    );
   }
 
-  if (suppliesItemList) {
-    suppliesItemList.innerHTML = supplyItems.map((item) => `
+  renderIfChanged(
+    suppliesItemList,
+    supplyItems.map((item) => `${item.id}:${item.name}:${item.category}:${item.unit}:${item.isActive}`).join("|"),
+    () => supplyItems.map((item) => `
       <tr>
         <td>${escapeText(item.name)}</td>
         <td>${escapeText(item.category)}</td>
@@ -1336,8 +1366,8 @@ function renderSupplies() {
           </select>
         </td>
       </tr>
-    `).join("") || `<tr><td colspan="5">No items yet.</td></tr>`;
-  }
+    `).join("") || `<tr><td colspan="5">No items yet.</td></tr>`
+  );
 }
 
 // shift-calendar-clean-v218
@@ -2933,6 +2963,69 @@ function bindEvents() {
     }
   });
 
+  function renderSuppliesBatch() {
+    if (!suppliesBatchBody) return;
+    suppliesBatchBody.innerHTML = suppliesBatch.map((row) => `
+      <tr>
+        <td>${escapeText(row.itemName)}</td>
+        <td>${row.quantity}${row.unit ? ` ${escapeText(row.unit)}` : ""}</td>
+        <td>${escapeText(row.roomNumber)}</td>
+        <td>${escapeText(row.note || "")}</td>
+        <td><button type="button" class="ghost danger small-button" data-remove-batch-row="${row.localId}">Remove</button></td>
+      </tr>
+    `).join("");
+    if (suppliesBatchWrap) suppliesBatchWrap.style.display = suppliesBatch.length ? "" : "none";
+    if (suppliesBatchClear) suppliesBatchClear.style.display = suppliesBatch.length ? "" : "none";
+    if (suppliesBatchSubmit) suppliesBatchSubmit.disabled = suppliesBatch.length === 0;
+  }
+
+  async function createOneSupplyDistribution({ item, quantity, unit, roomNumber, note, receivedByPerson, givenByPerson, distributedAt }) {
+    const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+    const receivedByStaffProfileId = receivedByPerson.cloudId || receivedByPerson.id;
+    const givenByStaffProfileId = givenByPerson ? (givenByPerson.cloudId || givenByPerson.id) : null;
+
+    if (isCloudReady() && hotelId) {
+      const created = await window.staffSyncDb.createSupplyDistribution({
+        hotelId,
+        itemId: item.id,
+        receivedByStaffProfileId,
+        givenByStaffProfileId,
+        quantity,
+        unit,
+        roomNumber,
+        note,
+        distributedAt
+      });
+      supplyDistributions = [mapCloudSupplyDistribution(created), ...supplyDistributions];
+      try {
+        await window.staffSyncDb.addActivityLog({
+          hotelId,
+          actorUserId: currentAppUserId || null,
+          eventType: "Supplies",
+          message: `${givenByPerson?.name || "Store"} gave ${quantity} ${unit} ${item.name} to ${receivedByPerson.name} for room ${roomNumber}`
+        });
+      } catch {
+        // Audit log write failing should not block the distribution entry itself.
+      }
+    } else {
+      supplyDistributions = [{
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        itemId: item.id,
+        itemName: item.name,
+        unit,
+        category: item.category,
+        receivedByStaffProfileId,
+        receivedByName: receivedByPerson.name,
+        givenByStaffProfileId,
+        givenByName: givenByPerson?.name || "",
+        quantity,
+        roomNumber,
+        note,
+        distributedAt
+      }, ...supplyDistributions];
+    }
+  }
+
   if (suppliesForm) {
     suppliesItem?.addEventListener("change", () => {
       if (suppliesItem.value === suppliesAddNewItemValue) {
@@ -2951,9 +3044,7 @@ function bindEvents() {
     });
     suppliesUnit?.addEventListener("change", () => syncUnitCustomVisibility(suppliesUnit, suppliesUnitCustom));
 
-    suppliesForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const givenByPerson = activeStaffForCurrentLogin();
+    suppliesAddToBatch?.addEventListener("click", () => {
       const selectedItem = supplyItems.find((item) => sameId(item.id, suppliesItem.value));
       if (!selectedItem) {
         showToast("Please choose an item.");
@@ -2961,20 +3052,59 @@ function bindEvents() {
       }
       const quantity = Number(suppliesQuantity.value);
       const unit = resolvedUnitValue(suppliesUnit, suppliesUnitCustom) || selectedItem.unit;
-      const receivedByPerson = staff.find((person) => sameId(person.id, suppliesReceivedBy?.value));
       const roomNumber = suppliesRoom.value;
-      const dateValue = suppliesDate?.value || todayLocalKey();
       const note = suppliesNote.value.trim();
       if (!quantity || quantity <= 0) {
         showToast("Enter a quantity of 1 or more.");
         return;
       }
+      if (!roomNumber) {
+        showToast("Choose the room number.");
+        return;
+      }
+
+      suppliesBatch = [...suppliesBatch, {
+        localId: `batch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        itemId: selectedItem.id,
+        itemName: selectedItem.name,
+        category: selectedItem.category,
+        quantity,
+        unit,
+        roomNumber,
+        note
+      }];
+      renderSuppliesBatch();
+
+      suppliesQuantity.value = "1";
+      suppliesNote.value = "";
+      suppliesItem.focus();
+      showToast(`${selectedItem.name} added to the list.`);
+    });
+
+    suppliesBatchBody?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-remove-batch-row]");
+      if (!button) return;
+      suppliesBatch = suppliesBatch.filter((row) => row.localId !== button.dataset.removeBatchRow);
+      renderSuppliesBatch();
+    });
+
+    suppliesBatchClear?.addEventListener("click", () => {
+      suppliesBatch = [];
+      renderSuppliesBatch();
+    });
+
+    suppliesForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const givenByPerson = activeStaffForCurrentLogin();
+      const receivedByPerson = staff.find((person) => sameId(person.id, suppliesReceivedBy?.value));
+      const dateValue = suppliesDate?.value || todayLocalKey();
+
       if (!receivedByPerson) {
         showToast("Choose who is receiving the items.");
         return;
       }
-      if (!roomNumber) {
-        showToast("Choose the room number.");
+      if (!suppliesBatch.length) {
+        showToast("Add at least one item to the list first.");
         return;
       }
 
@@ -2983,60 +3113,46 @@ function bindEvents() {
         `${dateValue}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`
       ).toISOString();
 
-      const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
-      const receivedByStaffProfileId = receivedByPerson.cloudId || receivedByPerson.id;
-      const givenByStaffProfileId = givenByPerson ? (givenByPerson.cloudId || givenByPerson.id) : null;
+      const submitButton = event.submitter;
+      if (submitButton) submitButton.disabled = true;
 
-      try {
-        if (isCloudReady() && hotelId) {
-          const created = await window.staffSyncDb.createSupplyDistribution({
-            hotelId,
-            itemId: selectedItem.id,
-            receivedByStaffProfileId,
-            givenByStaffProfileId,
-            quantity,
-            unit,
-            roomNumber,
-            note,
+      const remaining = [];
+      let succeeded = 0;
+      for (const row of suppliesBatch) {
+        try {
+          await createOneSupplyDistribution({
+            item: { id: row.itemId, name: row.itemName, category: row.category },
+            quantity: row.quantity,
+            unit: row.unit,
+            roomNumber: row.roomNumber,
+            note: row.note,
+            receivedByPerson,
+            givenByPerson,
             distributedAt
           });
-          supplyDistributions = [mapCloudSupplyDistribution(created), ...supplyDistributions];
-          try {
-            await window.staffSyncDb.addActivityLog({
-              hotelId,
-              actorUserId: currentAppUserId || null,
-              eventType: "Supplies",
-              message: `${givenByPerson?.name || "Store"} gave ${quantity} ${unit} ${selectedItem.name} to ${receivedByPerson.name} for room ${roomNumber}`
-            });
-          } catch {
-            // Audit log write failing should not block the distribution entry itself.
-          }
-        } else {
-          supplyDistributions = [{
-            id: `local-${Date.now()}`,
-            itemId: selectedItem.id,
-            itemName: selectedItem.name,
-            unit,
-            category: selectedItem.category,
-            receivedByStaffProfileId,
-            receivedByName: receivedByPerson.name,
-            givenByStaffProfileId,
-            givenByName: givenByPerson?.name || "",
-            quantity,
-            roomNumber,
-            note,
-            distributedAt
-          }, ...supplyDistributions];
+          succeeded += 1;
+        } catch (error) {
+          remaining.push(row);
         }
+      }
+
+      suppliesBatch = remaining;
+      renderSuppliesBatch();
+      if (submitButton) submitButton.disabled = suppliesBatch.length === 0;
+
+      if (!remaining.length) {
         suppliesForm.reset();
         suppliesQuantity.value = "1";
         suppliesDate.value = todayLocalKey();
-        renderAll();
-        showToast(isCloudReady() && hotelId
-          ? "Logged."
-          : "Logged on this device. Cloud login is needed for the manager dashboard to see it.");
-      } catch (error) {
-        showToast(error.message || "Could not log this item.");
+      }
+      renderAll();
+
+      if (remaining.length) {
+        showToast(`Logged ${succeeded} item(s). ${remaining.length} failed -- still in the list, try again.`);
+      } else {
+        showToast(isCloudReady() && (window.STAFFSYNC_ENV || {}).HOTEL_ID
+          ? `Logged ${succeeded} item(s) for ${receivedByPerson.name}.`
+          : `Logged ${succeeded} item(s) on this device. Cloud login is needed for the manager dashboard to see it.`);
       }
     });
   }
@@ -6605,6 +6721,15 @@ async function openDemoRole(role) {
       currentRole = previousRole || "";
       return;
     }
+    // findOrLoadStaffByLoginCode only adds the logging-in person's own profile --
+    // load the full directory now so "received by"/staff-picker dropdowns aren't empty.
+    if (isCloudReady()) {
+      try {
+        await loadCloudStaffProfiles();
+      } catch {
+        // Keep the signed-in profile if the full directory can't be fetched.
+      }
+    }
     // Employee-code login identifies a specific person -- adopt their real
     // app_users.role (e.g. store_keeper) instead of assuming plain "staff".
     const loggedInPerson = staff.find((person) => sameId(person.id, activeStaffId));
@@ -7933,7 +8058,7 @@ async function syncCloudDashboard() {
     }
 
     try {
-      if (currentRole === staff && staff.length <= 1) await loadCloudStaffProfiles();
+      if (["staff", "store_keeper"].includes(currentRole) && staff.length <= 1) await loadCloudStaffProfiles();
       shouldRender = true;
     } catch {
       // Keep the signed-in profile if the full staff directory cannot refresh.
@@ -8397,7 +8522,7 @@ document.addEventListener("click", async (event) => {
 
 // staff-full-directory-refresh-v182
 async function refreshStaffDirectoryForShiftViews() {
-  if (currentRole !== "staff" || !isCloudReady()) return;
+  if (!["staff", "store_keeper"].includes(currentRole) || !isCloudReady()) return;
   if (staff.length > 1) return;
 
   try {
@@ -10245,7 +10370,7 @@ function renderShiftCalendar() {
       panel.id = "staff-month-leave-calendar-v296";
       panel.className = "panel-card";
       panel.innerHTML = '<div class="section-heading"><div><p class="eyebrow">All staff leave calendar</p><h2>Current month leave calendar</h2></div></div><div class="calendar-grid" id="staff-month-leave-grid-v296"></div>';
-      leavePage.insertBefore(panel, leavePage.firstChild);
+      leavePage.appendChild(panel);
     }
 
     var grid = document.querySelector("#staff-month-leave-grid-v296");

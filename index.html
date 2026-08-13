@@ -794,6 +794,21 @@
 
           <div class="supplies-tab-panel" id="supplies-tab-log">
           <form id="supplies-form" class="form">
+            <div class="form-row">
+              <label>
+                Received by
+                <select id="supplies-received-by" required></select>
+              </label>
+              <label>
+                Date
+                <input id="supplies-date" type="date" required>
+              </label>
+            </div>
+
+            <div class="policy-summary compact-policy">
+              Add each item to the list below, then log them all together in one go.
+            </div>
+
             <label>
               Item
               <select id="supplies-item" required></select>
@@ -811,25 +826,37 @@
             </div>
             <div class="form-row">
               <label>
-                Received by
-                <select id="supplies-received-by" required></select>
-              </label>
-              <label>
                 Room number
                 <select id="supplies-room" required></select>
-              </label>
-            </div>
-            <div class="form-row">
-              <label>
-                Date
-                <input id="supplies-date" type="date" required>
               </label>
               <label>
                 Note (optional)
                 <input id="supplies-note" type="text" placeholder="Any detail worth adding">
               </label>
             </div>
-            <button type="submit">Log items taken</button>
+            <div class="form-actions">
+              <button type="button" id="supplies-add-to-batch">+ Add to list</button>
+            </div>
+
+            <div class="table-wrap" id="supplies-batch-wrap" style="display:none;">
+              <table class="roster-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Room</th>
+                    <th>Note</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="supplies-batch-body"></tbody>
+              </table>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" id="supplies-batch-submit" disabled>Log all items taken</button>
+              <button type="button" class="ghost" id="supplies-batch-clear" style="display:none;">Clear list</button>
+            </div>
           </form>
 
           <div class="request-list" id="supplies-recent-list"></div>
@@ -1056,7 +1083,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
   <script src="staffsync-data-service.js?v=199"></script>
-  <script src="app.js?v=307"></script>
+  <script src="app.js?v=308"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>
