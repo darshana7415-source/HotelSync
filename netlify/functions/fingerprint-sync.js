@@ -17,6 +17,11 @@
 // member, exactly mirroring how the phone clock-in/out flow already works. Unmapped device
 // employee numbers (e.g. an ex-staff member still enrolled on the machine) are skipped and logged,
 // never written to attendance_records.
+//
+// A scan is only ever allowed to close an open shift from a PREVIOUS calendar day if it doesn't
+// land near that person's scheduled start time for today (see ROSTER_MATCH_WINDOW_MINUTES below) --
+// otherwise it starts a fresh shift instead, since that's almost always what a scan near a
+// scheduled start time means, regardless of how long the previous shift has been open.
 
 const { restRequest, selectOne, insertRow, updateRows } = require("./lib/supabaseAdmin");
 
@@ -31,9 +36,49 @@ const SUCCESSFUL_VERIFY_MINOR = 38;
 // check-in. Past this age, a new scan starts a brand new shift instead; the old one is left
 // alone (still open) for a manager to close manually with the right context.
 const MAX_OPEN_SHIFT_HOURS = 20;
+// Below MAX_OPEN_SHIFT_HOURS, duration alone can't tell a real long overnight shift (some staff
+// legitimately run ~13h shifts) apart from a missed checkout followed by the next scheduled shift
+// starting the next day -- both just look like "a scan N hours after the last one." When there's
+// an open record from a PREVIOUS calendar day and the new scan lands close to that person's
+// *scheduled* start time for today (per daily_rosters), that's a strong independent signal this
+// is a fresh check-in, not a checkout of the old shift -- regardless of the elapsed hours.
+const ROSTER_MATCH_WINDOW_MINUTES = 90;
+const TIMEZONE = "Asia/Colombo";
 
 function json(statusCode, body) {
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
+}
+
+// Returns { dateKey: "YYYY-MM-DD", minutesOfDay } for a UTC ISO timestamp, in hotel-local time.
+function localDateAndMinutes(isoString) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date(isoString));
+  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return { dateKey: `${v.year}-${v.month}-${v.day}`, minutesOfDay: Number(v.hour) * 60 + Number(v.minute) };
+}
+
+function circularMinuteDiff(a, b) {
+  const diff = Math.abs(a - b) % 1440;
+  return Math.min(diff, 1440 - diff);
+}
+
+// Looks up the person's scheduled shift start time for a given local calendar date, if any.
+async function getScheduledStartMinutes(staffProfileId, dateKey) {
+  const row = await selectOne("daily_rosters", {
+    select: "in_time",
+    eq: { staff_profile_id: staffProfileId, roster_date: dateKey }
+  });
+  if (!row || !row.in_time) return null;
+  const [h, m] = String(row.in_time).split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
 }
 
 async function findOpenAttendanceRecord(staffProfileId, eventTime) {
@@ -121,6 +166,25 @@ async function processOneEvent(evt) {
       // record, so skip it instead of writing bad data.
       await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "ignored_stale_event" });
       return { serialNo, action: "ignored_stale_event", staffProfileId };
+    }
+
+    const eventLocal = localDateAndMinutes(eventTime);
+    const openLocal = localDateAndMinutes(open.clock_in_at);
+    if (eventLocal.dateKey !== openLocal.dateKey) {
+      const scheduledStart = await getScheduledStartMinutes(staffProfileId, eventLocal.dateKey);
+      if (scheduledStart !== null && circularMinuteDiff(eventLocal.minutesOfDay, scheduledStart) <= ROSTER_MATCH_WINDOW_MINUTES) {
+        // This scan lands right around today's scheduled shift start, while the open record is
+        // from a previous day -- treat it as a fresh check-in rather than closing the old one.
+        // The old record is left open on purpose; a manager can close it once they know the real
+        // end time, rather than us guessing and writing a wrong checkout.
+        const created = await insertRow("attendance_records", {
+          staff_profile_id: staffProfileId,
+          clock_in_at: eventTime,
+          status: "present"
+        });
+        await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
+        return { serialNo, action: "checkIn_new_scheduled_shift", staffProfileId };
+      }
     }
 
     await updateRows("attendance_records", {
