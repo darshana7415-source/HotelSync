@@ -134,7 +134,7 @@ async function alreadyProcessed(serialNo) {
   return Boolean(existing);
 }
 
-async function logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId, action }) {
+async function logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId, action }) {
   try {
     await insertRow("fingerprint_events", {
       device_serial_no: serialNo,
@@ -142,7 +142,13 @@ async function logEvent({ serialNo, employeeNo, eventTime, staffProfileId, atten
       event_time: eventTime,
       staff_profile_id: staffProfileId || null,
       attendance_record_id: attendanceRecordId || null,
-      action
+      action,
+      // Storing the device's raw minor code on every event (not just the ones we act on) --
+      // previously only the *decision* ("skipped_failed_verify") was kept, with no way to go
+      // back and check whether that decision was actually right. Without this, a report like
+      // "the device says this scan succeeded but StaffSync never picked it up" is unanswerable
+      // after the fact -- this is what makes it answerable next time.
+      minor: Number.isFinite(minor) ? minor : null
     });
   } catch {
     // Logging failure shouldn't block the actual attendance write -- it already happened.
@@ -153,6 +159,7 @@ async function processOneEvent(evt) {
   const serialNo = Number(evt.serialNo);
   const employeeNo = String(evt.employeeNo || "");
   const eventTime = evt.time ? new Date(evt.time).toISOString() : new Date().toISOString();
+  const minor = Number(evt.minor);
 
   if (!serialNo || !employeeNo) {
     return { serialNo, action: "skipped_invalid" };
@@ -165,7 +172,7 @@ async function processOneEvent(evt) {
   // Server-side enforcement of the verification-success gate. If the caller didn't send a
   // minor code at all (older bridge build), fail closed and reject rather than assume success.
   if (Number(evt.minor) !== SUCCESSFUL_VERIFY_MINOR) {
-    await logEvent({ serialNo, employeeNo, eventTime, action: "skipped_failed_verify" });
+    await logEvent({ serialNo, employeeNo, eventTime, minor, action: "skipped_failed_verify" });
     return { serialNo, action: "skipped_failed_verify", employeeNo };
   }
 
@@ -175,7 +182,7 @@ async function processOneEvent(evt) {
   });
 
   if (!mapping) {
-    await logEvent({ serialNo, employeeNo, eventTime, action: "skipped_unmapped" });
+    await logEvent({ serialNo, employeeNo, eventTime, minor, action: "skipped_unmapped" });
     return { serialNo, action: "skipped_unmapped", employeeNo };
   }
 
@@ -185,7 +192,7 @@ async function processOneEvent(evt) {
   if (open) {
     const msSinceClockIn = new Date(eventTime).getTime() - new Date(open.clock_in_at).getTime();
     if (msSinceClockIn >= 0 && msSinceClockIn < DUPLICATE_SCAN_WINDOW_MS) {
-      await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "ignored_duplicate_scan" });
+      await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: open.id, action: "ignored_duplicate_scan" });
       return { serialNo, action: "ignored_duplicate_scan", staffProfileId };
     }
 
@@ -194,7 +201,7 @@ async function processOneEvent(evt) {
       // device event arriving out of order, e.g. after a checkpoint reset). Closing the open
       // record with an earlier timestamp would create an impossible checkout-before-checkin
       // record, so skip it instead of writing bad data.
-      await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "ignored_stale_event" });
+      await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: open.id, action: "ignored_stale_event" });
       return { serialNo, action: "ignored_stale_event", staffProfileId };
     }
 
@@ -212,7 +219,7 @@ async function processOneEvent(evt) {
           clock_in_at: eventTime,
           status: "present"
         });
-        await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
+        await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
         return { serialNo, action: "checkIn_new_scheduled_shift", staffProfileId };
       }
     }
@@ -221,13 +228,13 @@ async function processOneEvent(evt) {
       eq: { id: open.id },
       patch: { clock_out_at: eventTime, status: "completed" }
     });
-    await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "checkOut" });
+    await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: open.id, action: "checkOut" });
     return { serialNo, action: "checkOut", staffProfileId };
   }
 
   const recentlyClosed = await findRecentlyClosedRecord(staffProfileId, eventTime);
   if (recentlyClosed) {
-    await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: recentlyClosed.id, action: "ignored_duplicate_scan" });
+    await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: recentlyClosed.id, action: "ignored_duplicate_scan" });
     return { serialNo, action: "ignored_duplicate_scan", staffProfileId };
   }
 
@@ -236,7 +243,7 @@ async function processOneEvent(evt) {
     clock_in_at: eventTime,
     status: "present"
   });
-  await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
+  await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
   return { serialNo, action: "checkIn", staffProfileId };
 }
 
