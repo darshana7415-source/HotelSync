@@ -227,6 +227,7 @@ let attendanceReportRecords = [];
 let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
+let fingerprintHeartbeat = null;
 let openShiftChatThreadId = "";
 let supplyItems = [];
 let supplyDistributions = [];
@@ -1929,6 +1930,7 @@ function renderAdminDashboardCard() {
           <input type="date" data-admin-dashboard-date value="${selectedDate}">
         </label>
       </div>
+      ${fingerprintBridgeStatusMarkup()}
       <div class="admin-dashboard-split">
         <div class="admin-dashboard-column">
           <div class="self-stats compact-self-stats">
@@ -7794,6 +7796,37 @@ async function loadCloudAttendanceData() {
   }
 }
 
+async function loadFingerprintHeartbeat() {
+  if (!["admin", "manager"].includes(currentRole)) return;
+  fingerprintHeartbeat = await window.staffSyncDb.getFingerprintHeartbeat();
+}
+
+// null = unknown (no heartbeat row seen yet), "ok" = recent, "stale" = overdue, "down" = way overdue.
+// The bridge normally runs every 1-2 minutes, so anything past ~10 minutes with no heartbeat
+// means it has very likely stopped running, not just hit one slow cycle.
+function fingerprintBridgeHealth() {
+  if (!fingerprintHeartbeat || !fingerprintHeartbeat.last_run_at) return { level: "unknown", minutesAgo: null };
+  const minutesAgo = Math.max(0, Math.round((Date.now() - new Date(fingerprintHeartbeat.last_run_at).getTime()) / 60000));
+  if (minutesAgo > 30) return { level: "down", minutesAgo };
+  if (minutesAgo > 10) return { level: "stale", minutesAgo };
+  return { level: "ok", minutesAgo };
+}
+
+function fingerprintBridgeStatusMarkup() {
+  const health = fingerprintBridgeHealth();
+  if (health.level === "unknown") return "";
+  const label = health.level === "ok"
+    ? `Fingerprint sync OK - last check-in ${health.minutesAgo} min ago`
+    : `Fingerprint sync ${health.level === "down" ? "DOWN" : "delayed"} - last check-in ${health.minutesAgo} min ago. Check the reception PC / Task Scheduler.`;
+  const pillClass = health.level === "ok" ? "green" : (health.level === "down" ? "red" : "amber");
+  return `
+    <div class="mini-item fingerprint-bridge-status">
+      <span><strong>Fingerprint device sync</strong><small>${label}</small></span>
+      <span class="pill ${pillClass}">${health.level === "ok" ? "Live" : health.level === "down" ? "Down" : "Delayed"}</span>
+    </div>
+  `;
+}
+
 function latestAttendanceByStaff(records) {
   const latest = new Map();
   (records || []).forEach((record) => {
@@ -8053,6 +8086,13 @@ async function syncCloudDashboard() {
       shouldRender = true;
     } catch {
       // Daily roster is optional.
+    }
+
+    try {
+      await loadFingerprintHeartbeat();
+      shouldRender = true;
+    } catch {
+      // Heartbeat display is a nice-to-have, must not block the rest of the dashboard.
     }
 
     try {

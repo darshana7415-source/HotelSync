@@ -440,6 +440,20 @@ const staffSyncDb = {
     return data || [];
   },
 
+  // Reads the fingerprint bridge's heartbeat row (written by the reception PC after every run,
+  // whether or not it found new events) so the dashboard can warn if the bridge has gone quiet
+  // instead of that only being noticed once someone's checkout never shows up.
+  async getFingerprintHeartbeat() {
+    const { data, error } = await window.staffSyncSupabase
+      .from("system_heartbeats")
+      .select("last_run_at, last_event_count, note")
+      .eq("id", "fingerprint_bridge")
+      .maybeSingle();
+
+    if (error) throw error;
+    return data || null;
+  },
+
   async assignShift({ staffProfileId, shiftId, assignedDate, assignedBy }) {
     const { data, error } = await window.staffSyncSupabase
       .from("shift_assignments")
