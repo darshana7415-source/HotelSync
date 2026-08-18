@@ -91,6 +91,15 @@ async function processOneEvent(evt) {
       return { serialNo, action: "ignored_duplicate_scan", staffProfileId };
     }
 
+    if (msSinceClockIn < 0) {
+      // This event happened BEFORE the currently open record's clock-in (a stale/backlogged
+      // device event arriving out of order, e.g. after a checkpoint reset). Closing the open
+      // record with an earlier timestamp would create an impossible checkout-before-checkin
+      // record, so skip it instead of writing bad data.
+      await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "ignored_stale_event" });
+      return { serialNo, action: "ignored_stale_event", staffProfileId };
+    }
+
     await updateRows("attendance_records", {
       eq: { id: open.id },
       patch: { clock_out_at: eventTime, status: "completed" }
