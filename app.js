@@ -483,7 +483,7 @@ function renderStaffTable() {
   tableBody.innerHTML = visibleStaff.map((person) => {
     const locationClass = locationClassFor(person.locationStatus);
     const statusClass = statusClassFor(person.status);
-    const clock = person.clockIn ? `${person.clockIn}${person.clockOut ? ` - ${person.clockOut}` : " - active"}` : "Not clocked in";
+    const clock = person.clockIn ? `${person.clockIn}${person.clockOut ? ` - ${person.clockOut}` : " - active"}` : "No fingerprint scan yet";
 
     return `
       <tr>
