@@ -2,10 +2,15 @@
 // Called only by the bridge program running on the reception PC (never by the browser).
 // Requires header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //
-// Body: { events: [ { serialNo, employeeNo, name, time }, ... ] }
+// Body: { events: [ { serialNo, employeeNo, name, time, minor }, ... ] }
 //   serialNo   - the device's AcsEvent "serialNo" field (per-device incrementing ID, used for idempotency)
 //   employeeNo - the device's "employeeNoString" field (raw, as returned by ISAPI)
 //   time       - ISO timestamp string from the device event ("time" field)
+//   minor      - the device's AcsEvent "minor" field. Only minor === 38 ("real person verification
+//                passed") is trusted. A FAILED face/fingerprint match can still carry an
+//                employeeNoString (the device's best-guess candidate), so this check is what tells
+//                a real scan apart from a failed one -- it's enforced here (not just in the bridge
+//                script) so a future bridge reinstall/misconfiguration can't silently reopen this hole.
 //
 // For each event: looks up the mapping in fingerprint_device_users, then either opens a new
 // attendance_records row (check-in) or closes the existing open one (check-out) for that staff
@@ -17,6 +22,7 @@ const { restRequest, selectOne, insertRow, updateRows } = require("./lib/supabas
 
 const JSON_HEADERS = { "content-type": "application/json" };
 const DUPLICATE_SCAN_WINDOW_MS = 60 * 1000; // ignore a second scan within 60s of clock-in as an accidental double-tap
+const SUCCESSFUL_VERIFY_MINOR = 38;
 
 function json(statusCode, body) {
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
@@ -69,6 +75,13 @@ async function processOneEvent(evt) {
 
   if (await alreadyProcessed(serialNo)) {
     return { serialNo, action: "already_processed" };
+  }
+
+  // Server-side enforcement of the verification-success gate. If the caller didn't send a
+  // minor code at all (older bridge build), fail closed and reject rather than assume success.
+  if (Number(evt.minor) !== SUCCESSFUL_VERIFY_MINOR) {
+    await logEvent({ serialNo, employeeNo, eventTime, action: "skipped_failed_verify" });
+    return { serialNo, action: "skipped_failed_verify", employeeNo };
   }
 
   const mapping = await selectOne("fingerprint_device_users", {
