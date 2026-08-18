@@ -23,17 +23,27 @@ const { restRequest, selectOne, insertRow, updateRows } = require("./lib/supabas
 const JSON_HEADERS = { "content-type": "application/json" };
 const DUPLICATE_SCAN_WINDOW_MS = 60 * 1000; // ignore a second scan within 60s of clock-in as an accidental double-tap
 const SUCCESSFUL_VERIFY_MINOR = 38;
+// If someone's open shift is older than this, a new scan should NOT be treated as closing it --
+// it almost certainly means the original clock-out was simply never captured (forgotten, device
+// offline, staff used the old phone flow and never tapped out, etc.), and the stale record has
+// been sitting open for a day or more. Closing it with today's scan produces nonsense like
+// "checked in 3 weeks ago, checked out just now" and swallows what should have been a fresh
+// check-in. Past this age, a new scan starts a brand new shift instead; the old one is left
+// alone (still open) for a manager to close manually with the right context.
+const MAX_OPEN_SHIFT_HOURS = 20;
 
 function json(statusCode, body) {
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) };
 }
 
-async function findOpenAttendanceRecord(staffProfileId) {
+async function findOpenAttendanceRecord(staffProfileId, eventTime) {
+  const cutoffIso = new Date(new Date(eventTime).getTime() - MAX_OPEN_SHIFT_HOURS * 3600000).toISOString();
   const rows = await restRequest("attendance_records", {
     query: {
       select: "id,clock_in_at",
       staff_profile_id: `eq.${staffProfileId}`,
       clock_out_at: "is.null",
+      clock_in_at: `gte.${cutoffIso}`,
       order: "clock_in_at.desc",
       limit: "1"
     }
@@ -95,7 +105,7 @@ async function processOneEvent(evt) {
   }
 
   const staffProfileId = mapping.staff_profile_id;
-  const open = await findOpenAttendanceRecord(staffProfileId);
+  const open = await findOpenAttendanceRecord(staffProfileId, eventTime);
 
   if (open) {
     const msSinceClockIn = new Date(eventTime).getTime() - new Date(open.clock_in_at).getTime();

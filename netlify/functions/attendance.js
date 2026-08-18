@@ -2,7 +2,14 @@
 // Requires Authorization: Bearer <session token from auth-login>.
 //
 // Replaces staffsync-data-service.js's direct-to-Supabase clockIn/clockOut/recordLocationPing calls.
-// Staff can only act on their own records; admin/manager may act on any staff member's records.
+//
+// The phone clock-in/out UI was removed from the app -- the fingerprint machine (via
+// fingerprint-sync.js) is now the sole source of attendance for staff. But this endpoint itself
+// was still reachable by any staff session (e.g. a phone running a stale cached build that still
+// has the old button), which kept creating "phantom" attendance records with no fingerprint scan
+// behind them. Those phantom records then confused the fingerprint sync's open/close toggle logic
+// for the same person's real scans. clockIn/clockOut are now admin/manager-only -- staff can no
+// longer create attendance records through this endpoint at all.
 //
 // Body: { action: "clockIn" | "clockOut" | "recordLocationPing", ...fields }
 
@@ -40,6 +47,9 @@ exports.handler = async function handler(event) {
 
   try {
     if (payload.action === "clockIn") {
+      if (!MANAGER_ROLES.includes(claims.role)) {
+        return json(403, { ok: false, message: "Attendance is tracked at the fingerprint machine. Manual clock-in is admin/manager only." });
+      }
       const staffProfileId = payload.staffProfileId || claims.staffProfileId;
       if (!canActForStaff(claims, staffProfileId)) {
         return json(403, { ok: false, message: "Not authorized to clock in this staff member." });
@@ -56,6 +66,9 @@ exports.handler = async function handler(event) {
     }
 
     if (payload.action === "clockOut") {
+      if (!MANAGER_ROLES.includes(claims.role)) {
+        return json(403, { ok: false, message: "Attendance is tracked at the fingerprint machine. Manual clock-out is admin/manager only." });
+      }
       const existing = await selectOne("attendance_records", {
         select: "id,staff_profile_id",
         eq: { id: payload.attendanceRecordId }
