@@ -7741,23 +7741,6 @@ async function loadStaffTargetedActivityLogs({ hotelId, targetUserId }) {
 
 async function loadCloudAttendanceData() {
   const today = todayLocalKey();
-  const activeSnapshots = new Map(staff
-    .filter((person) => person.clockIn && !person.clockOut)
-    .map((person) => [String(person.cloudId || person.id), {
-      attendanceRecordId: person.attendanceRecordId,
-      clockIn: person.clockIn,
-      clockOut: person.clockOut,
-      status: person.status,
-      locationStatus: person.locationStatus,
-      location: person.location,
-      ping: person.ping,
-      floor: person.floor,
-      zone: person.zone,
-      lastLatitude: person.lastLatitude,
-      lastLongitude: person.lastLongitude,
-      gpsAccuracy: person.gpsAccuracy
-    }]));
-  const appliedStaffIds = new Set();
   const records = await window.staffSyncDb.getAttendanceRecords({ date: today });
 
   staff.forEach((person) => {
@@ -7774,7 +7757,6 @@ async function loadCloudAttendanceData() {
     const person = staff.find((item) => sameId(item.cloudId, record.staff_profile_id));
     if (!person) return;
 
-    appliedStaffIds.add(String(person.cloudId || person.id));
     person.attendanceRecordId = record.id;
     person.clockIn = record.clock_in_at ? timeFromIso(record.clock_in_at) : "";
     person.clockOut = record.clock_out_at ? timeFromIso(record.clock_out_at) : "";
@@ -7784,20 +7766,32 @@ async function loadCloudAttendanceData() {
     person.ping = record.clock_out_at ? "-" : "cloud";
   });
 
+  // NOTE: this used to also snapshot anyone showing as clocked-in *before* this refresh and
+  // silently restore that snapshot for anyone missing from the fresh query results, with no
+  // expiry. That was meant to survive a brief read-after-write replication lag right after
+  // someone clocks in, but because the snapshot was rebuilt from whatever was in memory on
+  // every single poll, once a person's real record was gone from the server for any reason
+  // (including a deliberate admin correction/delete), the stale state re-armed itself forever
+  // and could never self-heal -- exactly what happened with a corrected/deleted attendance
+  // record still showing "active" indefinitely. restoreRecentClockState() below already covers
+  // the real "just clocked in, not replicated yet" case with a proper 15-minute expiry, so the
+  // unbounded fallback was removed rather than patched.
   if (currentRole === "staff") {
     staff.forEach((person) => {
-      const key = String(person.cloudId || person.id);
-      const snapshot = activeSnapshots.get(key);
-      if (snapshot && !appliedStaffIds.has(key)) {
-        Object.assign(person, snapshot);
-      } else {
-        restoreRecentClockState(person);
-      }
+      restoreRecentClockState(person);
     });
   }
 
-  await applyRecentLocationPings();
-  applyAttendanceEventsToStaff(latestAttendanceEventLogs);
+  try {
+    await applyRecentLocationPings();
+  } catch (error) {
+    console.error("applyRecentLocationPings failed (attendance data above is still applied):", error);
+  }
+  try {
+    applyAttendanceEventsToStaff(latestAttendanceEventLogs);
+  } catch (error) {
+    console.error("applyAttendanceEventsToStaff failed (attendance data above is still applied):", error);
+  }
 }
 
 function latestAttendanceByStaff(records) {
@@ -8047,8 +8041,11 @@ async function syncCloudDashboard() {
     try {
       await loadCloudAttendanceData();
       shouldRender = true;
-    } catch {
-      // Attendance can fail without blocking leave decisions.
+    } catch (error) {
+      // Attendance can fail without blocking leave decisions, but log it -- a silent,
+      // repeated failure here is exactly what makes the staff table freeze on stale
+      // data with no visible error, which is hard to diagnose remotely.
+      console.error("loadCloudAttendanceData failed, attendance display may be stale:", error);
     }
 
     try {
