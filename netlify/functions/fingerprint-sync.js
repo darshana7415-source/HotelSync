@@ -26,7 +26,11 @@
 const { restRequest, selectOne, insertRow, updateRows } = require("./lib/supabaseAdmin");
 
 const JSON_HEADERS = { "content-type": "application/json" };
-const DUPLICATE_SCAN_WINDOW_MS = 60 * 1000; // ignore a second scan within 60s of clock-in as an accidental double-tap
+// Ignore a second scan within this window of clock-in (or of a just-recorded checkout) as an
+// accidental double-tap. Widened from 60s to 5 minutes after seeing real double-fires ranging
+// from 2 seconds to 3 minutes apart -- a person walking off after a tap they weren't sure
+// registered, or the sensor itself double-triggering.
+const DUPLICATE_SCAN_WINDOW_MS = 5 * 60 * 1000;
 const SUCCESSFUL_VERIFY_MINOR = 38;
 // If someone's open shift is older than this, a new scan should NOT be treated as closing it --
 // it almost certainly means the original clock-out was simply never captured (forgotten, device
@@ -94,6 +98,32 @@ async function findOpenAttendanceRecord(staffProfileId, eventTime) {
     }
   });
   return (rows && rows[0]) || null;
+}
+
+// Some scans arrive as two device events a few seconds (or a couple of minutes) apart for a
+// single physical tap -- a sensor double-trigger, or someone tapping again right after a
+// checkout beep they didn't notice. If the first event just closed a shift, the second one
+// has no open record to close, so without this check it gets treated as a brand new check-in
+// and creates a phantom "still working" shift that then sits open until someone notices it on
+// the dashboard. This looks for a record that was closed within the duplicate-scan window
+// immediately before this event, so that second stray scan can be ignored instead.
+async function findRecentlyClosedRecord(staffProfileId, eventTime) {
+  const cutoffIso = new Date(new Date(eventTime).getTime() - DUPLICATE_SCAN_WINDOW_MS).toISOString();
+  const rows = await restRequest("attendance_records", {
+    query: {
+      select: "id,clock_out_at",
+      staff_profile_id: `eq.${staffProfileId}`,
+      clock_out_at: `gte.${cutoffIso}`,
+      order: "clock_out_at.desc",
+      limit: "1"
+    }
+  });
+  const candidate = (rows && rows[0]) || null;
+  if (!candidate) return null;
+  // Guard against matching a close that happens to be timestamped after this event (should be
+  // rare, but events aren't guaranteed to be processed in strict time order).
+  if (new Date(candidate.clock_out_at).getTime() > new Date(eventTime).getTime()) return null;
+  return candidate;
 }
 
 async function alreadyProcessed(serialNo) {
@@ -193,6 +223,12 @@ async function processOneEvent(evt) {
     });
     await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: open.id, action: "checkOut" });
     return { serialNo, action: "checkOut", staffProfileId };
+  }
+
+  const recentlyClosed = await findRecentlyClosedRecord(staffProfileId, eventTime);
+  if (recentlyClosed) {
+    await logEvent({ serialNo, employeeNo, eventTime, staffProfileId, attendanceRecordId: recentlyClosed.id, action: "ignored_duplicate_scan" });
+    return { serialNo, action: "ignored_duplicate_scan", staffProfileId };
   }
 
   const created = await insertRow("attendance_records", {
