@@ -147,3 +147,4 @@ exports.handler = async function handler(event) {
     return json(500, { ok: false, message: error.message || "Fingerprint sync failed.", results });
   }
 };
+
