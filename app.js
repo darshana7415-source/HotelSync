@@ -7697,20 +7697,18 @@ function applyAttendanceEventsToStaff(logs) {
     if (!person) return;
 
     const message = String(log.message || "").toLowerCase();
-    if (message.includes("clocked in")) {
-      person.clockIn = timeFromIso(log.time);
-      person.clockOut = "";
-      person.status = "On duty";
-      person.locationStatus = "Inside";
-      person.location = person.location && person.location !== "Not active" ? person.location : staffLocationLabel(person);
-      person.ping = person.ping && person.ping !== "-" ? person.ping : "live";
-    } else if (message.includes("clocked out")) {
-      person.clockOut = timeFromIso(log.time);
-      person.status = "Completed";
-      person.locationStatus = "Inactive";
-      person.location = "Shift ended";
-      person.ping = "-";
-    } else if (message.includes("started break")) {
+    // "clocked in" / "clocked out" activity-log messages are NOT handled here anymore. Those
+    // messages were only ever written by the old phone clock-in button, which was removed when
+    // fingerprint scans became the sole source of attendance -- current check-ins/check-outs
+    // never write to activity_logs at all. Re-deriving clock status from log text meant that an
+    // old leftover "X clocked in at HH:MM" message (e.g. from a stale cached tab tapping the
+    // long-removed button) could sit in this table forever and get silently re-applied on every
+    // single refresh, overwriting the correct data that loadCloudAttendanceData had just set
+    // from the real attendance_records a moment earlier -- with no way to ever self-correct,
+    // since nothing new would ever supersede that stale message. Attendance status now comes
+    // exclusively from loadCloudAttendanceData(); this function only still handles breaks below,
+    // which remain a live, actively-used feature.
+    if (message.includes("started break")) {
       person.clockOut = "";
       person.status = "On break";
       person.locationStatus = "Break";
