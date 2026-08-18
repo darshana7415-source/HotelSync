@@ -406,8 +406,11 @@ const staffSyncDb = {
   },
 
   async getAttendanceRecords({ date, startDate, endDate }) {
-    const rangeStart = new Date(`${startDate || date}T00:00:00`);
-    const rangeEnd = new Date(`${endDate || date}T23:59:59`);
+    // Build the day boundary in Sri Lanka time explicitly (+05:30, no DST) rather than letting
+    // Date() interpret the bare string in whatever timezone the viewer's own device is set to --
+    // otherwise this can silently exclude some of today's real records from the query entirely.
+    const rangeStart = new Date(`${startDate || date}T00:00:00+05:30`);
+    const rangeEnd = new Date(`${endDate || date}T23:59:59+05:30`);
     const rangeStartIso = rangeStart.toISOString();
     const rangeEndIso = rangeEnd.toISOString();
     // Filter server-side (clock_in OR clock_out inside the range) instead of
