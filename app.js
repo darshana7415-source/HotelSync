@@ -7025,6 +7025,7 @@ function setStaffLoginStatus(message, tone = "") {
 
 function currentTime() {
   return new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Colombo",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
@@ -7044,6 +7045,7 @@ function todayLocalKey() {
 
 function timeFromIso(value) {
   return new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Colombo",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
@@ -7311,6 +7313,7 @@ function monthShortName(monthNumber) {
 
 function formatDateTime(value) {
   return new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Colombo",
     month: "short",
     day: "numeric",
     hour: "2-digit",
