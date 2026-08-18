@@ -1908,7 +1908,6 @@ function renderAdminDashboardCard() {
   const selectedDate = adminDashboardDate || todayLocalKey();
   const onDuty = sortStaffByEmployeeCode(staff.filter((person) => isOnShift(person)));
   const onBreak = sortStaffByEmployeeCode(staff.filter((person) => person.status === "On break"));
-  const clockedOut = sortStaffByEmployeeCode(staff.filter((person) => person.clockOut && !isOnShift(person)));
   const allStaffStatus = sortStaffByEmployeeCode(staff);
   const pendingLeave = pendingLeaveRequestsForDashboard();
   const pendingShiftChanges = pendingShiftChangeThreads();
@@ -1917,9 +1916,6 @@ function renderAdminDashboardCard() {
     selectedDate >= request.from &&
     selectedDate <= request.to
   );
-  const liveMessages = visibleActivityLog()
-    .filter((item) => ["Clock", "Break", "Attendance"].includes(item.type) || item.isAttendanceEvent)
-    .slice(0, 8);
 
   staffCard.innerHTML = `
     <div class="self-card admin-ops-card">
@@ -1936,30 +1932,9 @@ function renderAdminDashboardCard() {
       <div class="admin-dashboard-split">
         <div class="admin-dashboard-column">
           <div class="self-stats compact-self-stats">
-            <span><b>${onDuty.length}</b><small>on duty now</small></span>
-            <span><b>${onBreak.length}</b><small>on break</small></span>
-            <span><b>${clockedOut.length}</b><small>clocked out</small></span>
             <span><b>${leaveForDate.length}</b><small>leave on date</small></span>
             <span><b>${pendingLeave.length}</b><small>pending leave</small></span>
             <span><b>${pendingShiftChanges.length}</b><small>shift changes</small></span>
-          </div>
-          <div class="staff-message-box">
-            <strong>Staff on duty now</strong>
-            ${onDuty.length ? onDuty.map((person) => `
-              <div class="mini-item">
-                <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${dashboardShiftLine(person, selectedDate)} - In ${person.clockIn || "--:--"}${person.clockOut ? ` / Out ${person.clockOut}` : ""}${person.status === "On break" ? " - On break" : ""}</small></span>
-                <span class="pill ${statusClassFor(person.status) || "green"}">${person.status}</span>
-              </div>
-            `).join("") : `<div class="mini-empty">No one is clocked in now.</div>`}
-          </div>
-          <div class="staff-message-box">
-            <strong>All staff status</strong>
-            ${allStaffStatus.length ? allStaffStatus.map((person) => `
-              <div class="mini-item">
-                <span><strong>${person.employeeCode ? `${person.employeeCode} - ` : ""}${person.name}</strong><small>${person.department} - ${person.clockIn ? `In ${person.clockIn}${person.clockOut ? ` / Out ${person.clockOut}` : " / active"}` : "Not clocked in"}</small></span>
-                <span class="pill ${statusClassFor(person.status) || (isOnShift(person) ? "green" : "amber")}">${person.status || "Scheduled"}</span>
-              </div>
-            `).join("") : `<div class="mini-empty">No staff loaded yet.</div>`}
           </div>
         </div>
         <div class="admin-dashboard-column">
@@ -2004,18 +1979,6 @@ function renderAdminDashboardCard() {
             </span>
           </div>
         `).join("") : `<div class="mini-empty">No leave found for this date.</div>`}
-      </div>
-      <div class="staff-message-box">
-        <strong>Live clock and break messages</strong>
-        ${liveMessages.length ? liveMessages.map((item) => `
-          <div class="mini-item">
-            <span>${item.message}<small>${formatDateTime(item.time)}</small></span>
-            <span class="quick-actions">
-              <span class="pill ${item.type === "Break" ? "blue" : "green"}">${item.type}</span>
-              <button class="ghost small-button" type="button" data-delete-activity-message="${activityIdentity(item)}">Delete</button>
-            </span>
-          </div>
-        `).join("") : `<div class="mini-empty">No clock or break messages yet.</div>`}
       </div>
     </div>
   `;
