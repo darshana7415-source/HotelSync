@@ -1703,7 +1703,7 @@ function renderRoleDemo() {
     return;
   }
   const locationClass = locationClassFor(activeStaff.locationStatus);
-  const shiftState = isOnShift(activeStaff) ? "On shift now" : "Clock in to start shift";
+  const shiftState = isOnShift(activeStaff) ? "On shift now" : "Not clocked in - tap the fingerprint machine to start your shift";
   const personalMessages = [];
   const allChatThreads = chatThreadsForAdmin();
   const todayKey = todayLocalKey();
@@ -1779,7 +1779,7 @@ function renderRoleDemo() {
         </label>
       ` : ""}
       <div class="staff-actions">
-        <button data-staff-action="clock">${isOnShift(activeStaff) ? "Clock out" : "Clock in"}</button>
+        <span class="pill blue fingerprint-attendance-note">Attendance is tracked at the fingerprint machine</span>
         <button class="ghost" data-staff-action="break">${activeStaff.status === "On break" ? "End break" : "Start break"}</button>
       </div>
       <div class="staff-message-box">
