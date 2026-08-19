@@ -481,10 +481,20 @@ function renderStaffTable() {
   const department = departmentFilter.value || "All";
   const visibleStaff = sortStaffByEmployeeCode(department === "All" ? staff : staff.filter((person) => person.department === department));
 
+  const todayKey = todayLocalKey();
+
   tableBody.innerHTML = visibleStaff.map((person) => {
     const locationClass = locationClassFor(person.locationStatus);
     const statusClass = statusClassFor(person.status);
     const clock = person.clockIn ? `${person.clockIn}${person.clockOut ? ` - ${person.clockOut}` : " - active"}` : "No fingerprint scan yet";
+
+    // Show the actual roster saved for today (dailyRosterEntryFor), not the person's static
+    // default shift/shiftTime fields -- those don't reflect a day-specific roster change, an
+    // extra shift, or approved leave, so this table could disagree with what was actually
+    // saved for today in Shift Allocation even though that's supposed to be the source of truth.
+    const rosterEntry = dailyRosterEntryFor(person, todayKey);
+    const shiftName = normalizeShiftLabel(rosterEntry.shift) || defaultShiftName;
+    const shiftExtras = extraShiftLabels(rosterEntry);
 
     return `
       <tr>
@@ -498,7 +508,7 @@ function renderStaffTable() {
           </div>
         </td>
         <td>${person.department}</td>
-        <td>${person.shift}<br><small>${person.shiftTime}</small></td>
+        <td>${shiftName}<br><small>${rosterTimeLabel(rosterEntry)}</small>${shiftExtras.length ? `<br><small>${shiftExtras.join(" | ")}</small>` : ""}</td>
         <td>${clock}</td>
         <td><span class="pill ${statusClass}">${person.status}</span></td>
         <td>
