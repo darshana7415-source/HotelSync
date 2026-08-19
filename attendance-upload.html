@@ -171,13 +171,19 @@ document.addEventListener("click",e=>{
 <div class="wrap">
   <div class="top">
     <div>
-      <h1>Attendance Upload Preview</h1>
-      <div class="muted">Hikvision fingerprint Excel preview only. Nothing is saved yet.</div>
+      <h1>Attendance Reports</h1>
+      <div class="muted">Imported automatically from the live fingerprint feed every morning.</div>
     </div>
     <a href="index.html#dashboard">Back to dashboard</a>
   </div>
 
-  <div class="card">
+  <div class="card" style="display:none" aria-hidden="true">
+    <!-- Manual Excel upload retired: attendance now imports automatically from the live
+         fingerprint feed every morning (see netlify/functions/attendance-daily-report-import.js).
+         Left in the DOM (just hidden) rather than deleted, since several patches further down
+         this file still look up #file/#attendance-date/#save-attendance/#table/#body by id --
+         removing the elements outright would throw on every one of those lookups. Hidden inputs
+         can't be interacted with, so this card is fully inert now. -->
     <h2>Upload Hikvision Excel</h2>
     <label style="display:block;margin-bottom:10px;font-weight:800">Attendance date
       <input id="attendance-date" type="date">

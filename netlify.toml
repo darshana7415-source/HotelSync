@@ -1,3 +1,8 @@
 [functions]
   directory = "netlify/functions"
 
+# Runs automatically every day -- 30 2 * * * (UTC) = 08:00 Asia/Colombo, no DST to account for.
+# Imports yesterday's attendance_records into attendance_imports so the Saved Attendance Report
+# in attendance-upload.html is populated without anyone needing to upload an Excel sheet.
+[functions."attendance-daily-report-import"]
+  schedule = "30 2 * * *"
