@@ -3633,3 +3633,137 @@ td {
   background: linear-gradient(180deg, #11828a, var(--brand));
   box-shadow: 0 1px 2px rgba(8, 75, 80, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
+
+/* --- Polish round 2: the visible changes ------------------------------------------- */
+
+/* The stylesheet always asked for Inter but nothing loaded it, so the whole app was
+   rendering in the browser's default font -- the single biggest reason the first polish
+   pass didn't visibly change much. The font links now exist in the HTML; these rules put
+   the loaded fonts to work. */
+
+body {
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+h1, h2, h3,
+.panel-header strong,
+.metric strong,
+.staff-hero-shift b,
+.staff-hero-times b,
+.brand strong {
+  font-family: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The page title was enormous (up to 3.4rem) which read as a prototype, not a product.
+   A calmer editorial size instantly makes every page look more designed. */
+h1 {
+  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+/* More generous breathing room overall. */
+main {
+  padding: 2rem 2.25rem 2.5rem;
+}
+
+.metric-grid,
+.content-grid,
+.notes-grid,
+.log-grid,
+.role-grid {
+  gap: 1.25rem;
+}
+
+.panel {
+  padding: 1.35rem;
+  border-radius: 16px;
+}
+
+.metric {
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Brand accent bar across the top of each metric card. */
+.metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand), #7fc9bd);
+  opacity: 0.85;
+}
+
+.metric strong {
+  font-size: 2.15rem;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+
+/* Panel headers get a clearer visual anchor. */
+.panel-header h2 {
+  font-size: 1.12rem;
+}
+
+/* Sidebar: tighter, more product-like. */
+.sidebar {
+  padding: 1.4rem 1.1rem;
+}
+
+nav a {
+  padding: 0.7rem 0.85rem;
+  font-size: 0.92rem;
+}
+
+.brand strong {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+/* Tables: lighter chrome, clearer hierarchy. */
+table {
+  font-size: 0.92rem;
+}
+
+th {
+  font-size: 0.7rem;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+/* Buttons slightly slimmer = less "bootstrap demo". */
+button {
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.pill {
+  font-size: 0.74rem;
+}
+
+/* Phones: keep the new spacing from eating the small screen. */
+@media (max-width: 760px) {
+  main {
+    padding: 1.1rem 0.9rem 2rem;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+  }
+
+  .panel {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+}
