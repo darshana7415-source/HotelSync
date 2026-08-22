@@ -228,6 +228,21 @@ let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let fingerprintHeartbeat = null;
+// Remembers which collapsible dashboard sections the user has opened/closed, so the 20-25s
+// cloud auto-refresh (which rebuilds the dashboard HTML from scratch) doesn't snap them back
+// to their default state -- without this, a <details> the user just tapped open closes itself
+// again on the next poll, which reads as "the dropdown collapses by itself".
+let staffSectionOpenState = {};
+
+function isStaffSectionOpen(key, defaultOpen) {
+  return staffSectionOpenState[key] === undefined ? Boolean(defaultOpen) : staffSectionOpenState[key];
+}
+
+// "toggle" doesn't bubble, so listen in the capture phase to catch it from any <details>.
+document.addEventListener("toggle", (event) => {
+  const key = event.target?.dataset?.staffSection;
+  if (key) staffSectionOpenState[key] = event.target.open;
+}, true);
 let openShiftChatThreadId = "";
 let supplyItems = [];
 let supplyDistributions = [];
@@ -1813,7 +1828,7 @@ function renderRoleDemo() {
       ` : ""}
       <div class="staff-message-box">
         ${currentRole === "staff" ? `
-          <details class="staff-section" ${myPendingLeaveCount || myLeaveRequests.some((request) => ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)) ? "open" : ""}>
+          <details class="staff-section" data-staff-section="my-leave" ${isStaffSectionOpen("my-leave", myPendingLeaveCount > 0) ? "open" : ""}>
             <summary class="staff-section-summary">My leave requests and chats ${myPendingLeaveCount ? `<span class="pill amber">${myPendingLeaveCount} waiting</span>` : ""}</summary>
           ${myLeaveRequests.length ? myLeaveRequests.map((request) => `
             <div class="mini-item">
@@ -1822,7 +1837,7 @@ function renderRoleDemo() {
             </div>
             ${leaveThreadMessagesMarkup(request, 4)}
             ${["Pending", "Change the Request", "Adjustment requested", "Approved"].includes(request.status) ? `
-              <details class="leave-chat-panel staff-chat-panel dashboard-chat-panel">
+              <details class="leave-chat-panel staff-chat-panel dashboard-chat-panel" data-staff-section="chat-${leaveThreadId(request)}" ${isStaffSectionOpen(`chat-${leaveThreadId(request)}`, false) ? "open" : ""}>
                 <summary>Continue chat for this request</summary>
                 <form class="leave-chat-form staff-chat-form" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="staff">
                   <label>
@@ -1869,7 +1884,7 @@ function renderRoleDemo() {
         `}
       </div>
       <div class="staff-message-box">
-        <details class="staff-section">
+        <details class="staff-section" data-staff-section="dept-shifts" ${isStaffSectionOpen("dept-shifts", false) ? "open" : ""}>
           <summary class="staff-section-summary">${activeStaff.department} department shifts today</summary>
           ${departmentShiftRows || `<div class="mini-empty">No department shifts found for today.</div>`}
         </details>
