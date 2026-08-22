@@ -73,16 +73,20 @@ function circularMinuteDiff(a, b) {
   return Math.min(diff, 1440 - diff);
 }
 
-// Looks up the person's scheduled shift start time for a given local calendar date, if any.
-async function getScheduledStartMinutes(staffProfileId, dateKey) {
-  const row = await selectOne("daily_rosters", {
-    select: "in_time",
-    eq: { staff_profile_id: staffProfileId, roster_date: dateKey }
-  });
-  if (!row || !row.in_time) return null;
-  const [h, m] = String(row.in_time).split(":").map(Number);
+function timeToMinutes(value) {
+  const [h, m] = String(value || "").split(":").map(Number);
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return h * 60 + m;
+}
+
+// Looks up the person's scheduled shift start/end times for a given local calendar date, if any.
+async function getScheduledMinutes(staffProfileId, dateKey) {
+  const row = await selectOne("daily_rosters", {
+    select: "in_time,out_time",
+    eq: { staff_profile_id: staffProfileId, roster_date: dateKey }
+  });
+  if (!row) return { start: null, end: null };
+  return { start: timeToMinutes(row.in_time), end: timeToMinutes(row.out_time) };
 }
 
 async function findOpenAttendanceRecord(staffProfileId, eventTime) {
@@ -208,20 +212,23 @@ async function processOneEvent(evt) {
     const eventLocal = localDateAndMinutes(eventTime);
     const openLocal = localDateAndMinutes(open.clock_in_at);
     if (eventLocal.dateKey !== openLocal.dateKey) {
-      const scheduledStart = await getScheduledStartMinutes(staffProfileId, eventLocal.dateKey);
-      if (scheduledStart !== null && circularMinuteDiff(eventLocal.minutesOfDay, scheduledStart) <= ROSTER_MATCH_WINDOW_MINUTES) {
-        // This scan lands right around today's scheduled shift start, while the open record is
-        // from a previous day -- treat it as a fresh check-in rather than closing the old one.
-        // The old record is left open on purpose; a manager can close it once they know the real
-        // end time, rather than us guessing and writing a wrong checkout.
-        const created = await insertRow("attendance_records", {
-          staff_profile_id: staffProfileId,
-          clock_in_at: eventTime,
-          status: "present"
-        });
-        await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
-        return { serialNo, action: "checkIn_new_scheduled_shift", staffProfileId };
-      }
+      // A scan NEVER closes a shift that started on a previous calendar day. This hotel has no
+      // overnight shifts (confirmed by the owner), so a cross-midnight in/out pair is always
+      // wrong data -- in practice it means the open record is a phantom (usually an orphaned
+      // evening checkout that had nothing to close and got recorded as a check-in), and today's
+      // first scan is a real morning check-in. The earlier version of this rule only started a
+      // fresh shift when daily_rosters had a row near-matching the scan time, but rosters for
+      // "today" frequently aren't saved yet at scan time, so the guard kept silently falling
+      // through and closing the phantom instead -- the exact recurring "night checkout became
+      // today's check-in" bug. The stale record is left open on purpose for a manager to
+      // resolve with real knowledge, rather than us writing a confidently wrong checkout.
+      const created = await insertRow("attendance_records", {
+        staff_profile_id: staffProfileId,
+        clock_in_at: eventTime,
+        status: "present"
+      });
+      await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
+      return { serialNo, action: "checkIn_new_day", staffProfileId };
     }
 
     await updateRows("attendance_records", {
@@ -236,6 +243,24 @@ async function processOneEvent(evt) {
   if (recentlyClosed) {
     await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: recentlyClosed.id, action: "ignored_duplicate_scan" });
     return { serialNo, action: "ignored_duplicate_scan", staffProfileId };
+  }
+
+  // No open record. Before assuming this is a check-in, check whether it's actually an ORPHANED
+  // CHECKOUT: the person's real check-in earlier in the day was missed (failed verify, device
+  // offline), so their end-of-shift scan arrives with nothing to close. Blindly recording it as
+  // a check-in creates a phantom "working all night" record that then corrupts the next
+  // morning's scan handling too. Signal: the scan lands near the person's scheduled shift END
+  // for that date while being nowhere near the scheduled START. Only applies when a roster row
+  // exists for the date -- with no roster we keep the old behavior (record a check-in).
+  const eventLocalNow = localDateAndMinutes(eventTime);
+  const scheduled = await getScheduledMinutes(staffProfileId, eventLocalNow.dateKey);
+  if (
+    scheduled.end !== null &&
+    circularMinuteDiff(eventLocalNow.minutesOfDay, scheduled.end) <= ROSTER_MATCH_WINDOW_MINUTES &&
+    (scheduled.start === null || circularMinuteDiff(eventLocalNow.minutesOfDay, scheduled.start) > ROSTER_MATCH_WINDOW_MINUTES)
+  ) {
+    await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, action: "ignored_orphan_checkout" });
+    return { serialNo, action: "ignored_orphan_checkout", staffProfileId };
   }
 
   const created = await insertRow("attendance_records", {
