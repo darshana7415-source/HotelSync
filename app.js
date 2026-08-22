@@ -570,8 +570,15 @@ function renderLeaveRequests() {
     return;
   }
 
+  // Staff only see full request cards (reason, chat thread, modify form) for requests that
+  // still need something from them -- pending flows and cancellable approvals. Finished ones
+  // (cancelled / rejected / withdrawn) appear as compact date + status rows in the month list
+  // above instead, which keeps this page short and easy to scan on a phone.
+  const ACTIVE_STAFF_CARD_STATUSES = ["Pending", "Change the Request", "Adjustment requested", "Approved"];
   const visibleRequests = currentRole === "staff" && activeStaff
-    ? leaveRequests.filter((request) => leaveRequestBelongsToStaff(request, activeStaff))
+    ? leaveRequests.filter((request) =>
+        leaveRequestBelongsToStaff(request, activeStaff) &&
+        ACTIVE_STAFF_CARD_STATUSES.includes(request.status))
     : leaveRequests;
   const staffLeaveSummary = currentRole === "staff" && activeStaff
     ? staffLeaveSummaryMarkup(activeStaff)
@@ -652,7 +659,7 @@ function renderLeaveRequests() {
       ` : ""}
     </article>
   `;
-  }).join("") : `<div class="mini-empty">${currentRole === "staff" ? "You have no leave requests yet." : "No leave requests yet."}</div>`;
+  }).join("") : `<div class="mini-empty">${currentRole === "staff" ? "No open leave requests. Past leave shows in the month list above." : "No leave requests yet."}</div>`;
 
   leaveList.innerHTML = staffLeaveSummary + requestListMarkup;
 
@@ -662,12 +669,16 @@ function staffLeaveSummaryMarkup(person, dateValue = todayLocalKey()) {
   const monthKey = monthKeyForDate(dateValue);
   const obtained = approvedLeaveUsedInMonth(person, monthKey);
   const remaining = monthlyLeaveBalance(person, `${monthKey}-01`);
-  const approvedItems = leaveRequests
+  // Every request of any status that touches this month -- one compact row each (dates +
+  // status pill only). The heavy per-request cards with reasons/chat threads now only render
+  // for requests that still need action, so this list is the whole month's history at a glance.
+  const monthItems = leaveRequests
     .filter((request) =>
       leaveRequestBelongsToStaff(request, person) &&
-      request.status === "Approved" &&
-      leaveUnitsInMonth(request, monthKey) > 0
-    );
+      monthKeyForDate(request.from) <= monthKey &&
+      monthKeyForDate(request.to || request.from) >= monthKey
+    )
+    .sort((left, right) => String(left.from).localeCompare(String(right.from)));
 
   return `
     <section class="staff-leave-summary">
@@ -677,13 +688,13 @@ function staffLeaveSummaryMarkup(person, dateValue = todayLocalKey()) {
         <span><b>${formatLeaveUnits(remaining)}</b><small>leave left</small></span>
       </div>
       <div class="staff-message-box">
-        <strong>Leaves obtained this month</strong>
-        ${approvedItems.length ? approvedItems.map((request) => `
-          <div class="mini-item">
-            <span><strong>${leaveDetailTitle(request)}</strong><small>${leaveDetailLine(request, monthKey)}</small></span>
+        <strong>Leaves of ${monthLabel(monthKey)}</strong>
+        ${monthItems.length ? monthItems.map((request) => `
+          <div class="mini-item leave-month-row">
+            <span><strong>${leaveDateRangeLabel(request)}</strong></span>
             <span class="pill ${leavePillClass(request)}">${leaveStatusDisplay(request)}</span>
           </div>
-        `).join("") : `<div class="mini-empty">No approved leave obtained in ${monthLabel(monthKey)} yet.</div>`}
+        `).join("") : `<div class="mini-empty">No leave in ${monthLabel(monthKey)} yet.</div>`}
       </div>
     </section>
   `;
