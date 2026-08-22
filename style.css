@@ -739,6 +739,201 @@ label {
   gap: 1rem;
 }
 
+/* --- Staff home (mobile-first redesign) --- */
+
+.staff-hero {
+  border-radius: 16px;
+  padding: 1.1rem 1.15rem 1rem;
+  background: linear-gradient(135deg, #10323a, var(--brand));
+  color: #f2fafa;
+  display: grid;
+  gap: 0.9rem;
+  box-shadow: var(--shadow);
+}
+
+.staff-hero.on-shift {
+  background: linear-gradient(135deg, #0b4d43, #178a5c);
+}
+
+.staff-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.staff-hero-top .avatar.large {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.staff-hero-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.staff-hero-name strong {
+  display: block;
+  font-size: 1.12rem;
+  line-height: 1.25;
+}
+
+.staff-hero-name small {
+  color: rgba(242, 250, 250, 0.75);
+}
+
+.staff-hero-pill {
+  flex-shrink: 0;
+}
+
+.staff-hero-shift {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.staff-hero-shift small {
+  color: rgba(242, 250, 250, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.staff-hero-shift b {
+  font-size: 1.22rem;
+  line-height: 1.3;
+}
+
+.staff-hero-times {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+}
+
+.staff-hero-times > span:not(.staff-hero-divider) {
+  display: grid;
+  gap: 0.1rem;
+  text-align: center;
+  flex: 1;
+}
+
+.staff-hero-times small {
+  color: rgba(242, 250, 250, 0.7);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.staff-hero-times b {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.staff-hero-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 0.15rem 0.6rem;
+}
+
+.staff-hero-note {
+  color: rgba(242, 250, 250, 0.75);
+  font-weight: 600;
+}
+
+.staff-chip-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.staff-chip {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 0.7rem 0.5rem;
+  display: grid;
+  gap: 0.1rem;
+  text-align: center;
+}
+
+.staff-chip b {
+  font-size: 1.25rem;
+}
+
+.staff-chip small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.staff-chip.chip-attention {
+  border-color: var(--amber);
+  background: #fff7e8;
+}
+
+.staff-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.staff-action-button {
+  display: block;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.85rem 0.75rem;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.staff-action-button.primary-action {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.staff-section {
+  border: 0;
+}
+
+.staff-section-summary {
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0.35rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.staff-section[open] .staff-section-summary {
+  margin-bottom: 0.6rem;
+}
+
+@media (max-width: 480px) {
+  .staff-hero {
+    padding: 1rem 0.95rem 0.9rem;
+  }
+
+  .staff-hero-times b {
+    font-size: 1.35rem;
+  }
+
+  .staff-chip small {
+    font-size: 0.68rem;
+  }
+}
+
 .self-top {
   display: flex;
   align-items: center;

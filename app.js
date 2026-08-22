@@ -1747,30 +1747,52 @@ function renderRoleDemo() {
     .join("");
 
   staffCard.innerHTML = `
-    <div class="self-card">
-      <div class="self-top">
-        <span class="avatar large">${initials(activeStaff.name)}</span>
-        <div>
-          <strong>${activeStaff.name}</strong>
-          <small>${activeStaff.role} - ${activeStaff.department}</small>
+    <div class="self-card staff-home">
+      <div class="staff-hero ${isOnShift(activeStaff) ? "on-shift" : ""}">
+        <div class="staff-hero-top">
+          <span class="avatar large">${initials(activeStaff.name)}</span>
+          <div class="staff-hero-name">
+            <strong>${activeStaff.name}</strong>
+            <small>${activeStaff.role} - ${activeStaff.department}</small>
+          </div>
+          <span class="pill ${locationClass} staff-hero-pill">${isOnShift(activeStaff) ? (activeStaff.status === "On break" ? "On break" : "Working") : "Off duty"}</span>
         </div>
+        <div class="staff-hero-shift">
+          <small>Today's shift</small>
+          <b>${normalizeShiftLabel(todayRoster.shift) || "Today"} &middot; ${rosterTimeLabel(todayRoster)}</b>
+          ${extraShiftLabels(todayRoster).length ? `<small>${extraShiftLabels(todayRoster).join(" | ")}</small>` : ""}
+        </div>
+        <div class="staff-hero-times">
+          <span>
+            <small>In</small>
+            <b>${activeStaff.clockIn || "--:--"}</b>
+          </span>
+          <span class="staff-hero-divider"></span>
+          <span>
+            <small>Out</small>
+            <b>${activeStaff.clockOut || (activeStaff.clockIn ? "Active" : "--:--")}</b>
+          </span>
+          <span class="staff-hero-divider"></span>
+          <span>
+            <small>Worked</small>
+            <b>${formatHours(workedHours)}</b>
+          </span>
+        </div>
+        <small class="staff-hero-note">${shiftState}</small>
       </div>
-      <div class="self-stats">
-        <span><b>${normalizeShiftLabel(todayRoster.shift) || "Today"}</b><small>${rosterTimeLabel(todayRoster)}</small></span>
-        <span><b>${formatLeaveUnits(monthlyTaken)}</b><small>leave obtained in ${monthLabel(monthKey)}</small></span>
-        <span><b>${formatLeaveUnits(monthlyBalance)}</b><small>remaining this month from ${leaveQuota} day quota</small></span>
-        <span><b>${formatHours(workedHours)}</b><small>worked hours this shift</small></span>
-      </div>
-      <div class="self-stats compact-self-stats">
-        <span><b>${activeStaff.clockIn || "--:--"}</b><small>clock in</small></span>
-        <span><b>${activeStaff.clockOut || (activeStaff.clockIn ? "Active" : "--:--")}</b><small>clock out</small></span>
-        <span><b>${myPendingLeaveCount}</b><small>leave waiting</small></span>
+
+      <div class="staff-chip-row">
+        <span class="staff-chip"><b>${formatLeaveUnits(monthlyBalance)}</b><small>leave left</small></span>
+        <span class="staff-chip"><b>${formatLeaveUnits(monthlyTaken)}</b><small>taken in ${monthLabel(monthKey)}</small></span>
+        <span class="staff-chip ${myPendingLeaveCount ? "chip-attention" : ""}"><b>${myPendingLeaveCount}</b><small>waiting answer</small></span>
       </div>
       ${lowBalance ? `<div class="policy-summary warning-summary"><strong>Low leave balance:</strong> Please check with admin before planning more leave.</div>` : ""}
-      <div class="tracking-strip">
-        <span class="pill ${locationClass}">${activeStaff.locationStatus}</span>
-        <span>${shiftState}</span>
+
+      <div class="staff-quick-actions">
+        <a class="staff-action-button primary-action" href="#leave">Request leave</a>
+        <button class="staff-action-button" data-staff-action="break">${activeStaff.status === "On break" ? "End break" : "Start break"}</button>
       </div>
+
       ${currentRole !== "staff" ? `
         <label class="floor-picker">
           Current floor
@@ -1789,15 +1811,10 @@ function renderRoleDemo() {
           </select>
         </label>
       ` : ""}
-      <div class="staff-actions">
-        <span class="pill blue fingerprint-attendance-note">Attendance is tracked at the fingerprint machine</span>
-        <button class="ghost" data-staff-action="break">${activeStaff.status === "On break" ? "End break" : "Start break"}</button>
-      </div>
       <div class="staff-message-box">
         ${currentRole === "staff" ? `
-          <div class="box-title-row">
-            <strong>My leave requests and chats</strong>
-          </div>
+          <details class="staff-section" ${myPendingLeaveCount || myLeaveRequests.some((request) => ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)) ? "open" : ""}>
+            <summary class="staff-section-summary">My leave requests and chats ${myPendingLeaveCount ? `<span class="pill amber">${myPendingLeaveCount} waiting</span>` : ""}</summary>
           ${myLeaveRequests.length ? myLeaveRequests.map((request) => `
             <div class="mini-item">
               <span>${leaveRequestTitle(request)}<small>${leaveDateRangeLabel(request)}${request.reason ? ` - ${request.reason}` : ""}</small></span>
@@ -1805,7 +1822,7 @@ function renderRoleDemo() {
             </div>
             ${leaveThreadMessagesMarkup(request, 4)}
             ${["Pending", "Change the Request", "Adjustment requested", "Approved"].includes(request.status) ? `
-              <details class="leave-chat-panel staff-chat-panel dashboard-chat-panel" open>
+              <details class="leave-chat-panel staff-chat-panel dashboard-chat-panel">
                 <summary>Continue chat for this request</summary>
                 <form class="leave-chat-form staff-chat-form" data-leave-chat="${leaveThreadId(request)}" data-chat-sender="staff">
                   <label>
@@ -1822,6 +1839,7 @@ function renderRoleDemo() {
             ` : ""}
           `).join("") : ""}
           ${!personalMessages.length && !myLeaveRequests.length ? `<div class="mini-empty">No leave answers yet.</div>` : ""}
+          </details>
         ` : `
           <div class="box-title-row">
             <strong>All chat history</strong>
@@ -1851,8 +1869,10 @@ function renderRoleDemo() {
         `}
       </div>
       <div class="staff-message-box">
-        <strong>${activeStaff.department} department shifts today</strong>
-        ${departmentShiftRows || `<div class="mini-empty">No department shifts found for today.</div>`}
+        <details class="staff-section">
+          <summary class="staff-section-summary">${activeStaff.department} department shifts today</summary>
+          ${departmentShiftRows || `<div class="mini-empty">No department shifts found for today.</div>`}
+        </details>
       </div>
     </div>
   `;
