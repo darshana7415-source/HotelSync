@@ -82,6 +82,7 @@
           <input id="daily-date" type="date">
         </label>
         <button class="primary" id="daily-load" type="button">Show day</button>
+        <button id="daily-png" type="button">Download PNG</button>
       </div>
       <div class="summary" id="daily-summary"></div>
       <div id="daily-msg" class="msg hidden"></div>
@@ -106,6 +107,7 @@
           <input id="monthly-month" type="month">
         </label>
         <button class="primary" id="monthly-load" type="button">Show month</button>
+        <button id="monthly-png" type="button">Download PNG</button>
       </div>
       <div class="summary" id="monthly-summary"></div>
       <div id="monthly-msg" class="msg hidden"></div>
@@ -136,6 +138,15 @@
   const isStaff = String(new URLSearchParams(location.search).get("role") || "").toLowerCase() === "staff";
 
   const RETENTION_MONTHS = 3;
+
+  // Kept from the last successful load so the PNG export can redraw the full table
+  // (including rows scrolled out of view) without re-querying.
+  let lastDaily = [];
+  let lastDailyDate = "";
+  let lastDailySummary = [];
+  let lastMonthly = [];
+  let lastMonthlyMonth = "";
+  let lastMonthlySummary = [];
 
   const el = (id) => document.querySelector(id);
   const pad = (n) => String(n).padStart(2, "0");
@@ -188,6 +199,148 @@
     return Number.isFinite(n) ? n : 999999;
   }
 
+  /* ---- PNG export -------------------------------------------------------------------
+     Drawn straight onto a canvas rather than screenshotting the DOM: it needs no external
+     library, always produces the full table (not just the part scrolled into view), and
+     renders at 2x for a sharp image on phones and when printed.
+     ----------------------------------------------------------------------------------- */
+
+  const PNG = {
+    scale: 2,
+    padding: 28,
+    rowHeight: 34,
+    headerHeight: 38,
+    titleBlock: 92,
+    summaryHeight: 54,
+    font: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+  };
+
+  // columns: [{ label, key, width, align }]
+  function downloadTablePng({ fileName, title, subtitle, columns, rows, summary }) {
+    if (!rows.length) return false;
+
+    const width = PNG.padding * 2 + columns.reduce((sum, c) => sum + c.width, 0);
+    const height = PNG.padding * 2 + PNG.titleBlock +
+      (summary && summary.length ? PNG.summaryHeight : 0) +
+      PNG.headerHeight + rows.length * PNG.rowHeight + 26;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width * PNG.scale;
+    canvas.height = height * PNG.scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(PNG.scale, PNG.scale);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+
+    let y = PNG.padding;
+
+    // Brand bar
+    ctx.fillStyle = "#0d6b72";
+    ctx.fillRect(0, 0, width, 6);
+
+    // Title block
+    ctx.fillStyle = "#16232e";
+    ctx.font = "800 22px " + PNG.font;
+    ctx.textBaseline = "top";
+    ctx.fillText(title, PNG.padding, y + 8);
+
+    ctx.fillStyle = "#64717f";
+    ctx.font = "600 13px " + PNG.font;
+    ctx.fillText(subtitle, PNG.padding, y + 38);
+    ctx.fillText("StaffSync - Beach & Bliss Mirissa", PNG.padding, y + 58);
+
+    y += PNG.titleBlock;
+
+    // Summary strip
+    if (summary && summary.length) {
+      let x = PNG.padding;
+      summary.forEach((item) => {
+        const boxWidth = Math.min(190, (width - PNG.padding * 2) / summary.length);
+        ctx.fillStyle = "#f7fafb";
+        ctx.fillRect(x, y, boxWidth - 10, PNG.summaryHeight - 12);
+        ctx.strokeStyle = "#ecf1f5";
+        ctx.strokeRect(x, y, boxWidth - 10, PNG.summaryHeight - 12);
+        ctx.fillStyle = "#16232e";
+        ctx.font = "800 16px " + PNG.font;
+        ctx.fillText(String(item.value), x + 10, y + 6);
+        ctx.fillStyle = "#64717f";
+        ctx.font = "600 11px " + PNG.font;
+        ctx.fillText(String(item.label), x + 10, y + 26);
+        x += boxWidth;
+      });
+      y += PNG.summaryHeight;
+    }
+
+    // Header row
+    ctx.fillStyle = "#f7fafb";
+    ctx.fillRect(PNG.padding, y, width - PNG.padding * 2, PNG.headerHeight);
+    ctx.fillStyle = "#7a8794";
+    ctx.font = "800 11px " + PNG.font;
+    let hx = PNG.padding;
+    columns.forEach((col) => {
+      const text = String(col.label).toUpperCase();
+      const tx = col.align === "right" ? hx + col.width - 10 - ctx.measureText(text).width : hx + 10;
+      ctx.fillText(text, tx, y + 13);
+      hx += col.width;
+    });
+    y += PNG.headerHeight;
+
+    // Body rows
+    rows.forEach((row, index) => {
+      if (index % 2 === 1) {
+        ctx.fillStyle = "#fbfdfe";
+        ctx.fillRect(PNG.padding, y, width - PNG.padding * 2, PNG.rowHeight);
+      }
+      ctx.strokeStyle = "#eef3f6";
+      ctx.beginPath();
+      ctx.moveTo(PNG.padding, y + PNG.rowHeight);
+      ctx.lineTo(width - PNG.padding, y + PNG.rowHeight);
+      ctx.stroke();
+
+      let cx = PNG.padding;
+      columns.forEach((col) => {
+        const raw = row[col.key];
+        const text = raw === null || raw === undefined ? "" : String(raw);
+        ctx.fillStyle = col.muted ? "#64717f" : "#16232e";
+        ctx.font = (col.bold ? "700 " : "500 ") + "13px " + PNG.font;
+
+        // Trim anything too wide for its column so text can never bleed into the next one.
+        let shown = text;
+        const maxWidth = col.width - 20;
+        if (ctx.measureText(shown).width > maxWidth) {
+          while (shown.length > 1 && ctx.measureText(shown + "...").width > maxWidth) {
+            shown = shown.slice(0, -1);
+          }
+          shown += "...";
+        }
+
+        const tx = col.align === "right" ? cx + col.width - 10 - ctx.measureText(shown).width : cx + 10;
+        ctx.fillText(shown, tx, y + 10);
+        cx += col.width;
+      });
+      y += PNG.rowHeight;
+    });
+
+    // Footer
+    ctx.fillStyle = "#94a3ad";
+    ctx.font = "500 11px " + PNG.font;
+    ctx.fillText("Generated " + new Date().toLocaleString("en-GB"), PNG.padding, y + 8);
+
+    canvas.toBlob(function (blob) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+
+    return true;
+  }
+
   async function activeStaff() {
     const res = await db
       .from("staff_profiles")
@@ -223,31 +376,43 @@
       let openShifts = 0;
       let totalMinutes = 0;
 
-      body.innerHTML = people.map((person) => {
+      lastDaily = people.map((person) => {
         const row = byStaff.get(person.id);
         if (!row) {
-          return "<tr><td>" + person.employee_code + "</td><td>" + person.full_name +
-            '</td><td></td><td></td><td></td><td class="num">0:00</td>' +
-            '<td><span class="tag t-none">No scan</span></td></tr>';
+          return {
+            code: person.employee_code, name: person.full_name,
+            in: "", out: "", segments: "", hours: "0:00", status: "No scan"
+          };
         }
         present += 1;
         totalMinutes += Number(row.total_minutes) || 0;
         const out = timeText(row.clock_out);
         if (!out) openShifts += 1;
-        const status = out
-          ? '<span class="tag t-ok">Complete</span>'
-          : '<span class="tag t-open">No check out</span>';
-        return "<tr><td>" + person.employee_code + "</td><td>" + person.full_name +
-          "</td><td>" + timeText(row.clock_in) + "</td><td>" + out +
-          "</td><td>" + segmentsText(row.segments) +
-          '</td><td class="num">' + hoursText(row.total_minutes) + "</td><td>" + status + "</td></tr>";
-      }).join("");
+        return {
+          code: person.employee_code, name: person.full_name,
+          in: timeText(row.clock_in), out: out,
+          segments: segmentsText(row.segments),
+          hours: hoursText(row.total_minutes),
+          status: out ? "Complete" : "No check out"
+        };
+      });
+      lastDailyDate = date;
 
-      el("#daily-summary").innerHTML =
-        "<div><b>" + present + "</b><small>staff recorded</small></div>" +
-        "<div><b>" + (people.length - present) + "</b><small>no scan</small></div>" +
-        "<div><b>" + openShifts + "</b><small>missing check out</small></div>" +
-        "<div><b>" + hoursText(totalMinutes) + "</b><small>total hours</small></div>";
+      const tagClass = { "Complete": "t-ok", "No check out": "t-open", "No scan": "t-none" };
+      body.innerHTML = lastDaily.map((r) =>
+        "<tr><td>" + r.code + "</td><td>" + r.name + "</td><td>" + r.in + "</td><td>" + r.out +
+        "</td><td>" + r.segments + '</td><td class="num">' + r.hours +
+        '</td><td><span class="tag ' + tagClass[r.status] + '">' + r.status + "</span></td></tr>"
+      ).join("");
+
+      lastDailySummary = [
+        { value: present, label: "staff recorded" },
+        { value: people.length - present, label: "no scan" },
+        { value: openShifts, label: "missing check out" },
+        { value: hoursText(totalMinutes), label: "total hours" }
+      ];
+      el("#daily-summary").innerHTML = lastDailySummary
+        .map((s) => "<div><b>" + s.value + "</b><small>" + s.label + "</small></div>").join("");
 
       if (!res.data || !res.data.length) {
         showMsg(msg, "No attendance recorded for " + date + " yet. The day's records are saved automatically at midnight.", false);
@@ -286,23 +451,34 @@
       let grandMinutes = 0;
       let workedRows = 0;
 
-      body.innerHTML = people.map((person) => {
+      lastMonthly = people.map((person) => {
         const rows = byStaff.get(person.id) || [];
         const minutes = rows.reduce((sum, r) => sum + (Number(r.total_minutes) || 0), 0);
         const days = rows.length;
         grandMinutes += minutes;
         workedRows += days;
-        const average = days ? Math.round(minutes / days) : 0;
-        return "<tr><td>" + person.employee_code + "</td><td>" + person.full_name +
-          '</td><td class="num">' + days +
-          '</td><td class="num">' + hoursText(minutes) +
-          '</td><td class="num">' + hoursText(average) + "</td></tr>";
-      }).join("");
+        return {
+          code: person.employee_code, name: person.full_name,
+          days: days, hours: hoursText(minutes),
+          average: hoursText(days ? Math.round(minutes / days) : 0)
+        };
+      });
+      lastMonthlyMonth = month;
 
-      el("#monthly-summary").innerHTML =
-        "<div><b>" + people.length + "</b><small>staff</small></div>" +
-        "<div><b>" + workedRows + "</b><small>days recorded</small></div>" +
-        "<div><b>" + hoursText(grandMinutes) + "</b><small>total hours</small></div>";
+      body.innerHTML = lastMonthly.map((r) =>
+        "<tr><td>" + r.code + "</td><td>" + r.name +
+        '</td><td class="num">' + r.days +
+        '</td><td class="num">' + r.hours +
+        '</td><td class="num">' + r.average + "</td></tr>"
+      ).join("");
+
+      lastMonthlySummary = [
+        { value: people.length, label: "staff" },
+        { value: workedRows, label: "days recorded" },
+        { value: hoursText(grandMinutes), label: "total hours" }
+      ];
+      el("#monthly-summary").innerHTML = lastMonthlySummary
+        .map((s) => "<div><b>" + s.value + "</b><small>" + s.label + "</small></div>").join("");
 
       if (!res.data || !res.data.length) {
         showMsg(msg, "No attendance recorded for " + month + ".", false);
@@ -331,6 +507,48 @@
   el("#daily-date").addEventListener("change", loadDaily);
   el("#monthly-load").addEventListener("click", loadMonthly);
   el("#monthly-month").addEventListener("change", loadMonthly);
+
+  el("#daily-png").addEventListener("click", function () {
+    const ok = downloadTablePng({
+      fileName: "attendance-" + lastDailyDate + ".png",
+      title: "Daily Attendance",
+      subtitle: new Date(lastDailyDate + "T00:00:00").toLocaleDateString("en-GB", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric"
+      }),
+      summary: lastDailySummary,
+      columns: [
+        { label: "Code", key: "code", width: 70 },
+        { label: "Name", key: "name", width: 220, bold: true },
+        { label: "In", key: "in", width: 80 },
+        { label: "Out", key: "out", width: 80 },
+        { label: "Segments", key: "segments", width: 200, muted: true },
+        { label: "Hours", key: "hours", width: 90, align: "right" },
+        { label: "Status", key: "status", width: 140, muted: true }
+      ],
+      rows: lastDaily
+    });
+    if (!ok) showMsg(el("#daily-msg"), "Nothing to download yet - load a day first.", true);
+  });
+
+  el("#monthly-png").addEventListener("click", function () {
+    const ok = downloadTablePng({
+      fileName: "attendance-" + lastMonthlyMonth + ".png",
+      title: "Monthly Attendance",
+      subtitle: new Date(lastMonthlyMonth + "-01T00:00:00").toLocaleDateString("en-GB", {
+        month: "long", year: "numeric"
+      }),
+      summary: lastMonthlySummary,
+      columns: [
+        { label: "Code", key: "code", width: 70 },
+        { label: "Name", key: "name", width: 260, bold: true },
+        { label: "Days worked", key: "days", width: 130, align: "right" },
+        { label: "Total hours", key: "hours", width: 130, align: "right" },
+        { label: "Average / day", key: "average", width: 140, align: "right" }
+      ],
+      rows: lastMonthly
+    });
+    if (!ok) showMsg(el("#monthly-msg"), "Nothing to download yet - load a month first.", true);
+  });
 
   // ---- Init ----
 
