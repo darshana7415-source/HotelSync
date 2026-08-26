@@ -1,8 +1,16 @@
 [functions]
   directory = "netlify/functions"
 
-# Runs automatically every day -- 30 2 * * * (UTC) = 08:00 Asia/Colombo, no DST to account for.
-# Imports yesterday's attendance_records into attendance_imports so the Saved Attendance Report
-# in attendance-upload.html is populated without anyone needing to upload an Excel sheet.
+# Attendance is captured into attendance_imports automatically, twice a day. Sri Lanka is
+# UTC+5:30 year round (no DST), so the UTC cron times below are stable.
+
+# 29 18 * * * (UTC) = 23:59 Asia/Colombo -- captures the day as it closes, so the in/out
+# times from the live "Staff on shift" dashboard land in Attendance Reports each midnight.
+[functions."attendance-endofday-import"]
+  schedule = "29 18 * * *"
+
+# 30 2 * * * (UTC) = 08:00 Asia/Colombo -- morning catch-up. Re-imports the previous day so
+# checkouts that only happened after 23:59 (night shifts, late taps) replace the partial row
+# written at midnight. Same upsert key, so this overwrites rather than duplicates.
 [functions."attendance-daily-report-import"]
   schedule = "30 2 * * *"

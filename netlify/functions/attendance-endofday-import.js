@@ -1,21 +1,20 @@
-// Scheduled function -- runs every day at 08:00 Asia/Colombo (cron "30 2 * * *" in UTC,
-// see netlify.toml).
+// Scheduled function -- runs every day at 23:59 Asia/Colombo (cron "29 18 * * *" in UTC,
+// see netlify.toml). Captures the in/out times shown on the live "Staff on shift" dashboard
+// for the day that is closing, and writes them into attendance_imports so they appear in
+// Attendance Reports without anyone touching a spreadsheet.
 //
-// This is the morning CATCH-UP pass. attendance-endofday-import.js already captured this
-// date at 23:59, but anyone still clocked in at that moment (a rostered night shift, or a
-// checkout that landed after midnight) was written with a blank checkout. Re-importing the
-// same date here fills those in once the real checkouts exist.
-//
-// Both runs share lib/attendanceDailyImport.js and upsert on
-// (hotel_id, staff_profile_id, attendance_date, source), so this overwrites the earlier
-// partial row rather than duplicating it.
+// Anyone still clocked in at 23:59 (a rostered night shift, or a forgotten checkout) is
+// written with their check-in time and a blank checkout. The 08:00 run the next morning
+// re-imports the same date and overwrites that row once the real checkout exists -- both
+// runs upsert on (hotel_id, staff_profile_id, attendance_date, source), so re-running is
+// always safe and never duplicates.
 //
 // Manual/backfill invocation:
-//   POST /.netlify/functions/attendance-daily-report-import
+//   POST /.netlify/functions/attendance-endofday-import
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
-//   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to yesterday in Sri Lanka)
+//   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to today in Sri Lanka)
 
-const { importAttendanceForDate, yesterdayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, todayColomboDateKey } = require("./lib/attendanceDailyImport");
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -40,15 +39,15 @@ exports.handler = async function handler(event) {
   try {
     requestedDate = JSON.parse(event.body || "{}").date || "";
   } catch {
-    // no body / not JSON -- falls back to yesterday
+    // no body / not JSON -- falls back to today
   }
 
-  const dateKey = requestedDate || yesterdayColomboDateKey();
+  const dateKey = requestedDate || todayColomboDateKey();
 
   try {
     const result = await importAttendanceForDate(dateKey);
     return json(200, { ok: true, ...result });
   } catch (error) {
-    return json(500, { ok: false, message: error.message || "Daily attendance import failed." });
+    return json(500, { ok: false, message: error.message || "End of day attendance import failed." });
   }
 };
