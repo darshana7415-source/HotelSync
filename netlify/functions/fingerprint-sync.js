@@ -212,23 +212,39 @@ async function processOneEvent(evt) {
     const eventLocal = localDateAndMinutes(eventTime);
     const openLocal = localDateAndMinutes(open.clock_in_at);
     if (eventLocal.dateKey !== openLocal.dateKey) {
-      // A scan NEVER closes a shift that started on a previous calendar day. This hotel has no
-      // overnight shifts (confirmed by the owner), so a cross-midnight in/out pair is always
-      // wrong data -- in practice it means the open record is a phantom (usually an orphaned
-      // evening checkout that had nothing to close and got recorded as a check-in), and today's
-      // first scan is a real morning check-in. The earlier version of this rule only started a
-      // fresh shift when daily_rosters had a row near-matching the scan time, but rosters for
-      // "today" frequently aren't saved yet at scan time, so the guard kept silently falling
-      // through and closing the phantom instead -- the exact recurring "night checkout became
-      // today's check-in" bug. The stale record is left open on purpose for a manager to
-      // resolve with real knowledge, rather than us writing a confidently wrong checkout.
-      const created = await insertRow("attendance_records", {
-        staff_profile_id: staffProfileId,
-        clock_in_at: eventTime,
-        status: "present"
-      });
-      await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
-      return { serialNo, action: "checkIn_new_day", staffProfileId };
+      // A scan crossing midnight is only a legitimate checkout if the person was actually
+      // ROSTERED an overnight shift on the day their open record started (out_time <= in_time,
+      // e.g. 19:00 -> 07:00) and this scan lands near that scheduled end time.
+      //
+      // Most staff here work day shifts, and for them a cross-midnight pair is always bad data:
+      // it means the open record is a phantom (usually an orphaned evening checkout that had
+      // nothing to close and got logged as a check-in) and this scan is really today's morning
+      // check-in. Treating that as a checkout is the long-running "last night's checkout became
+      // today's check-in" bug.
+      //
+      // Deciding from the roster (rather than a blanket no-overnight rule) is what lets genuine
+      // night-shift staff work correctly while still protecting everyone else. If no roster row
+      // exists for that day we deliberately fail safe and start a fresh shift, leaving the old
+      // record open for a manager -- guessing a checkout writes wrong hours into payroll.
+      const openScheduled = await getScheduledMinutes(staffProfileId, openLocal.dateKey);
+      const rosteredOvernight =
+        openScheduled.start !== null &&
+        openScheduled.end !== null &&
+        openScheduled.end <= openScheduled.start;
+      const nearScheduledEnd =
+        rosteredOvernight &&
+        circularMinuteDiff(eventLocal.minutesOfDay, openScheduled.end) <= ROSTER_MATCH_WINDOW_MINUTES;
+
+      if (!nearScheduledEnd) {
+        const created = await insertRow("attendance_records", {
+          staff_profile_id: staffProfileId,
+          clock_in_at: eventTime,
+          status: "present"
+        });
+        await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: created?.id, action: "checkIn" });
+        return { serialNo, action: "checkIn_new_day", staffProfileId };
+      }
+      // Falls through to the normal checkout path below: a real rostered night shift ending.
     }
 
     await updateRows("attendance_records", {
