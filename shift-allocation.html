@@ -25,6 +25,16 @@
     .datebox { display:flex; gap:8px; align-items:center; border:1px solid #dbe8e5; border-radius:8px; padding:10px; background:#fbfefd; font-weight:700; }
     .message { margin-top:12px; padding:12px; border-radius:8px; background:#eaf7f2; color:#075f63; font-weight:800; }
     .error { background:#fff0f0; color:#9d1c1c; }
+    textarea { font:inherit; padding:11px; border-radius:8px; border:1px solid #cfe0dd; width:100%; box-sizing:border-box;
+               font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; line-height:1.5; }
+    .roster-preview { display:grid; gap:6px; margin-top:12px; max-height:460px; overflow-y:auto; }
+    .roster-row { display:flex; justify-content:space-between; align-items:center; gap:10px;
+                  border:1px solid #e3ecea; border-radius:8px; padding:9px 11px; background:#fbfefd; }
+    .roster-row small { display:block; color:#5b6b70; font-weight:600; font-variant-numeric:tabular-nums; }
+    .tag { border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
+    .tag-ok { background:#e4f6ed; color:#12734b; }
+    .tag-fuzzy { background:#fff3df; color:#8a5b00; }
+    .tag-miss { background:#ffe8e8; color:#9d1c1c; }
     @media (max-width:720px) {
       .grid { grid-template-columns:1fr; }
       .shell { padding:12px; }
@@ -83,6 +93,37 @@
 
       <button id="save-shift" type="button">Save shift allocation</button>
       <div id="message" class="message" hidden></div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h2 style="margin:0 0 4px;font-size:18px">Paste roster text</h2>
+      <p style="margin:0;color:#5b6b70;font-weight:600">
+        Paste the whole roster message and save everyone at once, instead of one person at a time.
+      </p>
+
+      <label>
+        Roster message
+        <textarea id="roster-text" rows="9" placeholder="Staff roster from August 22nd to 27th&#10;Mr. Dulip     9am to 7pm&#10;Ms. Isuri     7am to 5pm&#10;Mr Sadun.  8am to 11 am break- 3 pm to 10pm"></textarea>
+      </label>
+
+      <div class="grid">
+        <label>
+          From date
+          <input id="roster-start" type="date">
+        </label>
+        <label>
+          To date
+          <input id="roster-end" type="date">
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="roster-check" type="button">Check names and times</button>
+        <button id="roster-apply" type="button" hidden>Apply roster</button>
+      </div>
+
+      <div id="roster-message" class="message" hidden></div>
+      <div id="roster-preview" class="roster-preview"></div>
     </section>
   </main>
 
@@ -160,6 +201,9 @@
     staffSelect.innerHTML = (result.data || []).map((p) =>
       `<option value="${p.staff_id}">${p.employee_code} - ${p.full_name} - ${p.department}</option>`
     ).join("");
+
+    // Also kept for the pasted-roster matcher below.
+    staffList = result.data || [];
   }
 
   async function saveOne(staffId, date) {
@@ -221,6 +265,280 @@
   });
   startDate.addEventListener("change", buildDates);
   saveButton.addEventListener("click", saveShift);
+
+  /* ---------------------------------------------------------------------------------
+     Paste roster text -> daily_rosters
+     Takes the free-form roster message the hotel circulates and saves every line at
+     once. Names are matched loosely (titles stripped, small misspellings tolerated)
+     because the message is typed by hand, but nothing is saved until the admin has
+     seen the matched list.
+     --------------------------------------------------------------------------------- */
+
+  const rosterText = document.querySelector("#roster-text");
+  const rosterStart = document.querySelector("#roster-start");
+  const rosterEnd = document.querySelector("#roster-end");
+  const rosterCheck = document.querySelector("#roster-check");
+  const rosterApply = document.querySelector("#roster-apply");
+  const rosterMessage = document.querySelector("#roster-message");
+  const rosterPreview = document.querySelector("#roster-preview");
+
+  let staffList = [];
+  let parsedRoster = [];
+
+  function showRoster(text, isError) {
+    rosterMessage.hidden = false;
+    rosterMessage.textContent = text;
+    rosterMessage.className = isError ? "message error" : "message";
+  }
+
+  function nameKey(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
+  }
+
+  function editDistance(left, right) {
+    const a = String(left || "");
+    const b = String(right || "");
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let previous = Array.from({ length: b.length + 1 }, (unused, index) => index);
+    for (let i = 1; i <= a.length; i += 1) {
+      const current = [i];
+      for (let j = 1; j <= b.length; j += 1) {
+        current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      previous = current;
+    }
+    return previous[b.length];
+  }
+
+  // Returns { person, exact } or null. Exact matches win; genuinely ambiguous names are
+  // reported unmatched rather than guessed at.
+  function matchStaff(rawName) {
+    const cleaned = String(rawName || "").replace(/^(mr|mrs|ms|miss|chef|dr)\b\.?\s*/i, "").trim();
+    const key = nameKey(cleaned);
+    if (!key) return null;
+
+    const candidates = staffList.map((person) => ({
+      person,
+      fullKey: nameKey(person.full_name),
+      firstKey: nameKey(String(person.full_name || "").split(/\s+/)[0])
+    }));
+
+    const exact = candidates.find((item) => item.fullKey === key || item.firstKey === key);
+    if (exact) return { person: exact.person, exact: true };
+
+    const prefix = candidates.filter((item) =>
+      (item.firstKey.length >= 4 && (item.firstKey.startsWith(key) || key.startsWith(item.firstKey))) ||
+      (item.fullKey.length >= 4 && item.fullKey.startsWith(key))
+    );
+    if (prefix.length === 1) return { person: prefix[0].person, exact: false };
+
+    const limit = key.length <= 4 ? 1 : 2;
+    const scored = candidates
+      .map((item) => ({ person: item.person, distance: Math.min(editDistance(key, item.firstKey), editDistance(key, item.fullKey)) }))
+      .filter((item) => item.distance <= limit)
+      .sort((a, b) => a.distance - b.distance);
+
+    if (!scored.length) return null;
+    if (scored.length > 1 && scored[0].distance === scored[1].distance) return null;
+    return { person: scored[0].person, exact: false };
+  }
+
+  function timeTo24(rawTime) {
+    const text = String(rawTime || "").trim().toLowerCase().replace(/\./g, ":");
+    const ampm = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]):?m?:?$/);
+    if (ampm) {
+      let hour = Number(ampm[1]);
+      const minute = Number(ampm[2] || 0);
+      if (ampm[3] === "p" && hour < 12) hour += 12;
+      if (ampm[3] === "a" && hour === 12) hour = 0;
+      if (hour > 23 || minute > 59) return "";
+      return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+    }
+    const bare = text.match(/^(\d{1,2})(?::(\d{2}))?$/);
+    if (bare) {
+      const hour = Number(bare[1]);
+      const minute = Number(bare[2] || 0);
+      if (hour > 23 || minute > 59) return "";
+      return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+    }
+    return "";
+  }
+
+  // A line can hold two ranges when someone works a split shift
+  // ("8am to 11 am break- 3 pm to 10pm").
+  function timeRanges(text) {
+    const ranges = [];
+    const pattern = /(\d{1,2}(?:[.:]\d{2})?\s*(?:[ap]\.?m\.?)?)\s*(?:to|-|–|—|until|till)\s*(\d{1,2}(?:[.:]\d{2})?\s*(?:[ap]\.?m\.?)?)/gi;
+    let found;
+    while ((found = pattern.exec(String(text || "")))) {
+      const from = timeTo24(found[1]);
+      const to = timeTo24(found[2]);
+      if (from && to) ranges.push({ from: from, to: to });
+    }
+    return ranges;
+  }
+
+  const MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+
+  // Reads "Staff roster from August 22nd to 27th" into a date range.
+  function headerDates(text) {
+    const line = String(text || "").split(/\r?\n/).find((entry) => /roster|duty|schedule/i.test(entry)) || "";
+    const lower = line.toLowerCase();
+    const monthIndex = MONTHS.findIndex((month) => lower.indexOf(month.slice(0, 3)) >= 0);
+    if (monthIndex < 0) return null;
+    const days = Array.from(lower.matchAll(/(\d{1,2})\s*(?:st|nd|rd|th)?\b/g))
+      .map((match) => Number(match[1]))
+      .filter((day) => day >= 1 && day <= 31);
+    if (!days.length) return null;
+    const yearMatch = lower.match(/\b(20\d{2})\b/);
+    const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
+    const pad = (value) => String(value).padStart(2, "0");
+    return {
+      start: year + "-" + pad(monthIndex + 1) + "-" + pad(days[0]),
+      end: year + "-" + pad(monthIndex + 1) + "-" + pad(days.length > 1 ? days[1] : days[0])
+    };
+  }
+
+  function shiftLabel(from, to) {
+    const startHour = Number(String(from).slice(0, 2));
+    if (to <= from) return "Night";
+    if (startHour < 11) return "Morning";
+    if (startHour < 16) return "Afternoon";
+    return "Evening";
+  }
+
+  function parseRoster(text) {
+    const entries = [];
+    String(text || "").split(/\r?\n/).forEach((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) return;
+      if (/^\(/.test(line)) return; // bracketed note lines
+      const ranges = timeRanges(line);
+      if (!ranges.length) return;
+      if (/roster|duty list|schedule/i.test(line)) return;
+      const namePart = line.slice(0, line.search(/\d/)).replace(/[-–—:,]+$/, "").trim();
+      if (!namePart) return;
+      const match = matchStaff(namePart);
+      entries.push({
+        rawName: namePart,
+        person: match ? match.person : null,
+        exact: Boolean(match && match.exact),
+        ranges: ranges,
+        // Only in/out columns exist, so a split shift is stored as its full span and flagged.
+        from: ranges[0].from,
+        to: ranges[ranges.length - 1].to,
+        split: ranges.length > 1
+      });
+    });
+    return entries;
+  }
+
+  function datesBetween(startKey, endKey) {
+    const dates = [];
+    if (!startKey) return dates;
+    const last = endKey || startKey;
+    let cursor = startKey;
+    let guard = 0;
+    while (cursor <= last && guard < 90) {
+      dates.push(cursor);
+      cursor = addDays(cursor, 1);
+      guard += 1;
+    }
+    return dates;
+  }
+
+  rosterText.addEventListener("input", function () {
+    const detected = headerDates(rosterText.value);
+    if (detected && !rosterStart.value) {
+      rosterStart.value = detected.start;
+      rosterEnd.value = detected.end;
+    }
+  });
+
+  rosterCheck.addEventListener("click", function () {
+    if (!staffList.length) return showRoster("Staff list is still loading. Try again in a moment.", true);
+
+    parsedRoster = parseRoster(rosterText.value);
+    const detected = headerDates(rosterText.value);
+    if (detected && !rosterStart.value) {
+      rosterStart.value = detected.start;
+      rosterEnd.value = detected.end;
+    }
+
+    if (!parsedRoster.length) {
+      rosterPreview.innerHTML = "";
+      rosterApply.hidden = true;
+      return showRoster("No shift lines found. Each person needs a line like: Mr. Dulip 9am to 7pm", true);
+    }
+
+    rosterPreview.innerHTML = parsedRoster.map(function (entry) {
+      const times = entry.ranges.map((range) => range.from + " - " + range.to).join(" + ");
+      if (!entry.person) {
+        return '<div class="roster-row"><span><strong>' + entry.rawName + "</strong><small>" + times +
+          '</small></span><span class="tag tag-miss">No matching staff</span></div>';
+      }
+      const notes = [];
+      if (entry.split) notes.push("split shift, saved as " + entry.from + " - " + entry.to);
+      if (entry.to <= entry.from) notes.push("overnight");
+      return '<div class="roster-row"><span><strong>' + entry.person.full_name + "</strong><small>" + times +
+        (notes.length ? " (" + notes.join(", ") + ")" : "") + '</small></span><span class="tag ' +
+        (entry.exact ? "tag-ok" : "tag-fuzzy") + '">' +
+        (entry.exact ? "Matched" : 'Read as "' + entry.rawName + '"') + "</span></div>";
+    }).join("");
+
+    const matched = parsedRoster.filter((entry) => entry.person).length;
+    const missed = parsedRoster.length - matched;
+    rosterApply.hidden = !matched;
+    showRoster(matched + " staff matched" + (missed ? ", " + missed + " not recognised and will be skipped" : "") +
+      ". Check the names, then press Apply roster.", Boolean(missed));
+  });
+
+  rosterApply.addEventListener("click", async function () {
+    const dates = datesBetween(rosterStart.value, rosterEnd.value || rosterStart.value);
+    if (!dates.length) return showRoster("Choose the from date first.", true);
+
+    const usable = parsedRoster.filter((entry) => entry.person);
+    if (!usable.length) return showRoster("No matched staff to apply.", true);
+
+    rosterApply.disabled = true;
+    rosterApply.textContent = "Applying...";
+
+    try {
+      let saved = 0;
+      for (const entry of usable) {
+        for (const date of dates) {
+          const row = {
+            hotel_id: hotelId,
+            staff_profile_id: entry.person.staff_id,
+            roster_date: date,
+            shift_name: shiftLabel(entry.from, entry.to),
+            in_time: entry.from,
+            out_time: entry.to,
+            day_status: "Working"
+          };
+          const existing = await db
+            .from("daily_rosters")
+            .select("id")
+            .eq("staff_profile_id", entry.person.staff_id)
+            .eq("roster_date", date)
+            .maybeSingle();
+          const result = existing.data && existing.data.id
+            ? await db.from("daily_rosters").update(row).eq("id", existing.data.id)
+            : await db.from("daily_rosters").insert(row);
+          if (result.error) throw result.error;
+          saved += 1;
+        }
+      }
+      showRoster("Roster applied: " + saved + " shift" + (saved === 1 ? "" : "s") +
+        " saved for " + usable.length + " staff across " + dates.length + " day" + (dates.length === 1 ? "" : "s") + ".");
+    } catch (error) {
+      showRoster(error.message || "Roster could not be applied.", true);
+    } finally {
+      rosterApply.disabled = false;
+      rosterApply.textContent = "Apply roster";
+    }
+  });
 
   loadStaff();
 })();
