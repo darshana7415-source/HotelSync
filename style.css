@@ -3767,3 +3767,25 @@ button {
     border-radius: 14px;
   }
 }
+
+/* --- Pasted roster importer --- */
+
+.roster-paste-box textarea {
+  min-height: 150px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.roster-preview-list {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.roster-preview-row small {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

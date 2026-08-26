@@ -3677,6 +3677,7 @@ function bindEvents() {
   });
 
   renderShiftImportRepeatDates();
+  setupRosterPasteImport();
   shiftImportFile?.addEventListener("change", async () => {
     const file = shiftImportFile.files?.[0];
     if (!file) return;
@@ -5429,6 +5430,310 @@ function findShiftHeaderIndex(rows) {
 
 function cleanImportRow(row) {
   return Array.from(row || []).map((value) => String(value ?? "").trim());
+}
+
+/* ---------------------------------------------------------------------------------------
+   Pasted roster text -> roster entries
+   Handles the free-form WhatsApp-style roster the hotel actually circulates, e.g.
+     Staff roster from August 22nd to 27th
+     Mr. Dulip          9am to 7pm
+     Mr Sadun.    8am to 11 am break- 3 pm to 10pm
+     (Morning cleaning : Old Building ...)      <- note line, ignored
+   Names are matched loosely (titles stripped, small misspellings tolerated) because the
+   message is typed by hand every week -- but nothing is ever saved without the admin
+   seeing the matched list first.
+   --------------------------------------------------------------------------------------- */
+
+const ROSTER_TITLE_PATTERN = /^(mr|mrs|ms|miss|chef|dr)\b\.?\s*/i;
+
+function rosterNameKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
+}
+
+// Classic Levenshtein distance, used only for short first-name comparisons.
+function editDistance(left, right) {
+  const a = String(left || "");
+  const b = String(right || "");
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let previous = Array.from({ length: b.length + 1 }, (unused, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] = Math.min(
+        previous[j] + 1,
+        current[j - 1] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+// Finds the staff member a pasted roster name refers to. Returns { person, exact } or null.
+// Tolerates the spelling drift seen in real rosters (Dulip/Duleep, Kawindu/Kavindu,
+// Ganidu/Ganindu, Kaweesha/Kaveesha, Janidu/Janindu, Sadun/sandun).
+function matchStaffByRosterName(rawName) {
+  const cleaned = String(rawName || "").replace(ROSTER_TITLE_PATTERN, "").trim();
+  const key = rosterNameKey(cleaned);
+  if (!key) return null;
+
+  const candidates = staff.map((person) => {
+    const fullKey = rosterNameKey(person.name);
+    const firstKey = rosterNameKey(String(person.name || "").split(/\s+/)[0]);
+    return { person, fullKey, firstKey };
+  });
+
+  const exact = candidates.find((item) => item.fullKey === key || item.firstKey === key);
+  if (exact) return { person: exact.person, exact: true };
+
+  const prefix = candidates.filter((item) =>
+    (item.firstKey.length >= 4 && (item.firstKey.startsWith(key) || key.startsWith(item.firstKey))) ||
+    (item.fullKey.length >= 4 && item.fullKey.startsWith(key))
+  );
+  if (prefix.length === 1) return { person: prefix[0].person, exact: false };
+
+  // Allow 1 edit for very short names, 2 otherwise -- "Dulip"/"Duleep" and "Sadun"/"sandun"
+  // both need 2. Safe because exact matches are already returned above, and any tie between
+  // two equally-close names is rejected below rather than guessed.
+  const limit = key.length <= 4 ? 1 : 2;
+  const scored = candidates
+    .map((item) => ({ person: item.person, distance: Math.min(editDistance(key, item.firstKey), editDistance(key, item.fullKey)) }))
+    .filter((item) => item.distance <= limit)
+    .sort((left, right) => left.distance - right.distance);
+
+  if (!scored.length) return null;
+  // Ambiguous (two names equally close) -> report as unmatched rather than guess wrong.
+  if (scored.length > 1 && scored[0].distance === scored[1].distance) return null;
+  return { person: scored[0].person, exact: false };
+}
+
+function rosterTimeTo24(rawTime) {
+  const text = String(rawTime || "").trim().toLowerCase().replace(/\./g, ":");
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m?\.?$/);
+  if (match) {
+    let hour = Number(match[1]);
+    const minute = Number(match[2] || 0);
+    if (match[3] === "p" && hour < 12) hour += 12;
+    if (match[3] === "a" && hour === 12) hour = 0;
+    if (hour > 23 || minute > 59) return "";
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+  const bare = text.match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (bare) {
+    const hour = Number(bare[1]);
+    const minute = Number(bare[2] || 0);
+    if (hour > 23 || minute > 59) return "";
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+// Pulls every "<time> to <time>" pair out of one roster line. A line can contain two pairs
+// when someone works a split shift ("8am to 11 am break- 3 pm to 10pm").
+function rosterTimeRanges(text) {
+  const ranges = [];
+  const pattern = /(\d{1,2}(?:[.:]\d{2})?\s*(?:[ap]\.?m\.?)?)\s*(?:to|-|–|—|until|till)\s*(\d{1,2}(?:[.:]\d{2})?\s*(?:[ap]\.?m\.?)?)/gi;
+  let found;
+  while ((found = pattern.exec(String(text || "")))) {
+    const start = rosterTimeTo24(found[1]);
+    const end = rosterTimeTo24(found[2]);
+    if (start && end) ranges.push({ start, end });
+  }
+  return ranges;
+}
+
+const ROSTER_MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+// Reads "Staff roster from August 22nd to 27th" (and "22 Aug to 27 Aug" style) into a date range.
+function parseRosterHeaderDates(text) {
+  const line = String(text || "").split(/\r?\n/).find((entry) => /roster|duty|schedule/i.test(entry)) || "";
+  const lower = line.toLowerCase();
+  const monthIndex = ROSTER_MONTHS.findIndex((month) => lower.includes(month.slice(0, 3)));
+  if (monthIndex < 0) return null;
+
+  const days = Array.from(lower.matchAll(/(\d{1,2})\s*(?:st|nd|rd|th)?\b/g))
+    .map((match) => Number(match[1]))
+    .filter((day) => day >= 1 && day <= 31);
+  if (!days.length) return null;
+
+  const yearMatch = lower.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
+  const pad = (value) => String(value).padStart(2, "0");
+  const startDay = days[0];
+  const endDay = days.length > 1 ? days[1] : days[0];
+  return {
+    start: `${year}-${pad(monthIndex + 1)}-${pad(startDay)}`,
+    end: `${year}-${pad(monthIndex + 1)}-${pad(endDay)}`
+  };
+}
+
+// Turns pasted roster text into one parsed entry per person line.
+function parseRosterPasteText(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const entries = [];
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    // Skip note/heading lines: bracketed notes, the roster title, and prose without times.
+    if (/^\(/.test(line)) return;
+    if (/roster|duty list|schedule/i.test(line) && !rosterTimeRanges(line).length) return;
+
+    const ranges = rosterTimeRanges(line);
+    if (!ranges.length) return;
+
+    const namePart = line.slice(0, line.search(/\d/)).replace(/[-–—:,]+$/, "").trim();
+    if (!namePart) return;
+
+    const match = matchStaffByRosterName(namePart);
+    entries.push({
+      rawName: namePart,
+      person: match?.person || null,
+      exact: Boolean(match?.exact),
+      ranges,
+      overnight: ranges.some((range) => range.end <= range.start)
+    });
+  });
+
+  return entries;
+}
+
+// Converts parsed roster entries into the row format importShiftRows() already understands:
+// [employeeCode, date, shift, in, out, status, shift2, in2, out2, status2]
+function rosterEntriesToImportRows(entries, dates) {
+  const rows = [["Employee code", "Date", "Shift", "In time", "Out time", "Status", "Shift 2", "In time 2", "Out time 2", "Status 2"]];
+  entries.forEach((entry) => {
+    if (!entry.person) return;
+    const [first, second] = entry.ranges;
+    dates.forEach((dateValue) => {
+      const row = [
+        entry.person.employeeCode || entry.person.id,
+        dateValue,
+        shiftNameForTimes(first.start, first.end),
+        first.start,
+        first.end,
+        "Working"
+      ];
+      if (second) {
+        row.push(shiftNameForTimes(second.start, second.end), second.start, second.end, "Working");
+      }
+      rows.push(row);
+    });
+  });
+  return rows;
+}
+
+// Names the shift band from its start time so the app's existing shift labels stay meaningful.
+function shiftNameForTimes(startTime, endTime) {
+  const startHour = Number(String(startTime).slice(0, 2));
+  if (endTime <= startTime) return "Night";
+  if (startHour < 11) return "Morning";
+  if (startHour < 16) return "Afternoon";
+  return "Evening";
+}
+
+let rosterPasteEntries = [];
+
+function setupRosterPasteImport() {
+  const textArea = document.querySelector("#roster-paste-text");
+  const startInput = document.querySelector("#roster-paste-start");
+  const endInput = document.querySelector("#roster-paste-end");
+  const previewButton = document.querySelector("#roster-paste-preview");
+  const applyButton = document.querySelector("#roster-paste-apply");
+  const resultNote = document.querySelector("#roster-paste-result");
+  const previewList = document.querySelector("#roster-paste-preview-list");
+  if (!textArea || !previewButton || !applyButton) return;
+
+  // Auto-fill the dates as soon as the roster is pasted, so the usual case needs no typing.
+  textArea.addEventListener("input", () => {
+    const detected = parseRosterHeaderDates(textArea.value);
+    if (detected && !startInput.value) {
+      startInput.value = detected.start;
+      endInput.value = detected.end;
+    }
+  });
+
+  previewButton.addEventListener("click", () => {
+    rosterPasteEntries = parseRosterPasteText(textArea.value);
+    const detected = parseRosterHeaderDates(textArea.value);
+    if (detected && !startInput.value) {
+      startInput.value = detected.start;
+      endInput.value = detected.end;
+    }
+
+    if (!rosterPasteEntries.length) {
+      previewList.innerHTML = "";
+      applyButton.hidden = true;
+      resultNote.textContent = "No shift lines were found. Each person needs a line like: Mr. Dulip 9am to 7pm";
+      return;
+    }
+
+    const matched = rosterPasteEntries.filter((entry) => entry.person);
+    const unmatched = rosterPasteEntries.filter((entry) => !entry.person);
+
+    previewList.innerHTML = rosterPasteEntries.map((entry) => {
+      const times = entry.ranges.map((range) => `${range.start} - ${range.end}`).join(" + ");
+      if (!entry.person) {
+        return `
+          <div class="mini-item roster-preview-row">
+            <span><strong>${escapeText(entry.rawName)}</strong><small>${times}</small></span>
+            <span class="pill red">No matching staff</span>
+          </div>
+        `;
+      }
+      return `
+        <div class="mini-item roster-preview-row">
+          <span><strong>${escapeText(entry.person.name)}</strong><small>${times}${entry.ranges.length > 1 ? " (split shift)" : ""}${entry.overnight ? " - overnight" : ""}</small></span>
+          <span class="pill ${entry.exact ? "green" : "amber"}">${entry.exact ? "Matched" : `Read as "${escapeText(entry.rawName)}"`}</span>
+        </div>
+      `;
+    }).join("");
+
+    applyButton.hidden = !matched.length;
+    resultNote.textContent = `${matched.length} staff matched${unmatched.length ? `, ${unmatched.length} not recognised (these will be skipped)` : ""}. Check the names, then apply.`;
+  });
+
+  applyButton.addEventListener("click", async () => {
+    const startDate = startInput.value;
+    const endDate = endInput.value || startInput.value;
+    if (!startDate) {
+      showToast("Choose the from date first.");
+      return;
+    }
+    const dates = dateKeysInRange(startDate, endDate);
+    if (!dates.length) {
+      showToast("That date range is not valid.");
+      return;
+    }
+
+    const usable = rosterPasteEntries.filter((entry) => entry.person);
+    if (!usable.length) {
+      showToast("No matched staff to apply.");
+      return;
+    }
+
+    applyButton.disabled = true;
+    applyButton.classList.add("action-success");
+    const originalLabel = applyButton.textContent;
+    applyButton.textContent = "Applying roster...";
+
+    try {
+      const rows = rosterEntriesToImportRows(usable, dates);
+      const result = await importShiftRows(rows, { overrideDates: dates });
+      renderAll();
+      resultNote.textContent = `Roster applied: ${result.updated} shift${result.updated === 1 ? "" : "s"} saved across ${dates.length} day${dates.length === 1 ? "" : "s"}${result.skipped ? `, ${result.skipped} skipped` : ""}.`;
+      showToast(`Roster applied to ${dates.length} day${dates.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      resultNote.textContent = error.message || "Roster could not be applied.";
+      showToast(error.message || "Roster could not be applied.");
+    } finally {
+      applyButton.disabled = false;
+      applyButton.classList.remove("action-success");
+      applyButton.textContent = originalLabel;
+    }
+  });
 }
 
 function parseDelimitedRows(text) {
