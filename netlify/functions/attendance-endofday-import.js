@@ -14,7 +14,7 @@
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to today in Sri Lanka)
 
-const { importAttendanceForDate, todayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, pruneOldImports, todayColomboDateKey } = require("./lib/attendanceDailyImport");
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -46,7 +46,18 @@ exports.handler = async function handler(event) {
 
   try {
     const result = await importAttendanceForDate(dateKey);
-    return json(200, { ok: true, ...result });
+
+    // Prune after a successful import, never before -- a failed import must not be able to
+    // delete history as a side effect. A pruning failure is reported but does not fail the
+    // run, since the day's attendance has already been saved correctly by that point.
+    let pruned = null;
+    try {
+      pruned = await pruneOldImports(dateKey);
+    } catch (pruneError) {
+      pruned = { error: pruneError.message || "prune failed" };
+    }
+
+    return json(200, { ok: true, ...result, pruned });
   } catch (error) {
     return json(500, { ok: false, message: error.message || "End of day attendance import failed." });
   }

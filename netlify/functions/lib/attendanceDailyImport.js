@@ -18,6 +18,9 @@ const { restRequest, upsertRow } = require("./supabaseAdmin");
 const HOTEL_ID = "00000000-0000-0000-0000-000000000001";
 const TIMEZONE = "Asia/Colombo";
 const SOURCE = "fingerprint_auto";
+// Attendance Reports shows the current month plus the two before it, so anything older than
+// this many whole months is no longer reachable in the UI and gets pruned nightly.
+const RETENTION_MONTHS = 3;
 
 function colomboDateKey(date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -117,8 +120,32 @@ async function importAttendanceForDate(dateKey) {
   return { date: dateKey, staffCount: importRows.length, stillOpen };
 }
 
+// Deletes attendance_imports rows older than the retention window. Runs as part of the
+// nightly capture so the table stays bounded without anyone maintaining it.
+//
+// Only attendance_imports (the summarised report rows) is pruned. The underlying
+// attendance_records are deliberately left alone -- they are the raw source of truth and are
+// what any future correction or recalculation would have to be rebuilt from.
+async function pruneOldImports(referenceDateKey) {
+  const [year, month] = String(referenceDateKey).split("-").map(Number);
+  // First day of the month RETENTION_MONTHS-1 back, so the current month plus the previous
+  // two are always kept in full.
+  const cutoff = new Date(Date.UTC(year, month - 1 - (RETENTION_MONTHS - 1), 1));
+  const cutoffKey = `${cutoff.getUTCFullYear()}-${String(cutoff.getUTCMonth() + 1).padStart(2, "0")}-01`;
+
+  const deleted = await restRequest("attendance_imports", {
+    method: "DELETE",
+    query: { attendance_date: `lt.${cutoffKey}` },
+    prefer: "return=representation"
+  });
+
+  return { cutoff: cutoffKey, deleted: Array.isArray(deleted) ? deleted.length : 0 };
+}
+
 module.exports = {
   importAttendanceForDate,
+  pruneOldImports,
   todayColomboDateKey,
-  yesterdayColomboDateKey
+  yesterdayColomboDateKey,
+  RETENTION_MONTHS
 };
