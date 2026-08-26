@@ -504,36 +504,44 @@
     rosterApply.disabled = true;
     rosterApply.textContent = "Applying...";
 
+    // Build every row up front and upsert them in chunks. The first version did a
+    // select-then-insert/update per person per day -- ~350 sequential round trips for a
+    // week's roster -- and a single failure part-way through silently left the roster
+    // half-saved (it stopped at Thanuj, so the last few people got nothing). daily_rosters
+    // has a UNIQUE (staff_profile_id, roster_date) constraint, so one upsert per chunk does
+    // the same job in a handful of calls and can't half-apply a chunk.
+    const rows = [];
+    usable.forEach(function (entry) {
+      dates.forEach(function (date) {
+        rows.push({
+          hotel_id: hotelId,
+          staff_profile_id: entry.person.staff_id,
+          roster_date: date,
+          shift_name: shiftLabel(entry.from, entry.to),
+          in_time: entry.from,
+          out_time: entry.to,
+          day_status: "Working"
+        });
+      });
+    });
+
     try {
+      const CHUNK = 200;
       let saved = 0;
-      for (const entry of usable) {
-        for (const date of dates) {
-          const row = {
-            hotel_id: hotelId,
-            staff_profile_id: entry.person.staff_id,
-            roster_date: date,
-            shift_name: shiftLabel(entry.from, entry.to),
-            in_time: entry.from,
-            out_time: entry.to,
-            day_status: "Working"
-          };
-          const existing = await db
-            .from("daily_rosters")
-            .select("id")
-            .eq("staff_profile_id", entry.person.staff_id)
-            .eq("roster_date", date)
-            .maybeSingle();
-          const result = existing.data && existing.data.id
-            ? await db.from("daily_rosters").update(row).eq("id", existing.data.id)
-            : await db.from("daily_rosters").insert(row);
-          if (result.error) throw result.error;
-          saved += 1;
-        }
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const result = await db
+          .from("daily_rosters")
+          .upsert(chunk, { onConflict: "staff_profile_id,roster_date" });
+        if (result.error) throw result.error;
+        saved += chunk.length;
+        rosterApply.textContent = "Applying... " + saved + "/" + rows.length;
       }
       showRoster("Roster applied: " + saved + " shift" + (saved === 1 ? "" : "s") +
         " saved for " + usable.length + " staff across " + dates.length + " day" + (dates.length === 1 ? "" : "s") + ".");
     } catch (error) {
-      showRoster(error.message || "Roster could not be applied.", true);
+      showRoster((error.message || "Roster could not be applied.") +
+        " Nothing was half-saved - fix the problem and press Apply roster again.", true);
     } finally {
       rosterApply.disabled = false;
       rosterApply.textContent = "Apply roster";
