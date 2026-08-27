@@ -14,7 +14,7 @@
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to today in Sri Lanka)
 
-const { importAttendanceForDate, pruneOldImports, todayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, pruneOldImports, recordImportHeartbeat, todayColomboDateKey } = require("./lib/attendanceDailyImport");
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -23,23 +23,30 @@ function json(statusCode, body) {
 }
 
 exports.handler = async function handler(event) {
-  // Netlify's scheduler invokes this internally rather than as a normal public request, so
-  // only manual/backfill calls need to prove they are allowed to run it.
-  const isScheduledInvocation = Boolean(event.headers?.["netlify-event"] || event.headers?.["x-nf-event"]) || !event.httpMethod;
-
-  if (!isScheduledInvocation) {
-    const secret = process.env.FINGERPRINT_BRIDGE_SECRET;
-    const provided = event.headers["x-bridge-secret"] || event.headers["X-Bridge-Secret"];
-    if (!secret || provided !== secret) {
-      return json(401, { ok: false, message: "Invalid or missing bridge secret for manual invocation." });
-    }
-  }
-
+  // Auth model, deliberately NOT based on detecting "is this the scheduler?".
+  //
+  // The first version tried to recognise Netlify's own invocation by sniffing for
+  // netlify-event / x-nf-event headers and required a bridge secret otherwise. Those header
+  // names were a guess, they did not match, and so every single scheduled run was rejected
+  // with 401 and silently imported nothing -- attendance_imports stayed empty for weeks.
+  //
+  // Instead: the default run (no explicit date) is always allowed. It is idempotent and
+  // derives everything from data that already exists, so re-running it can only ever
+  // reproduce the same result. Only an explicit date override -- the backfill path, which
+  // can rewrite historical rows -- requires the bridge secret.
   let requestedDate = "";
   try {
     requestedDate = JSON.parse(event.body || "{}").date || "";
   } catch {
     // no body / not JSON -- falls back to today
+  }
+
+  if (requestedDate) {
+    const secret = process.env.FINGERPRINT_BRIDGE_SECRET;
+    const provided = event.headers?.["x-bridge-secret"] || event.headers?.["X-Bridge-Secret"];
+    if (!secret || provided !== secret) {
+      return json(401, { ok: false, message: "Importing a specific date requires the bridge secret." });
+    }
   }
 
   const dateKey = requestedDate || todayColomboDateKey();
@@ -56,6 +63,8 @@ exports.handler = async function handler(event) {
     } catch (pruneError) {
       pruned = { error: pruneError.message || "prune failed" };
     }
+
+    await recordImportHeartbeat("attendance_endofday_import", dateKey, result.staffCount);
 
     return json(200, { ok: true, ...result, pruned });
   } catch (error) {

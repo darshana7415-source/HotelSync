@@ -15,6 +15,22 @@
 
 const { restRequest, upsertRow } = require("./supabaseAdmin");
 
+// Records that an import actually ran, so a silently-failing scheduler is visible in the
+// database instead of only being noticed when someone asks why the reports are empty --
+// which is exactly how the first (broken) version went unnoticed.
+async function recordImportHeartbeat(id, dateKey, staffCount, note) {
+  try {
+    await upsertRow("system_heartbeats", {
+      id,
+      last_run_at: new Date().toISOString(),
+      last_event_count: staffCount || 0,
+      note: note || `imported ${dateKey}`
+    }, { onConflict: "id" });
+  } catch {
+    // Never let heartbeat bookkeeping fail the import itself.
+  }
+}
+
 const HOTEL_ID = "00000000-0000-0000-0000-000000000001";
 const TIMEZONE = "Asia/Colombo";
 const SOURCE = "fingerprint_auto";
@@ -145,6 +161,7 @@ async function pruneOldImports(referenceDateKey) {
 module.exports = {
   importAttendanceForDate,
   pruneOldImports,
+  recordImportHeartbeat,
   todayColomboDateKey,
   yesterdayColomboDateKey,
   RETENTION_MONTHS

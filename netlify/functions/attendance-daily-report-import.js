@@ -15,7 +15,7 @@
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to yesterday in Sri Lanka)
 
-const { importAttendanceForDate, yesterdayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, recordImportHeartbeat, yesterdayColomboDateKey } = require("./lib/attendanceDailyImport");
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -24,18 +24,10 @@ function json(statusCode, body) {
 }
 
 exports.handler = async function handler(event) {
-  // Netlify's scheduler invokes this internally rather than as a normal public request, so
-  // only manual/backfill calls need to prove they are allowed to run it.
-  const isScheduledInvocation = Boolean(event.headers?.["netlify-event"] || event.headers?.["x-nf-event"]) || !event.httpMethod;
-
-  if (!isScheduledInvocation) {
-    const secret = process.env.FINGERPRINT_BRIDGE_SECRET;
-    const provided = event.headers["x-bridge-secret"] || event.headers["X-Bridge-Secret"];
-    if (!secret || provided !== secret) {
-      return json(401, { ok: false, message: "Invalid or missing bridge secret for manual invocation." });
-    }
-  }
-
+  // Same auth model as attendance-endofday-import.js: the default run is always allowed
+  // (idempotent, derived entirely from existing data), and only an explicit date override
+  // requires the bridge secret. Sniffing for Netlify's scheduler headers was what silently
+  // 401'd every scheduled run before.
   let requestedDate = "";
   try {
     requestedDate = JSON.parse(event.body || "{}").date || "";
@@ -43,10 +35,19 @@ exports.handler = async function handler(event) {
     // no body / not JSON -- falls back to yesterday
   }
 
+  if (requestedDate) {
+    const secret = process.env.FINGERPRINT_BRIDGE_SECRET;
+    const provided = event.headers?.["x-bridge-secret"] || event.headers?.["X-Bridge-Secret"];
+    if (!secret || provided !== secret) {
+      return json(401, { ok: false, message: "Importing a specific date requires the bridge secret." });
+    }
+  }
+
   const dateKey = requestedDate || yesterdayColomboDateKey();
 
   try {
     const result = await importAttendanceForDate(dateKey);
+    await recordImportHeartbeat("attendance_morning_import", dateKey, result.staffCount);
     return json(200, { ok: true, ...result });
   } catch (error) {
     return json(500, { ok: false, message: error.message || "Daily attendance import failed." });
