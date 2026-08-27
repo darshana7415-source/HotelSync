@@ -454,6 +454,52 @@ const staffSyncDb = {
     return data || null;
   },
 
+  // --- Gold / red stars ---------------------------------------------------------------
+  // Recognition (gold) and warnings (red) awarded by admin/manager. Reads are open at the
+  // RLS level (same as leave/attendance, because staff authenticate through the custom
+  // token flow rather than Supabase Auth), so app.js is responsible for only ever showing
+  // a staff member their own stars.
+
+  async getStaffStars({ hotelId, limit = 500 }) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("staff_stars")
+      .select("id, staff_profile_id, star_type, reason, awarded_by_name, awarded_at")
+      .eq("hotel_id", hotelId)
+      .order("awarded_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async addStaffStar({ hotelId, staffProfileId, starType, reason, awardedBy, awardedByName }) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("staff_stars")
+      .insert({
+        hotel_id: hotelId,
+        staff_profile_id: staffProfileId,
+        star_type: starType,
+        reason: reason || null,
+        awarded_by: awardedBy || null,
+        awarded_by_name: awardedByName || null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteStaffStar({ starId }) {
+    const { error } = await window.staffSyncSupabase
+      .from("staff_stars")
+      .delete()
+      .eq("id", starId);
+
+    if (error) throw error;
+    return true;
+  },
+
   async assignShift({ staffProfileId, shiftId, assignedDate, assignedBy }) {
     const { data, error } = await window.staffSyncSupabase
       .from("shift_assignments")

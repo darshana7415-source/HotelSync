@@ -3767,3 +3767,68 @@ button {
     border-radius: 14px;
   }
 }
+
+/* --- Gold / red stars --- */
+
+.star-chip-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.star-chip.gold {
+  border-color: #f0c76b;
+  background: linear-gradient(180deg, #fffaf0, #fff4dd);
+}
+
+.star-chip.gold b { color: #a97400; }
+
+.star-chip.red {
+  border-color: #f0a9a9;
+  background: linear-gradient(180deg, #fff6f6, #ffeaea);
+}
+
+.star-chip.red b { color: #b62d2d; }
+
+.star-award-form {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.6rem 0 0.9rem;
+}
+
+.star-award-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.star-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+}
+
+.star-button.gold {
+  background: linear-gradient(180deg, #e0a52f, #c98a12);
+  box-shadow: 0 1px 2px rgba(160, 110, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.star-button.gold:hover { background: linear-gradient(180deg, #d09a25, #b87d0c); }
+
+.star-button.red {
+  background: linear-gradient(180deg, #d94f4f, #c23a3a);
+  box-shadow: 0 1px 2px rgba(150, 40, 40, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.star-button.red:hover { background: linear-gradient(180deg, #cc4444, #b33131); }
+
+.star-recent-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.star-item .pill {
+  font-size: 0.9rem;
+  line-height: 1;
+}

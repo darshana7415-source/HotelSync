@@ -228,6 +228,7 @@ let typingAutoRenderPauseUntil = 0;
 let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let fingerprintHeartbeat = null;
+let staffStars = [];
 // Remembers which collapsible dashboard sections the user has opened/closed, so the 20-25s
 // cloud auto-refresh (which rebuilds the dashboard HTML from scratch) doesn't snap them back
 // to their default state -- without this, a <details> the user just tapped open closes itself
@@ -1753,6 +1754,8 @@ function renderRoleDemo() {
     leaveRequestBelongsToStaff(request, activeStaff) &&
     ["Pending", "Change the Request", "Adjustment requested"].includes(request.status)
   ).length;
+  // Each staff member only ever sees their own stars.
+  const myStars = starCounts(activeStaff);
   const leaveQuota = monthlyLeaveQuota;
   const monthKey = monthKeyForDate(todayKey);
   const monthlyTaken = approvedLeaveUsedInMonth(activeStaff, monthKey);
@@ -1811,6 +1814,11 @@ function renderRoleDemo() {
         <span class="staff-chip"><b>${formatLeaveUnits(monthlyBalance)}</b><small>leave left</small></span>
         <span class="staff-chip"><b>${formatLeaveUnits(monthlyTaken)}</b><small>taken in ${monthLabel(monthKey)}</small></span>
         <span class="staff-chip ${myPendingLeaveCount ? "chip-attention" : ""}"><b>${myPendingLeaveCount}</b><small>waiting answer</small></span>
+      </div>
+
+      <div class="staff-chip-row star-chip-row">
+        <span class="staff-chip star-chip gold"><b>${myStars.gold}</b><small>gold star${myStars.gold === 1 ? "" : "s"}</small></span>
+        <span class="staff-chip star-chip red"><b>${myStars.red}</b><small>red star${myStars.red === 1 ? "" : "s"}</small></span>
       </div>
       ${lowBalance ? `<div class="policy-summary warning-summary"><strong>Low leave balance:</strong> Please check with admin before planning more leave.</div>` : ""}
 
@@ -1894,6 +1902,22 @@ function renderRoleDemo() {
           `).join("") : `<div class="mini-empty">No chat messages yet.</div>`}
         `}
       </div>
+      ${myStars.list.length ? `
+        <div class="staff-message-box">
+          <details class="staff-section" data-staff-section="my-stars" ${isStaffSectionOpen("my-stars", false) ? "open" : ""}>
+            <summary class="staff-section-summary">My stars</summary>
+            ${myStars.list.map((star) => `
+              <div class="mini-item star-item">
+                <span>
+                  <strong>${star.star_type === "gold" ? "Gold star" : "Red star"}</strong>
+                  <small>${starDateLabel(star.awarded_at)}${star.reason ? ` - ${escapeText(star.reason)}` : ""}</small>
+                </span>
+                <span class="pill ${star.star_type === "gold" ? "amber" : "red"}">${star.star_type === "gold" ? "★" : "●"}</span>
+              </div>
+            `).join("")}
+          </details>
+        </div>
+      ` : ""}
       <div class="staff-message-box">
         <details class="staff-section" data-staff-section="dept-shifts" ${isStaffSectionOpen("dept-shifts", false) ? "open" : ""}>
           <summary class="staff-section-summary">${activeStaff.department} department shifts today</summary>
@@ -2017,6 +2041,52 @@ function renderAdminDashboardCard() {
           `).join("") : `<div class="mini-empty">No staff loaded. If this stays empty, manager needs Supabase staff read permission.</div>`}
         </div>
       ` : ""}
+      <div class="staff-message-box star-award-box">
+        <div class="box-title-row">
+          <strong>Gold and red stars</strong>
+        </div>
+        <form class="star-award-form" data-star-award>
+          <div class="form-row">
+            <label>
+              Staff member
+              <select name="staffProfileId" required>
+                <option value="">Choose staff</option>
+                ${sortStaffByEmployeeCode(staff)
+                  .filter((person) => person.cloudId)
+                  .map((person) => `<option value="${person.cloudId}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${escapeAttribute(person.name)}</option>`)
+                  .join("")}
+              </select>
+            </label>
+            <label>
+              Reason (optional)
+              <input name="reason" type="text" placeholder="What was done well, or what went wrong" maxlength="200">
+            </label>
+          </div>
+          <div class="star-award-actions">
+            <button class="star-button gold" type="submit" data-star-type="gold">Give gold star</button>
+            <button class="star-button red" type="submit" data-star-type="red">Give red star</button>
+          </div>
+        </form>
+        ${staffStars.length ? `
+          <div class="star-recent-list">
+            ${staffStars.slice(0, 8).map((star) => {
+              const person = staff.find((item) => sameId(item.cloudId, star.staff_profile_id));
+              return `
+                <div class="mini-item star-item">
+                  <span>
+                    <strong>${person ? escapeText(person.name) : "Staff"}</strong>
+                    <small>${star.star_type === "gold" ? "Gold" : "Red"} - ${starDateLabel(star.awarded_at)}${star.reason ? ` - ${escapeText(star.reason)}` : ""}${star.awarded_by_name ? ` - by ${escapeText(star.awarded_by_name)}` : ""}</small>
+                  </span>
+                  <span class="quick-actions">
+                    <span class="pill ${star.star_type === "gold" ? "amber" : "red"}">${star.star_type === "gold" ? "★" : "●"}</span>
+                    <button class="ghost small-button" type="button" data-remove-star="${star.id}">Remove</button>
+                  </span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : `<div class="mini-empty">No stars given yet.</div>`}
+      </div>
       <div class="staff-message-box">
         <strong>On break now</strong>
         ${onBreak.length ? onBreak.map((person) => `
@@ -2842,6 +2912,8 @@ function bindEvents() {
   });
 
   staffCard.addEventListener("click", handleChatHistoryClick);
+  staffCard.addEventListener("submit", handleStarAwardSubmit);
+  staffCard.addEventListener("click", handleStarRemoveClick);
   staffCard.addEventListener("click", handleApprovalClick);
   staffCard.addEventListener("click", handleShiftChangeClick);
   staffCard.addEventListener("click", handleStaffLeaveCancelClick);
@@ -4545,6 +4617,66 @@ function chatThreadsForAdmin() {
       return new Date(rightTime) - new Date(leftTime);
     })
     .slice(0, 100);
+}
+
+async function handleStarAwardSubmit(event) {
+  const form = event.target.closest("[data-star-award]");
+  if (!form) return;
+  event.preventDefault();
+
+  if (!canManageStaffCloud()) {
+    showToast("Only admin or manager can give stars.");
+    return;
+  }
+
+  // Which button was pressed decides gold vs red -- both are submit buttons on one form so
+  // the staff member and reason only have to be entered once.
+  const starType = event.submitter?.dataset?.starType === "red" ? "red" : "gold";
+  const staffProfileId = form.staffProfileId?.value || "";
+  const reason = String(form.reason?.value || "").trim();
+
+  if (!staffProfileId) {
+    showToast("Choose a staff member first.");
+    return;
+  }
+
+  const person = staff.find((item) => sameId(item.cloudId, staffProfileId));
+
+  try {
+    await window.staffSyncDb.addStaffStar({
+      hotelId: (window.STAFFSYNC_ENV || {}).HOTEL_ID,
+      staffProfileId,
+      starType,
+      reason,
+      awardedBy: currentAppUserId || null,
+      awardedByName: currentCloudEmail || roleDisplayName(currentRole)
+    });
+    form.reset();
+    await loadStaffStars();
+    renderAll();
+    showToast(`${starType === "gold" ? "Gold" : "Red"} star given to ${person?.name || "staff"}.`);
+  } catch (error) {
+    showToast(error.message || "Star could not be saved.");
+  }
+}
+
+async function handleStarRemoveClick(event) {
+  const button = event.target.closest("[data-remove-star]");
+  if (!button) return;
+
+  if (!canManageStaffCloud()) {
+    showToast("Only admin or manager can remove stars.");
+    return;
+  }
+
+  try {
+    await window.staffSyncDb.deleteStaffStar({ starId: button.dataset.removeStar });
+    await loadStaffStars();
+    renderAll();
+    showToast("Star removed.");
+  } catch (error) {
+    showToast(error.message || "Star could not be removed.");
+  }
 }
 
 async function handleChatHistoryClick(event) {
@@ -7851,6 +7983,33 @@ async function loadCloudAttendanceData() {
   }
 }
 
+async function loadStaffStars() {
+  const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
+  if (!isCloudReady() || !hotelId) return;
+  staffStars = await window.staffSyncDb.getStaffStars({ hotelId });
+}
+
+function starsForStaff(person) {
+  if (!person) return [];
+  return staffStars.filter((star) => sameId(star.staff_profile_id, person.cloudId));
+}
+
+function starCounts(person) {
+  const mine = starsForStaff(person);
+  return {
+    gold: mine.filter((star) => star.star_type === "gold").length,
+    red: mine.filter((star) => star.star_type === "red").length,
+    list: mine
+  };
+}
+
+function starDateLabel(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Colombo"
+  });
+}
+
 async function loadFingerprintHeartbeat() {
   if (!["admin", "manager"].includes(currentRole)) return;
   fingerprintHeartbeat = await window.staffSyncDb.getFingerprintHeartbeat();
@@ -8148,6 +8307,13 @@ async function syncCloudDashboard() {
       shouldRender = true;
     } catch {
       // Heartbeat display is a nice-to-have, must not block the rest of the dashboard.
+    }
+
+    try {
+      await loadStaffStars();
+      shouldRender = true;
+    } catch {
+      // Stars are optional until the staff_stars table exists.
     }
 
     try {
