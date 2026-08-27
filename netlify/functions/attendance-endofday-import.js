@@ -14,7 +14,7 @@
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to today in Sri Lanka)
 
-const { importAttendanceForDate, pruneOldImports, recordImportHeartbeat, todayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, pruneOldImports, pruneExpiredStars, recordImportHeartbeat, todayColomboDateKey } = require("./lib/attendanceDailyImport");
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -64,9 +64,18 @@ exports.handler = async function handler(event) {
       pruned = { error: pruneError.message || "prune failed" };
     }
 
+    // Expired stars are cleaned up on the same nightly pass. Isolated like the import prune
+    // so a failure here can never fail the attendance run that already succeeded.
+    let starsPruned = null;
+    try {
+      starsPruned = await pruneExpiredStars();
+    } catch (starError) {
+      starsPruned = { error: starError.message || "star prune failed" };
+    }
+
     await recordImportHeartbeat("attendance_endofday_import", dateKey, result.staffCount);
 
-    return json(200, { ok: true, ...result, pruned });
+    return json(200, { ok: true, ...result, pruned, starsPruned });
   } catch (error) {
     return json(500, { ok: false, message: error.message || "End of day attendance import failed." });
   }

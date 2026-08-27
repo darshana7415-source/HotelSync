@@ -1,6 +1,11 @@
 // StaffSync data service skeleton.
 // This is the bridge that will replace localStorage in the current prototype.
 
+// Gold and red stars expire this many days after being earned. Kept next to the query that
+// enforces it so the value can't drift out of sync with the nightly cleanup that mirrors it
+// (netlify/functions/lib/attendanceDailyImport.js).
+const STAR_LIFETIME_DAYS = 90;
+
 // --- StaffSync Netlify function bridge ---
 // Staff (employee-code login) never get a real Supabase Auth session -- they authenticate through
 // /.netlify/functions/auth-login, which issues a signed token stored here. Sensitive staff writes
@@ -455,16 +460,23 @@ const staffSyncDb = {
   },
 
   // --- Gold / red stars ---------------------------------------------------------------
+  // Stars are kept for STAR_LIFETIME_DAYS and then expire, so recognition and warnings both
+  // fade rather than following someone forever.
   // Recognition (gold) and warnings (red) awarded by admin/manager. Reads are open at the
   // RLS level (same as leave/attendance, because staff authenticate through the custom
   // token flow rather than Supabase Auth), so app.js is responsible for only ever showing
   // a staff member their own stars.
 
+  // Stars expire 90 days after they are earned. The cutoff is applied here in the query as
+  // well as by the nightly cleanup, so an expired star disappears from the app the moment it
+  // ages out -- it never depends on the scheduled job having run yet.
   async getStaffStars({ hotelId, limit = 500 }) {
+    const cutoff = new Date(Date.now() - STAR_LIFETIME_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await window.staffSyncSupabase
       .from("staff_stars")
       .select("id, staff_profile_id, star_type, reason, awarded_by_name, awarded_at")
       .eq("hotel_id", hotelId)
+      .gte("awarded_at", cutoff)
       .order("awarded_at", { ascending: false })
       .limit(limit);
 

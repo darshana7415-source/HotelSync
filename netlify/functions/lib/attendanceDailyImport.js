@@ -158,9 +158,27 @@ async function pruneOldImports(referenceDateKey) {
   return { cutoff: cutoffKey, deleted: Array.isArray(deleted) ? deleted.length : 0 };
 }
 
+// Gold and red stars expire 90 days after being earned. The app already filters them out of
+// every query by the same cutoff, so this is the housekeeping half: it removes the rows that
+// are now permanently invisible, rather than letting the table grow forever.
+//
+// Must stay in step with STAR_LIFETIME_DAYS in staffsync-data-service.js.
+const STAR_LIFETIME_DAYS = 90;
+
+async function pruneExpiredStars() {
+  const cutoffIso = new Date(Date.now() - STAR_LIFETIME_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const deleted = await restRequest("staff_stars", {
+    method: "DELETE",
+    query: { awarded_at: `lt.${cutoffIso}` },
+    prefer: "return=representation"
+  });
+  return { cutoff: cutoffIso, deleted: Array.isArray(deleted) ? deleted.length : 0 };
+}
+
 module.exports = {
   importAttendanceForDate,
   pruneOldImports,
+  pruneExpiredStars,
   recordImportHeartbeat,
   todayColomboDateKey,
   yesterdayColomboDateKey,
