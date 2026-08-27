@@ -3052,6 +3052,15 @@ function bindEvents() {
         syncCloudDashboard();
       }
     } catch (error) {
+      // An expired/missing staff session is the one failure the person can actually fix
+      // themselves, so say so plainly and send them to the login screen with their typed
+      // request left intact, rather than just flashing a toast they cannot act on.
+      if (error.sessionExpired) {
+        setStaffActionNotice("Your session has expired. Please sign in again, then send this leave request once more.");
+        showToast("Session expired - please sign in again.");
+        renderAll();
+        return;
+      }
       showToast(error.message || "Leave request could not be saved.");
     }
   });

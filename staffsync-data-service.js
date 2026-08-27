@@ -49,6 +49,26 @@ async function staffSyncAdminAccessToken() {
   return data?.session?.access_token || "";
 }
 
+// Guard for writes that staff are allowed to make (leave requests, leave chat, cancellations).
+//
+// There are exactly two legitimate ways to write: a staff session token (employee-code login,
+// goes through the Netlify functions) or a real Supabase Auth session (admin/manager, gated by
+// RLS). Staff tokens expire after 12 hours, and the direct Supabase path is blocked by RLS for
+// anyone else -- so without this check an expired/missing staff session fell through to the
+// direct insert and surfaced as "new row violates row-level security policy for table
+// leave_requests", which tells the person nothing about what to actually do.
+//
+// Throwing here instead means they get told to sign in again, which is the real fix.
+async function assertWriteSession() {
+  if (staffSyncSessionToken()) return "staff";
+  const adminToken = await staffSyncAdminAccessToken();
+  if (adminToken) return "admin";
+
+  const error = new Error("Your session has expired. Please sign in again, then submit this once more.");
+  error.sessionExpired = true;
+  throw error;
+}
+
 const staffSyncDb = {
   // Staff login: verifies the password server-side and stores the returned session token.
   async loginStaff({ employeeCode, password, newPassword }) {
@@ -560,6 +580,7 @@ const staffSyncDb = {
   // function whenever we're holding a staff session token; otherwise fall through to the direct,
   // RLS-gated admin path.
   async createLeaveRequest({ staffProfileId, leaveTypeId, startDate, endDate, reason }) {
+    await assertWriteSession();
     if (staffSyncSessionToken()) {
       const result = await callStaffSyncFunction("leave", {
         action: "createLeaveRequest",
@@ -590,6 +611,7 @@ const staffSyncDb = {
   },
 
   async updateLeaveStatus({ leaveRequestId, status, approvedBy }) {
+    await assertWriteSession();
     if (staffSyncSessionToken()) {
       const result = await callStaffSyncFunction("leave", { action: "updateLeaveStatus", leaveRequestId, status });
       return result.data;
