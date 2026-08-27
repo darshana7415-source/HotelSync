@@ -3052,13 +3052,11 @@ function bindEvents() {
         syncCloudDashboard();
       }
     } catch (error) {
-      // An expired/missing staff session is the one failure the person can actually fix
-      // themselves, so say so plainly and send them to the login screen with their typed
-      // request left intact, rather than just flashing a toast they cannot act on.
-      if (error.sessionExpired) {
-        setStaffActionNotice("Your session has expired. Please sign in again, then send this leave request once more.");
-        showToast("Session expired - please sign in again.");
-        renderAll();
+      // An expired session is the one failure the person can actually fix themselves. Clear
+      // the dead session and put them back on the login screen, rather than leaving them in a
+      // half-logged-in state where every retry fails the same way.
+      if (isSessionExpiredError(error)) {
+        forceStaffReLogin("Your session timed out. Please sign in again, then send this leave request once more.");
         return;
       }
       showToast(error.message || "Leave request could not be saved.");
@@ -4050,6 +4048,10 @@ async function handleStaffLeaveCancelClick(event) {
   } catch (error) {
     button.classList.remove("action-success");
     button.disabled = false;
+    if (isSessionExpiredError(error)) {
+      forceStaffReLogin("Your session timed out. Please sign in again, then try cancelling once more.");
+      return;
+    }
     showToast(error.message || "Leave request could not be cancelled.");
   }
 }
@@ -4092,6 +4094,10 @@ async function handleLeaveChatSubmit(event) {
   } catch (error) {
     submitButton?.classList.remove("action-success");
     if (submitButton) submitButton.disabled = false;
+    if (isSessionExpiredError(error)) {
+      forceStaffReLogin("Your session timed out. Please sign in again, then send your message once more.");
+      return;
+    }
     showToast(error.message || "Message could not be sent.");
   }
 }
@@ -7588,6 +7594,48 @@ function watchForUnexpectedSignOut() {
     updateCloudStatus("You were signed out because this login was opened somewhere else at the same time. Please sign in again -- if you were mid-way through submitting something, please check and resend it.");
     showToast("Signed out: this account was opened on another device. Please sign in again and resend anything you just submitted.");
   });
+}
+
+// Staff session tokens expire after 12 hours. When that happens the person is still "logged
+// in" as far as the browser is concerned (their role is remembered), so the app kept letting
+// them tap around while every write failed -- and because the failure notice is remembered in
+// sessionStorage, it kept reappearing on open long after the fact, which looked like a
+// permanent lockout rather than "just sign in again".
+//
+// This clears the dead session properly and puts them back on the login screen with one clear
+// message, so re-logging in actually resolves it.
+function forceStaffReLogin(message) {
+  try {
+    window.staffSyncDb.logoutStaff();
+  } catch {
+    // Clearing the local token must not depend on the data service being reachable.
+  }
+
+  currentRole = "";
+  currentCloudEmail = "";
+  currentAppUserId = "";
+  sessionStorage.removeItem("staffsync.role");
+  sessionStorage.removeItem("staffsync.cloudEmail");
+  sessionStorage.removeItem("staffsync.appUserId");
+  // Clear the sticky notice too, otherwise the old warning outlives the problem it described.
+  sessionStorage.removeItem("staffsync.staffActionNotice");
+  staffActionNotice = "";
+
+  stopLocationMonitoring();
+  stopCloudAutoRefresh();
+  stopLeaveLiveRefresh();
+  renderSession();
+  updateCloudStatus(message);
+  showToast(message);
+}
+
+// True when an error means "this staff session is no longer valid" -- either our own local
+// guard, or a 401 from any of the Netlify functions that verify the signed token.
+function isSessionExpiredError(error) {
+  if (!error) return false;
+  if (error.sessionExpired) return true;
+  const text = String(error.message || "");
+  return /session expired/i.test(text);
 }
 
 async function restoreCloudSession() {
