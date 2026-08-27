@@ -47,6 +47,21 @@ const MAX_OPEN_SHIFT_HOURS = 20;
 // *scheduled* start time for today (per daily_rosters), that's a strong independent signal this
 // is a fresh check-in, not a checkout of the old shift -- regardless of the elapsed hours.
 const ROSTER_MATCH_WINDOW_MINUTES = 90;
+// Nobody at this hotel ever STARTS a shift between midnight and 04:00 (owner-confirmed). Any
+// scan in that window is therefore someone finishing a late shift, never someone arriving.
+//
+// This is the rule that finally fixes the long-running "after-midnight checkout became a
+// check-in, and the real morning arrival became the checkout" bug. The earlier roster-based
+// guard could not catch it: a person rostered 13:00-23:00 who actually leaves at 00:30 is not
+// "rostered overnight", so their 00:30 checkout was treated as a brand new shift.
+//
+// Unlike the roster checks, this needs no daily_rosters row to exist, which matters because
+// rosters are frequently not saved yet at the moment someone scans.
+const NO_CHECKIN_BEFORE_MINUTES = 4 * 60; // 04:00 local
+
+function isAfterMidnightBeforeMorning(minutesOfDay) {
+  return minutesOfDay < NO_CHECKIN_BEFORE_MINUTES;
+}
 const TIMEZONE = "Asia/Colombo";
 
 function json(statusCode, body) {
@@ -235,7 +250,11 @@ async function processOneEvent(evt) {
         rosteredOvernight &&
         circularMinuteDiff(eventLocal.minutesOfDay, openScheduled.end) <= ROSTER_MATCH_WINDOW_MINUTES;
 
-      if (!nearScheduledEnd) {
+      // Between midnight and 04:00 nobody is arriving, so an open shift from the previous day
+      // is simply being closed late -- whatever the roster says, and even if none was saved.
+      const lateNightCheckout = isAfterMidnightBeforeMorning(eventLocal.minutesOfDay);
+
+      if (!nearScheduledEnd && !lateNightCheckout) {
         const created = await insertRow("attendance_records", {
           staff_profile_id: staffProfileId,
           clock_in_at: eventTime,
@@ -269,6 +288,16 @@ async function processOneEvent(evt) {
   // for that date while being nowhere near the scheduled START. Only applies when a roster row
   // exists for the date -- with no roster we keep the old behavior (record a check-in).
   const eventLocalNow = localDateAndMinutes(eventTime);
+
+  // Hard rule first: a scan between midnight and 04:00 is never someone arriving. With no open
+  // record to close, their check-in was missed earlier (failed verify, device offline, bridge
+  // down). Recording it as a check-in is what used to create the phantom overnight shift that
+  // then swallowed the real morning arrival as its "checkout" -- so refuse it outright.
+  if (isAfterMidnightBeforeMorning(eventLocalNow.minutesOfDay)) {
+    await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, action: "ignored_orphan_checkout" });
+    return { serialNo, action: "ignored_orphan_checkout", staffProfileId };
+  }
+
   const scheduled = await getScheduledMinutes(staffProfileId, eventLocalNow.dateKey);
   if (
     scheduled.end !== null &&
