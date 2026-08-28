@@ -7001,7 +7001,12 @@ function findStaffByLoginCode(value) {
 
 async function findOrLoadStaffByLoginCode(value) {
   const localStaff = findStaffByLoginCode(value);
-  if (localStaff || !isCloudReady()) return localStaff;
+  // A cached copy is only good enough if it carries a cloudId. Without one, checkStaffPassword
+  // falls back to the local password path, which authenticates the person but never obtains a
+  // session token -- so they appear logged in and are then thrown straight back out the moment
+  // they try to file anything. Refresh from the cloud instead of trusting the stale entry.
+  if (localStaff && (localStaff.cloudId || !isCloudReady())) return localStaff;
+  if (!isCloudReady()) return localStaff;
 
   try {
     const profile = await window.staffSyncDb.getStaffProfileByCode(value);
@@ -7024,9 +7029,11 @@ async function findOrLoadStaffByLoginCode(value) {
 
 async function prepareStaffDemoLogin() {
   let selectedStaff = findStaffByLoginCode(staffLoginCode?.value || "");
-  if (!selectedStaff) {
+  // Also go to the cloud when the cached record is missing its cloudId -- otherwise the login
+  // silently downgrades to the local-only path and issues no session token.
+  if (!selectedStaff || (!selectedStaff.cloudId && isCloudReady())) {
     setStaffLoginStatus("Checking cloud for this employee code...", "blue");
-    selectedStaff = await findOrLoadStaffByLoginCode(staffLoginCode?.value || "");
+    selectedStaff = await findOrLoadStaffByLoginCode(staffLoginCode?.value || "") || selectedStaff;
   }
   const password = staffLoginPassword?.value.trim() || "";
   const newPassword = staffNewPassword?.value.trim() || "";
@@ -7053,6 +7060,16 @@ async function prepareStaffDemoLogin() {
   if (!passwordResult.ok) {
     setStaffLoginStatus(passwordResult.message || "Wrong staff password. Admin can clear it from Staff > Edit staff.", "red");
     showToast(passwordResult.message || "Wrong staff password.");
+    return false;
+  }
+
+  // Safety net: when the cloud is available, a login is only real if it produced a session
+  // token. Without one the person can browse but every write fails and logs them out again,
+  // which is far more confusing than simply refusing the login here.
+  if (isCloudReady() && !window.staffSyncDb.hasStaffSession()) {
+    const message = "Could not start a secure session. Check your connection and sign in again.";
+    setStaffLoginStatus(message, "red");
+    showToast(message);
     return false;
   }
 

@@ -86,6 +86,12 @@ const staffSyncDb = {
     setStaffSyncSessionToken("");
   },
 
+  // True once a real signed session token is held. Used to reject a login that silently fell
+  // back to the local-only path and therefore cannot perform any staff write.
+  hasStaffSession() {
+    return Boolean(staffSyncSessionToken());
+  },
+
   // Pre-login check: does this employee code still need first-time password setup?
   async checkStaffLoginStatus({ employeeCode }) {
     return callStaffSyncFunction("auth-login", { action: "checkStatus", employeeCode });
