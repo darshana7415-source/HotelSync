@@ -2072,7 +2072,9 @@ function renderAdminDashboardCard() {
           </div>
         </form>
         ${staffStars.length ? `
-          <div class="star-recent-list">
+          <details class="staff-section" data-staff-section="recent-stars" ${isStaffSectionOpen("recent-stars", false) ? "open" : ""}>
+            <summary class="staff-section-summary">Recent stars <span class="pill">${staffStars.length}</span></summary>
+            <div class="star-recent-list">
             ${staffStars.slice(0, 8).map((star) => {
               const person = staff.find((item) => sameId(item.cloudId, star.staff_profile_id));
               return `
@@ -2088,7 +2090,8 @@ function renderAdminDashboardCard() {
                 </div>
               `;
             }).join("")}
-          </div>
+            </div>
+          </details>
         ` : `<div class="mini-empty">No stars given yet.</div>`}
       </div>
       <div class="staff-message-box">
