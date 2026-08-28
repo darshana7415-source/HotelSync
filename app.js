@@ -229,6 +229,10 @@ let recentClockStates = {};
 let latestAttendanceEventLogs = [];
 let fingerprintHeartbeat = null;
 let staffStars = [];
+// What the admin has picked in the star form but not yet submitted. The dashboard re-renders
+// on every cloud sync, which would otherwise wipe a half-filled form between choosing a staff
+// member and pressing the button.
+let starFormDraft = { staffProfileId: "", reason: "" };
 // Remembers which collapsible dashboard sections the user has opened/closed, so the 20-25s
 // cloud auto-refresh (which rebuilds the dashboard HTML from scratch) doesn't snap them back
 // to their default state -- without this, a <details> the user just tapped open closes itself
@@ -2053,13 +2057,13 @@ function renderAdminDashboardCard() {
                 <option value="">Choose staff</option>
                 ${sortStaffByEmployeeCode(staff)
                   .filter((person) => person.cloudId)
-                  .map((person) => `<option value="${person.cloudId}">${person.employeeCode ? `${person.employeeCode} - ` : ""}${escapeAttribute(person.name)}</option>`)
+                  .map((person) => `<option value="${person.cloudId}" ${sameId(person.cloudId, starFormDraft.staffProfileId) ? "selected" : ""}>${person.employeeCode ? `${person.employeeCode} - ` : ""}${escapeAttribute(person.name)}</option>`)
                   .join("")}
               </select>
             </label>
             <label>
               Reason (optional)
-              <input name="reason" type="text" placeholder="What was done well, or what went wrong" maxlength="200">
+              <input name="reason" type="text" placeholder="What was done well, or what went wrong" maxlength="200" value="${escapeAttribute(starFormDraft.reason || "")}">
             </label>
           </div>
           <div class="star-award-actions">
@@ -2914,6 +2918,9 @@ function bindEvents() {
   staffCard.addEventListener("click", handleChatHistoryClick);
   staffCard.addEventListener("submit", handleStarAwardSubmit);
   staffCard.addEventListener("click", handleStarRemoveClick);
+  // Keep the half-filled star form in memory so a background refresh can't discard it.
+  staffCard.addEventListener("change", rememberStarFormDraft);
+  staffCard.addEventListener("input", rememberStarFormDraft);
   staffCard.addEventListener("click", handleApprovalClick);
   staffCard.addEventListener("click", handleShiftChangeClick);
   staffCard.addEventListener("click", handleStaffLeaveCancelClick);
@@ -4634,6 +4641,15 @@ function chatThreadsForAdmin() {
     .slice(0, 100);
 }
 
+function rememberStarFormDraft(event) {
+  const form = event.target.closest?.("[data-star-award]");
+  if (!form) return;
+  starFormDraft = {
+    staffProfileId: form.staffProfileId?.value || "",
+    reason: form.reason?.value || ""
+  };
+}
+
 async function handleStarAwardSubmit(event) {
   const form = event.target.closest("[data-star-award]");
   if (!form) return;
@@ -4667,6 +4683,7 @@ async function handleStarAwardSubmit(event) {
       awardedByName: currentCloudEmail || roleDisplayName(currentRole)
     });
     form.reset();
+    starFormDraft = { staffProfileId: "", reason: "" };
     await loadStaffStars();
     renderAll();
     showToast(`${starType === "gold" ? "Gold" : "Red"} star given to ${person?.name || "staff"}.`);
@@ -4796,7 +4813,10 @@ function isTypingProtectedElement(element) {
 }
 
 function isTypingField(element) {
-  if (!element?.matches?.("textarea, input")) return false;
+  // <select> counts too. The auto-refresh rebuilds the dashboard every 20-25s, and on a phone
+  // that destroys a native dropdown while it is still open -- the list vanishes before anyone
+  // can pick from it, which is what made the star picker unusable.
+  if (!element?.matches?.("textarea, input, select")) return false;
   if (element.disabled || element.hidden || element.type === "hidden") return false;
   return Boolean(element.offsetParent || element === document.activeElement);
 }
