@@ -62,6 +62,24 @@ const NO_CHECKIN_BEFORE_MINUTES = 4 * 60; // 04:00 local
 function isAfterMidnightBeforeMorning(minutesOfDay) {
   return minutesOfDay < NO_CHECKIN_BEFORE_MINUTES;
 }
+
+// Recognising a night shift WITHOUT needing the roster.
+//
+// The roster-based check below is correct but unreliable in practice: rosters are often saved
+// hours after the fact (Mohotti's night-shift roster for the 28th was entered at 09:58 on the
+// 29th, ~3h after his 07:15 checkout), so at scan time the code simply could not know he was a
+// night worker and started a phantom day shift instead.
+//
+// What IS always available is when the open shift began. A shift that started in the evening
+// and is being scanned the next morning is somebody finishing nights. A shift that started in
+// the morning or afternoon and is still open the next morning is a forgotten checkout, and
+// that scan is a fresh arrival -- which is the distinction that actually matters.
+const EVENING_START_MINUTES = 16 * 60; // 16:00 - shifts starting this late run into the night
+const MORNING_END_LIMIT_MINUTES = 11 * 60; // 11:00 - latest a night shift plausibly ends
+
+function looksLikeOvernightShiftEnding(openMinutesOfDay, eventMinutesOfDay) {
+  return openMinutesOfDay >= EVENING_START_MINUTES && eventMinutesOfDay <= MORNING_END_LIMIT_MINUTES;
+}
 const TIMEZONE = "Asia/Colombo";
 
 function json(statusCode, body) {
@@ -254,7 +272,10 @@ async function processOneEvent(evt) {
       // is simply being closed late -- whatever the roster says, and even if none was saved.
       const lateNightCheckout = isAfterMidnightBeforeMorning(eventLocal.minutesOfDay);
 
-      if (!nearScheduledEnd && !lateNightCheckout) {
+      // Evening start + next-morning scan = a night shift ending, no roster required.
+      const overnightShiftEnding = looksLikeOvernightShiftEnding(openLocal.minutesOfDay, eventLocal.minutesOfDay);
+
+      if (!nearScheduledEnd && !lateNightCheckout && !overnightShiftEnding) {
         const created = await insertRow("attendance_records", {
           staff_profile_id: staffProfileId,
           clock_in_at: eventTime,
