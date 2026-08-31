@@ -51,6 +51,17 @@
     .msg { margin-top:14px; padding:12px; border-radius:10px; background:#eaf7f2; color:#075f63; font-weight:700; }
     .msg.error { background:#fff0f0; color:#9d1c1c; }
     .hidden { display:none !important; }
+    .link-btn { background:none; border:0; color:#0d6b72; font-weight:800; cursor:pointer;
+                padding:4px 6px; font-size:13px; border-radius:8px; }
+    .link-btn:hover { background:#eef6f7; }
+    .edit-backdrop { position:fixed; inset:0; background:rgba(16,32,40,.45); display:grid;
+                     place-items:center; padding:16px; z-index:50; }
+    .edit-box { background:#fff; border-radius:16px; padding:20px; width:min(420px,100%);
+                box-shadow:0 20px 60px rgba(0,0,0,.3); }
+    .edit-box h3 { margin:0 0 4px; font-family:"Plus Jakarta Sans",Inter,sans-serif; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 4px; }
+    .edit-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+    @media (max-width:520px) { .grid2 { grid-template-columns:1fr; } }
     @media (max-width:700px) {
       .shell { padding:14px 12px 32px; }
       .top h1 { font-size:20px; }
@@ -93,6 +104,7 @@
             <tr>
               <th>Code</th><th>Name</th><th>In</th><th>Out</th>
               <th>Segments</th><th class="num">Hours</th><th>Status</th>
+              <th id="daily-edit-head"></th>
             </tr>
           </thead>
           <tbody id="daily-body"></tbody>
@@ -127,6 +139,30 @@
       </div>
       <p class="note" id="retention-note"></p>
     </section>
+    <!-- Manual correction. Edits the real attendance record, not just the report, so the
+         nightly re-import cannot silently undo the fix. -->
+    <div id="edit-backdrop" class="edit-backdrop hidden">
+      <div class="edit-box">
+        <h3 id="edit-title">Correct attendance</h3>
+        <p class="note" id="edit-sub"></p>
+        <div class="grid2">
+          <label>
+            Check in
+            <input id="edit-in" type="time" step="60">
+          </label>
+          <label>
+            Check out
+            <input id="edit-out" type="time" step="60">
+          </label>
+        </div>
+        <p class="note">Leave check out empty if the person is still working. Times are hotel local time.</p>
+        <div id="edit-msg" class="msg hidden"></div>
+        <div class="edit-actions">
+          <button id="edit-cancel" type="button">Cancel</button>
+          <button id="edit-save" class="primary" type="button">Save correction</button>
+        </div>
+      </div>
+    </div>
   </main>
 
 <script>
@@ -137,6 +173,8 @@
   // Staff open this page with ?role=staff and only get the daily view of their own hotel's
   // records -- monthly totals stay a manager/admin view, as before.
   const isStaff = String(new URLSearchParams(location.search).get("role") || "").toLowerCase() === "staff";
+  // Only admin/manager may correct records. Staff open this page read-only.
+  const canEdit = !isStaff;
 
   const RETENTION_MONTHS = 3;
 
@@ -428,12 +466,16 @@
 
         return {
           code: person.employee_code, name: person.full_name,
+          staffId: person.id,
           in: timeText(row.clock_in), out: out,
           segments: segmentsText(row.segments),
           hours: hoursText(minutes),
           status: out ? "Complete" : (isToday ? "Working now" : "No check out")
         };
       });
+      // Keep the staff id on every row (including "No scan") so a correction can create a
+      // record for someone the device never registered at all.
+      lastDaily.forEach((r, i) => { if (!r.staffId) r.staffId = people[i].id; });
       lastDailyDate = date;
 
       const tagClass = {
@@ -442,10 +484,14 @@
         "No check out": "t-open",
         "No scan": "t-none"
       };
-      body.innerHTML = lastDaily.map((r) =>
+      body.innerHTML = lastDaily.map((r, i) =>
         "<tr><td>" + r.code + "</td><td>" + r.name + "</td><td>" + r.in + "</td><td>" + r.out +
         "</td><td>" + r.segments + '</td><td class="num">' + r.hours +
-        '</td><td><span class="tag ' + tagClass[r.status] + '">' + r.status + "</span></td></tr>"
+        '</td><td><span class="tag ' + tagClass[r.status] + '">' + r.status + "</span></td>" +
+        (canEdit
+          ? '<td><button class="link-btn" data-edit="' + i + '" type="button">Correct</button></td>'
+          : "<td></td>") +
+        "</tr>"
       ).join("");
 
       lastDailySummary = [
@@ -531,6 +577,171 @@
     }
   }
 
+  /* ---- Manual correction ------------------------------------------------------------
+     Corrections are written to attendance_records (the source of truth), never only to
+     attendance_imports. The report is regenerated from attendance_records every night, so
+     editing only the report would silently revert. After saving we rebuild that person's
+     report row immediately so the change shows without waiting for the nightly job.
+     ------------------------------------------------------------------------------------ */
+
+  let editing = null; // { staffId, name, date }
+
+  function openEdit(index) {
+    const row = lastDaily[index];
+    if (!row) return;
+    editing = { staffId: row.staffId, name: row.name, date: lastDailyDate };
+
+    el("#edit-title").textContent = "Correct attendance";
+    el("#edit-sub").textContent = row.name + " - " + lastDailyDate;
+    el("#edit-in").value = row.in || "";
+    el("#edit-out").value = row.out || "";
+    hideMsg(el("#edit-msg"));
+    el("#edit-backdrop").classList.remove("hidden");
+  }
+
+  function closeEdit() {
+    editing = null;
+    el("#edit-backdrop").classList.add("hidden");
+  }
+
+  // Local wall-clock time on a given date -> an ISO instant, pinned to +05:30 so the value
+  // never shifts with whatever timezone the admin's own device happens to be set to.
+  function colomboIso(dateKey, timeHHMM) {
+    return new Date(dateKey + "T" + timeHHMM + ":00+05:30").toISOString();
+  }
+
+  // Rebuild one person's row in attendance_imports from their real records for that date.
+  async function rebuildImportRow(staffId, dateKey) {
+    const startIso = colomboIso(dateKey, "00:00");
+    const endIso = colomboIso(dateKey, "23:59");
+
+    const res = await db.from("attendance_records")
+      .select("clock_in_at, clock_out_at")
+      .eq("staff_profile_id", staffId)
+      .gte("clock_in_at", startIso)
+      .lte("clock_in_at", endIso)
+      .order("clock_in_at", { ascending: true });
+    if (res.error) throw res.error;
+
+    const rows = res.data || [];
+    if (!rows.length) {
+      await db.from("attendance_imports").delete()
+        .eq("staff_profile_id", staffId)
+        .eq("attendance_date", dateKey)
+        .eq("source", "fingerprint_auto");
+      return;
+    }
+
+    const fmt = (iso) => iso
+      ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Colombo", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso))
+      : "";
+    const segments = rows.map((r) => ({ in: fmt(r.clock_in_at), out: fmt(r.clock_out_at) }));
+    const totalMinutes = rows.reduce((sum, r) => r.clock_out_at
+      ? sum + Math.max(0, Math.round((new Date(r.clock_out_at) - new Date(r.clock_in_at)) / 60000))
+      : sum, 0);
+
+    const staffRow = (await db.from("staff_profiles").select("full_name").eq("id", staffId).maybeSingle()).data;
+
+    const up = await db.from("attendance_imports").upsert({
+      hotel_id: "00000000-0000-0000-0000-000000000001",
+      staff_profile_id: staffId,
+      attendance_date: dateKey,
+      source_name: staffRow?.full_name || "",
+      clock_in: segments[0].in || null,
+      clock_out: segments[segments.length - 1].out || null,
+      segments,
+      total_minutes: totalMinutes,
+      source: "fingerprint_auto"
+    }, { onConflict: "hotel_id,staff_profile_id,attendance_date,source" });
+    if (up.error) throw up.error;
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    const msg = el("#edit-msg");
+    const inVal = el("#edit-in").value;
+    const outVal = el("#edit-out").value;
+
+    if (!inVal) return showMsg(msg, "Check in time is required.", true);
+    if (outVal && outVal < inVal) {
+      // Legitimate for a night shift, so allow it but make sure it is intentional.
+      if (!confirm("Check out is earlier than check in. Save as an overnight shift ending the next day?")) return;
+    }
+
+    const btn = el("#edit-save");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+
+    try {
+      const startIso = colomboIso(editing.date, "00:00");
+      const endIso = colomboIso(editing.date, "23:59");
+
+      const existing = await db.from("attendance_records")
+        .select("id, clock_in_at")
+        .eq("staff_profile_id", editing.staffId)
+        .gte("clock_in_at", startIso)
+        .lte("clock_in_at", endIso)
+        .order("clock_in_at", { ascending: true });
+      if (existing.error) throw existing.error;
+
+      const rows = existing.data || [];
+      const clockIn = colomboIso(editing.date, inVal);
+      // An out time before the in time means the shift finished after midnight.
+      let clockOut = null;
+      if (outVal) {
+        const nextDay = outVal < inVal;
+        const base = nextDay
+          ? new Date(new Date(editing.date + "T00:00:00+05:30").getTime() + 86400000)
+          : new Date(editing.date + "T00:00:00+05:30");
+        const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(base);
+        clockOut = colomboIso(dayKey, outVal);
+      }
+
+      if (!rows.length) {
+        const ins = await db.from("attendance_records").insert({
+          staff_profile_id: editing.staffId,
+          clock_in_at: clockIn,
+          clock_out_at: clockOut,
+          status: clockOut ? "completed" : "present"
+        });
+        if (ins.error) throw ins.error;
+      } else {
+        // Multiple segments: set the start of the first and the end of the last, leaving any
+        // middle segments untouched.
+        const first = rows[0];
+        const last = rows[rows.length - 1];
+        const u1 = await db.from("attendance_records").update({ clock_in_at: clockIn }).eq("id", first.id);
+        if (u1.error) throw u1.error;
+        const u2 = await db.from("attendance_records")
+          .update({ clock_out_at: clockOut, status: clockOut ? "completed" : "present" })
+          .eq("id", last.id);
+        if (u2.error) throw u2.error;
+      }
+
+      await rebuildImportRow(editing.staffId, editing.date);
+      closeEdit();
+      await loadDaily();
+    } catch (error) {
+      showMsg(msg, (error.message || "Could not save.") +
+        (String(error.message || "").match(/policy|permission/i)
+          ? " You may need to sign in as admin in the main app first."
+          : ""), true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save correction";
+    }
+  }
+
+  el("#daily-body").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-edit]");
+    if (btn) openEdit(Number(btn.dataset.edit));
+  });
+  el("#edit-cancel").addEventListener("click", closeEdit);
+  el("#edit-save").addEventListener("click", saveEdit);
+  el("#edit-backdrop").addEventListener("click", (event) => {
+    if (event.target === el("#edit-backdrop")) closeEdit();
+  });
+
   // ---- Tabs ----
 
   function selectTab(name) {
@@ -602,6 +813,9 @@
 
   if (isStaff) {
     el("#tab-monthly").classList.add("hidden");
+  }
+  if (canEdit) {
+    el("#daily-edit-head").textContent = "Fix";
   }
 
   el("#retention-note").textContent =
