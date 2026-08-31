@@ -1,0 +1,4 @@
+
+# Local helper + its log (auto-push runs on the reception/office PC only)
+staffsync-auto-push.bat
+auto-push.log
