@@ -53,6 +53,12 @@ function todayColomboDateKey() {
   return colomboDateKey(new Date());
 }
 
+// N days back from now, in hotel-local time. Safe with a fixed 24h step because Sri Lanka has
+// no DST.
+function colomboDateKeyDaysAgo(days) {
+  return colomboDateKey(new Date(Date.now() - days * 24 * 3600 * 1000));
+}
+
 function yesterdayColomboDateKey() {
   // Subtracting a fixed 24h before formatting is safe here because Sri Lanka has no DST --
   // "now minus 24h" always lands on the correct previous calendar day in Asia/Colombo.
@@ -182,5 +188,6 @@ module.exports = {
   recordImportHeartbeat,
   todayColomboDateKey,
   yesterdayColomboDateKey,
+  colomboDateKeyDaysAgo,
   RETENTION_MONTHS
 };

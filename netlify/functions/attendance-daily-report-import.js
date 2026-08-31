@@ -15,7 +15,17 @@
 //   header: x-bridge-secret: <FINGERPRINT_BRIDGE_SECRET>
 //   body:   { "date": "YYYY-MM-DD" }   (optional -- defaults to yesterday in Sri Lanka)
 
-const { importAttendanceForDate, recordImportHeartbeat, yesterdayColomboDateKey } = require("./lib/attendanceDailyImport");
+const { importAttendanceForDate, recordImportHeartbeat, yesterdayColomboDateKey, colomboDateKeyDaysAgo } = require("./lib/attendanceDailyImport");
+
+// How many recent days the morning pass re-imports.
+//
+// One day was not enough. Both scheduled imports read attendance_records at the moment they
+// run, so if the fingerprint bridge is lagging or was down (it hung for hours on the 29th and
+// 30th), they capture shifts that have no checkout yet -- and nothing ever revisited those
+// dates, leaving the report permanently showing "No check out" for people who had in fact
+// checked out. Re-importing a few days each morning lets late-arriving scans correct the
+// record by themselves. Every write is an upsert, so re-running is free of side effects.
+const CATCHUP_DAYS = 3;
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
@@ -43,12 +53,26 @@ exports.handler = async function handler(event) {
     }
   }
 
-  const dateKey = requestedDate || yesterdayColomboDateKey();
-
   try {
-    const result = await importAttendanceForDate(dateKey);
-    await recordImportHeartbeat("attendance_morning_import", dateKey, result.staffCount);
-    return json(200, { ok: true, ...result });
+    // An explicit date backfills just that day; the scheduled run sweeps the last few days.
+    const dateKeys = requestedDate
+      ? [requestedDate]
+      : Array.from({ length: CATCHUP_DAYS }, (unused, index) => colomboDateKeyDaysAgo(index + 1));
+
+    const results = [];
+    for (const dateKey of dateKeys) {
+      // eslint-disable-next-line no-await-in-loop
+      results.push(await importAttendanceForDate(dateKey));
+    }
+
+    const newest = results[0] || { date: dateKeys[0], staffCount: 0 };
+    await recordImportHeartbeat(
+      "attendance_morning_import",
+      newest.date,
+      newest.staffCount,
+      `re-imported ${dateKeys.join(", ")}`
+    );
+    return json(200, { ok: true, dates: dateKeys, results });
   } catch (error) {
     return json(500, { ok: false, message: error.message || "Daily attendance import failed." });
   }
