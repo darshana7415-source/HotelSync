@@ -41,6 +41,7 @@
     .tag { border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800; white-space:nowrap; display:inline-block; }
     .t-ok { background:#e4f6ed; color:#12734b; }
     .t-open { background:#fff3df; color:#8a5b00; }
+    .t-working { background:#e6f0fd; color:#1d5fa8; }
     .t-none { background:#eef0f3; color:#5f6874; }
     .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:14px; }
     .summary div { background:#f7fafb; border:1px solid #ecf1f5; border-radius:12px; padding:12px 14px; }
@@ -173,6 +174,25 @@
 
   function timeText(value) {
     return value ? String(value).slice(0, 5) : "";
+  }
+
+  function minutesFromClock(value) {
+    const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  // Start time of the segment that is still open (the last one with no "out").
+  function lastSegmentStart(row) {
+    try {
+      const list = Array.isArray(row.segments) ? row.segments : JSON.parse(row.segments || "[]");
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        if (!list[i].out) return list[i].in;
+      }
+    } catch {
+      // fall through to the record's own clock_in
+    }
+    return timeText(row.clock_in);
   }
 
   function segmentsText(value) {
@@ -372,6 +392,14 @@
       const byStaff = new Map();
       (res.data || []).forEach((row) => byStaff.set(row.staff_profile_id, row));
 
+      // On the current day most people are still mid-shift. Showing them as "No check out"
+      // with 0:00 hours makes a perfectly normal working day look like dozens of broken
+      // records, so today is presented as work in progress: elapsed hours so far, and a
+      // "Working now" status. Only a PAST day with no checkout is genuinely a missing scan.
+      const isToday = date === todayKey();
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
       let present = 0;
       let openShifts = 0;
       let totalMinutes = 0;
@@ -385,20 +413,35 @@
           };
         }
         present += 1;
-        totalMinutes += Number(row.total_minutes) || 0;
         const out = timeText(row.clock_out);
-        if (!out) openShifts += 1;
+        let minutes = Number(row.total_minutes) || 0;
+
+        if (!out) {
+          openShifts += 1;
+          // Count the still-running segment so "hours so far" is meaningful during the day.
+          if (isToday) {
+            const startedAt = minutesFromClock(lastSegmentStart(row));
+            if (startedAt !== null && nowMinutes > startedAt) minutes += nowMinutes - startedAt;
+          }
+        }
+        totalMinutes += minutes;
+
         return {
           code: person.employee_code, name: person.full_name,
           in: timeText(row.clock_in), out: out,
           segments: segmentsText(row.segments),
-          hours: hoursText(row.total_minutes),
-          status: out ? "Complete" : "No check out"
+          hours: hoursText(minutes),
+          status: out ? "Complete" : (isToday ? "Working now" : "No check out")
         };
       });
       lastDailyDate = date;
 
-      const tagClass = { "Complete": "t-ok", "No check out": "t-open", "No scan": "t-none" };
+      const tagClass = {
+        "Complete": "t-ok",
+        "Working now": "t-working",
+        "No check out": "t-open",
+        "No scan": "t-none"
+      };
       body.innerHTML = lastDaily.map((r) =>
         "<tr><td>" + r.code + "</td><td>" + r.name + "</td><td>" + r.in + "</td><td>" + r.out +
         "</td><td>" + r.segments + '</td><td class="num">' + r.hours +
@@ -408,8 +451,8 @@
       lastDailySummary = [
         { value: present, label: "staff recorded" },
         { value: people.length - present, label: "no scan" },
-        { value: openShifts, label: "missing check out" },
-        { value: hoursText(totalMinutes), label: "total hours" }
+        { value: openShifts, label: isToday ? "still working" : "missing check out" },
+        { value: hoursText(totalMinutes), label: isToday ? "hours so far" : "total hours" }
       ];
       el("#daily-summary").innerHTML = lastDailySummary
         .map((s) => "<div><b>" + s.value + "</b><small>" + s.label + "</small></div>").join("");
