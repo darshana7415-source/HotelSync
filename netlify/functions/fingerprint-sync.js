@@ -101,6 +101,11 @@ function localDateAndMinutes(isoString) {
   return { dateKey: `${v.year}-${v.month}-${v.day}`, minutesOfDay: Number(v.hour) * 60 + Number(v.minute) };
 }
 
+// Start of a hotel-local calendar day as a UTC instant (+05:30, no DST).
+function colomboDayStartIso(dateKey) {
+  return new Date(`${dateKey}T00:00:00+05:30`).toISOString();
+}
+
 function circularMinuteDiff(a, b) {
   const diff = Math.abs(a - b) % 1440;
   return Math.min(diff, 1440 - diff);
@@ -325,6 +330,39 @@ async function processOneEvent(evt) {
     circularMinuteDiff(eventLocalNow.minutesOfDay, scheduled.end) <= ROSTER_MATCH_WINDOW_MINUTES &&
     (scheduled.start === null || circularMinuteDiff(eventLocalNow.minutesOfDay, scheduled.start) > ROSTER_MATCH_WINDOW_MINUTES)
   ) {
+    // Before discarding this scan, check whether it is actually the person's REAL end of day
+    // arriving after a stray mid-shift scan closed them out early. Pathum checked in 11:49,
+    // a spurious 16:47 scan ended his shift, and his genuine 22:01 checkout was then thrown
+    // away here -- leaving a wrong finish time and no trace of the real one.
+    //
+    // If a shift was already closed earlier today but BEFORE the rostered finish, and this
+    // scan lands at that finish, the earlier close was premature: extend it rather than lose
+    // a real scan. Only ever moves a checkout later, never earlier.
+    const todayStartIso = colomboDayStartIso(eventLocalNow.dateKey);
+    const closedToday = await restRequest("attendance_records", {
+      query: {
+        select: "id,clock_in_at,clock_out_at",
+        staff_profile_id: `eq.${staffProfileId}`,
+        clock_out_at: `gte.${todayStartIso}`,
+        order: "clock_out_at.desc",
+        limit: "1"
+      }
+    });
+    const lastClosed = (closedToday && closedToday[0]) || null;
+
+    if (lastClosed && new Date(lastClosed.clock_out_at).getTime() < new Date(eventTime).getTime()) {
+      const closedAt = localDateAndMinutes(lastClosed.clock_out_at);
+      const endedEarly = closedAt.minutesOfDay < scheduled.end - ROSTER_MATCH_WINDOW_MINUTES;
+      if (endedEarly) {
+        await updateRows("attendance_records", {
+          eq: { id: lastClosed.id },
+          patch: { clock_out_at: eventTime, status: "completed" }
+        });
+        await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, attendanceRecordId: lastClosed.id, action: "checkOut_corrected_early_close" });
+        return { serialNo, action: "checkOut_corrected_early_close", staffProfileId };
+      }
+    }
+
     await logEvent({ serialNo, employeeNo, eventTime, minor, staffProfileId, action: "ignored_orphan_checkout" });
     return { serialNo, action: "ignored_orphan_checkout", staffProfileId };
   }
