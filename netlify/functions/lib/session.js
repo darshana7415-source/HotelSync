@@ -40,7 +40,18 @@ function sign(encodedBody, secret) {
     .replace(/=+$/, "");
 }
 
-const DEFAULT_TTL_SECONDS = 60 * 60 * 12; // 12 hours
+// Staff sessions last a week. At 12 hours, anyone who kept the app open was silently logged
+// out roughly twice a day: the browser still remembered their role, so they appeared signed in
+// while every action failed, and the app then bounced them back to the login screen. That
+// generated repeated "cannot log in" reports (Ganindu, Shiromi, Kavindu) for accounts that
+// were perfectly healthy.
+//
+// A week is a deliberate trade-off for an internal, single-site staff app: these tokens grant
+// only the ability to act on that person's own leave and attendance records -- never admin
+// rights, which still require a real Supabase Auth login. An admin can revoke access at any
+// time by resetting the person's password, which invalidates their ability to obtain a new
+// token, and by deactivating the account in app_users.
+const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 function signToken(claims, { expiresInSeconds = DEFAULT_TTL_SECONDS } = {}) {
   const secret = getSecret();
