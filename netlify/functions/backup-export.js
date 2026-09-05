@@ -24,6 +24,10 @@ const JSON_HEADERS = { "content-type": "application/json" };
 // Only these tables may be exported. Anything else is refused, so a leaked secret cannot be
 // used to dump arbitrary data.
 const EXPORTABLE = new Set([
+  // hotels and shifts have read policies scoped to logged-in users only, so the public key
+  // silently returns zero rows for them -- they must come through here too.
+  "hotels",
+  "shifts",
   "staff_login_passwords",
   "fingerprint_device_users",
   "fingerprint_events",
