@@ -7,42 +7,67 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=320">
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="env.js"></script>
   <style>
-    body { margin:0; background:#f6faf9; color:#102026; font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-    .shell { max-width:920px; margin:0 auto; padding:18px; }
-    .top { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
-    .top h1 { margin:0; font-size:24px; }
-    .top a { color:#075f63; font-weight:800; text-decoration:none; }
-    .card { background:#fff; border:1px solid #dbe8e5; border-radius:10px; padding:16px; box-shadow:0 8px 24px rgba(16,32,38,.06); }
-    label { display:grid; gap:6px; font-weight:700; margin:12px 0; }
-    select,input,button { font:inherit; padding:11px; border-radius:8px; border:1px solid #cfe0dd; }
-    button { background:#075f63; color:white; font-weight:800; border:0; cursor:pointer; }
-    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-    .dates { display:grid; grid-template-columns:repeat(auto-fit,minmax(92px,1fr)); gap:8px; margin-top:8px; }
-    .datebox { display:flex; gap:8px; align-items:center; border:1px solid #dbe8e5; border-radius:8px; padding:10px; background:#fbfefd; font-weight:700; }
-    .message { margin-top:12px; padding:12px; border-radius:8px; background:#eaf7f2; color:#075f63; font-weight:800; }
-    .error { background:#fff0f0; color:#9d1c1c; }
-    textarea { font:inherit; padding:11px; border-radius:8px; border:1px solid #cfe0dd; width:100%; box-sizing:border-box;
-               font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; line-height:1.5; }
-    .roster-preview { display:grid; gap:6px; margin-top:12px; max-height:460px; overflow-y:auto; }
-    .roster-row { display:flex; justify-content:space-between; align-items:center; gap:10px;
-                  border:1px solid #e3ecea; border-radius:8px; padding:9px 11px; background:#fbfefd; }
-    .roster-row small { display:block; color:#5b6b70; font-weight:600; font-variant-numeric:tabular-nums; }
-    .tag { border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
-    .tag-ok { background:#e4f6ed; color:#12734b; }
-    .tag-fuzzy { background:#fff3df; color:#8a5b00; }
-    .tag-miss { background:#ffe8e8; color:#9d1c1c; }
+    /* Inherits tokens from style.css; only layout specifics live here. */
+    body { margin:0; background:var(--canvas); color:var(--ink); }
+    .shell { max-width:960px; margin:0 auto; padding:var(--s5) var(--s5) var(--s7); }
+
+    .top { display:flex; justify-content:space-between; gap:var(--s4); align-items:flex-end;
+           flex-wrap:wrap; padding-bottom:var(--s4); margin-bottom:var(--s5);
+           border-bottom:1px solid var(--line); }
+    .top h1 { margin:0; font-size:1.5rem; }
+    .top small { color:var(--muted); font-size:0.875rem; }
+    .back-link { color:var(--ink-2); font-weight:600; font-size:0.875rem; text-decoration:none;
+                 display:inline-flex; align-items:center; gap:6px; padding:8px 12px;
+                 border:1px solid var(--line-strong); border-radius:var(--r-md);
+                 background:var(--surface); }
+    .back-link:hover { background:var(--surface-sunken); color:var(--ink); }
+    .back-link svg { width:15px; height:15px; }
+
+    .card { background:var(--surface); border:1px solid var(--line);
+            border-radius:var(--r-lg); padding:var(--s5); }
+    .card h2 { margin:0 0 2px; font-size:1.0625rem; }
+
+    label { display:grid; gap:6px; margin:var(--s3) 0; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--s3); }
+
+    .dates { display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
+             gap:var(--s2); margin-top:var(--s2); }
+    .datebox { display:flex; gap:8px; align-items:center; border:1px solid var(--line-strong);
+               border-radius:var(--r-md); padding:9px 11px; background:var(--surface);
+               font-weight:600; font-size:0.875rem; cursor:pointer;
+               transition:border-color .14s ease, background .14s ease; }
+    .datebox:hover { border-color:var(--muted); background:var(--surface-sunken); }
+    .datebox input { width:auto; min-height:0; margin:0; accent-color:var(--brand); }
+    .datebox:has(input:checked) { border-color:var(--brand); background:var(--brand-tint); color:var(--brand-ink); }
+
+    .message { margin-top:var(--s3); padding:11px 14px; border-radius:var(--r-md);
+               background:var(--brand-tint); color:var(--brand-ink); font-weight:600;
+               font-size:0.875rem; border:1px solid rgba(14,95,101,.14); }
+    .error { background:var(--red-tint); color:var(--red); border-color:rgba(178,59,59,.18); }
+
+    textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+               font-size:0.8125rem; line-height:1.55; width:100%; }
+
+    .roster-preview { display:grid; gap:6px; margin-top:var(--s3);
+                      max-height:460px; overflow-y:auto; }
+    .roster-row { display:flex; justify-content:space-between; align-items:center; gap:var(--s3);
+                  border:1px solid var(--line); border-radius:var(--r-md);
+                  padding:9px 12px; background:var(--surface); }
+    .roster-row small { display:block; color:var(--muted); font-size:0.8125rem; }
+    .tag { border-radius:999px; padding:3px 9px; font-size:0.75rem; font-weight:650; white-space:nowrap; }
+    .tag-ok    { background:var(--green-tint); color:var(--green); }
+    .tag-fuzzy { background:var(--amber-tint); color:var(--amber); }
+    .tag-miss  { background:var(--red-tint);   color:var(--red); }
+
     @media (max-width:720px) {
+      .shell { padding:var(--s4) var(--s4) var(--s8); }
       .grid { grid-template-columns:1fr; }
-      .shell { padding:12px; }
-      .top { flex-wrap:wrap; }
-      .top h1 { font-size:20px; }
-      .top a { min-height:44px; display:inline-flex; align-items:center; }
-      select,input,button { min-height:46px; font-size:16px; }
-      .card { padding:12px; }
+      .top h1 { font-size:1.25rem; }
+      .card { padding:var(--s4); border-radius:var(--r-md); }
     }
   </style>
 </head>
@@ -53,7 +78,7 @@
         <h1>Shift Allocation</h1>
         <small>StaffSync Beach & Bliss Mirissa</small>
       </div>
-      <a href="index.html#dashboard">Back to dashboard</a>
+      <a class="back-link" href="index.html#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Dashboard</a>
     </div>
 
     <section class="card">

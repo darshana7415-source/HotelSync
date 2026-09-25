@@ -7,67 +7,95 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=320">
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="env.js"></script>
   <style>
-    body { margin:0; background:#eef2f5; color:#16232e;
-           font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    .shell { max-width:1100px; margin:0 auto; padding:20px 18px 40px; }
-    .top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; }
-    .top h1 { margin:0 0 2px; font-size:26px; letter-spacing:-0.02em;
-              font-family:"Plus Jakarta Sans",Inter,sans-serif; }
-    .top .sub { color:#64717f; font-weight:600; }
-    .top a { color:#0d6b72; font-weight:800; text-decoration:none; }
-    .card { background:#fff; border:1px solid rgba(20,45,58,.08); border-radius:16px; padding:18px;
-            box-shadow:0 1px 2px rgba(18,36,46,.06), 0 10px 28px rgba(18,36,46,.08); margin-bottom:18px; }
-    .tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-    .tab { border:1px solid #dfe8ee; background:#fff; color:#16232e; border-radius:999px;
-           padding:9px 18px; font-weight:800; cursor:pointer; font-size:14px; }
-    .tab.active { background:#0d6b72; border-color:#0d6b72; color:#fff; }
-    .controls { display:flex; gap:12px; align-items:end; flex-wrap:wrap; margin-bottom:4px; }
-    label { display:grid; gap:6px; font-weight:700; font-size:14px; }
-    input,select,button { font:inherit; padding:10px 12px; border-radius:10px; border:1px solid #dfe8ee; }
-    input,select { background:#fff; color:#16232e; }
-    button.primary { background:#0d6b72; color:#fff; border:0; font-weight:800; cursor:pointer; }
-    .note { color:#64717f; font-weight:600; margin:12px 0 0; }
-    .table-wrap { overflow-x:auto; margin-top:14px; }
-    table { width:100%; border-collapse:collapse; min-width:640px; font-size:14px; }
-    th,td { padding:10px 9px; text-align:left; border-bottom:1px solid #ecf1f5; }
-    th { background:#f7fafb; color:#7a8794; font-size:11px; text-transform:uppercase;
-         letter-spacing:.07em; font-weight:800; }
-    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-    tbody tr:hover { background:#f6fafb; }
-    .tag { border-radius:999px; padding:4px 10px; font-size:12px; font-weight:800; white-space:nowrap; display:inline-block; }
-    .t-ok { background:#e4f6ed; color:#12734b; }
-    .t-open { background:#fff3df; color:#8a5b00; }
-    .t-working { background:#e6f0fd; color:#1d5fa8; }
-    .t-none { background:#eef0f3; color:#5f6874; }
-    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:14px; }
-    .summary div { background:#f7fafb; border:1px solid #ecf1f5; border-radius:12px; padding:12px 14px; }
-    .summary b { display:block; font-size:22px; font-variant-numeric:tabular-nums;
-                 font-family:"Plus Jakarta Sans",Inter,sans-serif; }
-    .summary small { color:#64717f; font-weight:600; }
-    .msg { margin-top:14px; padding:12px; border-radius:10px; background:#eaf7f2; color:#075f63; font-weight:700; }
-    .msg.error { background:#fff0f0; color:#9d1c1c; }
+    /* This page links style.css, so it inherits the design tokens. Everything below is
+       layout specific to the report, expressed in those tokens rather than one-off colours. */
+    body { margin:0; background:var(--canvas); color:var(--ink); }
+    .shell { max-width:1120px; margin:0 auto; padding:var(--s5) var(--s5) var(--s7); }
+
+    .top { display:flex; justify-content:space-between; gap:var(--s4); align-items:flex-end;
+           flex-wrap:wrap; padding-bottom:var(--s4); margin-bottom:var(--s5);
+           border-bottom:1px solid var(--line); }
+    .top h1 { margin:0; font-size:1.5rem; }
+    .top .sub { color:var(--muted); font-weight:500; font-size:0.875rem; margin-top:2px; }
+    .back-link { color:var(--ink-2); font-weight:600; font-size:0.875rem; text-decoration:none;
+                 display:inline-flex; align-items:center; gap:6px; padding:8px 12px;
+                 border:1px solid var(--line-strong); border-radius:var(--r-md);
+                 background:var(--surface); transition:background .14s ease, color .14s ease; }
+    .back-link:hover { background:var(--surface-sunken); color:var(--ink); }
+    .back-link svg { width:15px; height:15px; }
+
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
+            padding:var(--s5); margin-bottom:var(--s4); }
+
+    /* Segmented control rather than loose pills -- reads as one switch, not two buttons. */
+    .tabs { display:inline-flex; gap:2px; margin-bottom:var(--s4); padding:3px;
+            background:var(--surface-sunken); border:1px solid var(--line); border-radius:var(--r-md); }
+    .tab { border:0; background:transparent; color:var(--ink-2); border-radius:7px;
+           padding:7px 16px; font-weight:600; cursor:pointer; font-size:0.875rem;
+           transition:background .14s ease, color .14s ease; min-height:0; }
+    .tab:hover { color:var(--ink); }
+    .tab.active { background:var(--surface); color:var(--ink);
+                  box-shadow:0 1px 2px rgba(16,27,34,.10); }
+
+    .controls { display:flex; gap:var(--s3); align-items:end; flex-wrap:wrap; }
+    label { display:grid; gap:6px; }
+
+    .note { color:var(--muted); font-size:0.8125rem; margin:var(--s3) 0 0; }
+
+    .table-wrap { overflow-x:auto; margin-top:var(--s4); border:1px solid var(--line);
+                  border-radius:var(--r-md); }
+    table { width:100%; border-collapse:collapse; min-width:680px; }
+    td.num, th.num { text-align:right; }
+
+    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+               gap:var(--s3); margin-top:var(--s4); }
+    .summary div { background:var(--surface-sunken); border:1px solid var(--line);
+                   border-radius:var(--r-md); padding:var(--s3) var(--s4); }
+    .summary b { display:block; font-size:1.5rem; font-family:var(--font-display);
+                 font-weight:800; letter-spacing:-0.02em; }
+    .summary small { color:var(--muted); font-weight:500; font-size:0.8125rem; }
+
+    .msg { margin-top:var(--s4); padding:11px 14px; border-radius:var(--r-md);
+           background:var(--brand-tint); color:var(--brand-ink); font-weight:600;
+           font-size:0.875rem; border:1px solid rgba(14,95,101,.14); }
+    .msg.error { background:var(--red-tint); color:var(--red); border-color:rgba(178,59,59,.18); }
+
+    .tag { border-radius:999px; padding:3px 9px; font-size:0.75rem; font-weight:650;
+           white-space:nowrap; display:inline-block; }
+    .t-ok      { background:var(--green-tint); color:var(--green); }
+    .t-open    { background:var(--amber-tint); color:var(--amber); }
+    .t-working { background:var(--blue-tint);  color:var(--blue); }
+    .t-none    { background:#eef1f3; color:#5f6c75; }
+
     .hidden { display:none !important; }
-    .link-btn { background:none; border:0; color:#0d6b72; font-weight:800; cursor:pointer;
-                padding:4px 6px; font-size:13px; border-radius:8px; }
-    .link-btn:hover { background:#eef6f7; }
-    .edit-backdrop { position:fixed; inset:0; background:rgba(16,32,40,.45); display:grid;
-                     place-items:center; padding:16px; z-index:50; }
-    .edit-box { background:#fff; border-radius:16px; padding:20px; width:min(420px,100%);
-                box-shadow:0 20px 60px rgba(0,0,0,.3); }
-    .edit-box h3 { margin:0 0 4px; font-family:"Plus Jakarta Sans",Inter,sans-serif; }
-    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 4px; }
-    .edit-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
-    @media (max-width:520px) { .grid2 { grid-template-columns:1fr; } }
-    @media (max-width:700px) {
-      .shell { padding:14px 12px 32px; }
-      .top h1 { font-size:20px; }
-      .card { padding:14px; border-radius:14px; }
-      input,select,button { min-height:44px; font-size:16px; }
+
+    .link-btn { background:none; border:0; color:var(--brand); font-weight:650; cursor:pointer;
+                padding:5px 9px; font-size:0.8125rem; border-radius:var(--r-sm);
+                min-height:0; transition:background .14s ease; }
+    .link-btn:hover { background:var(--brand-tint); }
+
+    .edit-backdrop { position:fixed; inset:0; background:rgba(16,27,34,.42);
+                     backdrop-filter:blur(2px); display:grid; place-items:center;
+                     padding:var(--s4); z-index:50; }
+    .edit-box { background:var(--surface); border-radius:var(--r-lg); padding:var(--s5);
+                width:min(440px,100%); box-shadow:var(--elev-modal); border:1px solid var(--line); }
+    .edit-box h3 { margin:0 0 2px; font-size:1.0625rem; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--s3); margin:var(--s4) 0 var(--s1); }
+    .edit-actions { display:flex; gap:var(--s2); justify-content:flex-end; margin-top:var(--s5); }
+
+    @media (max-width:720px) {
+      .shell { padding:var(--s4) var(--s4) var(--s8); }
+      .top { align-items:flex-start; }
+      .top h1 { font-size:1.25rem; }
+      .card { padding:var(--s4); border-radius:var(--r-md); }
       .controls label, .controls button { width:100%; }
+      .tabs { display:grid; grid-template-columns:1fr 1fr; width:100%; }
+      .grid2 { grid-template-columns:1fr; }
+      .edit-actions button { flex:1; }
     }
   </style>
 </head>
@@ -78,7 +106,7 @@
         <h1>Attendance Reports</h1>
         <div class="sub">Recorded automatically from the fingerprint machine every day.</div>
       </div>
-      <a href="index.html#dashboard">Back to dashboard</a>
+      <a class="back-link" href="index.html#dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Dashboard</a>
     </div>
 
     <div class="tabs">

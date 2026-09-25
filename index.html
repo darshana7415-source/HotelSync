@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=304">
+  <link rel="stylesheet" href="style.css?v=320">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -79,14 +79,14 @@
         </div>
       </div>
       <nav aria-label="Main navigation">
-        <a href="#dashboard" data-page-link="dashboard" class="active">Dashboard</a>
-        <a href="#staff" data-page-link="staff">Staff</a>
-        <a href="staff-shifts-v250.html" data-page-link="shifts">Shifts</a>
-        <a href="shift-allocation.html" data-admin-only="true">Shift Allocation</a>
-        <a href="#leave" data-page-link="leave">Leave</a>
-        <a href="#supplies" data-page-link="supplies">Supplies</a>
-        <a href="#location" data-page-link="location">Location</a>
-        <a href="attendance-upload.html">Attendance Reports</a>
+        <a href="#dashboard" data-page-link="dashboard" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z"/></svg><span>Dashboard</span></a>
+        <a href="#staff" data-page-link="staff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Staff</span></a>
+        <a href="staff-shifts-v250.html" data-page-link="shifts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Shifts</span></a>
+        <a href="shift-allocation.html" data-admin-only="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Shift Allocation</span></a>
+        <a href="#leave" data-page-link="leave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="M9 14l2 2 4-4"/></svg><span>Leave</span></a>
+        <a href="#supplies" data-page-link="supplies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="m3.3 7.3 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span>Supplies</span></a>
+        <a href="#location" data-page-link="location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span>Location</span></a>
+        <a href="attendance-upload.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 17v-4M12 17v-6M16 17v-2"/></svg><span>Attendance Reports</span></a>
       </nav>
       <div class="hotel-card">
         <span>Today</span>
@@ -97,10 +97,9 @@
 
     <main>
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Hotel staff operations</p>
-          <h1>Staff leave, shifts, and attendance.</h1>
-          <p class="build-badge">StaffSync Beach & Bliss Mirissa - Version 1.0</p>
+        <div class="topbar-lead">
+          <h1>Dashboard</h1>
+          <p class="build-badge">Beach &amp; Bliss Mirissa &middot; StaffSync 1.0</p>
         </div>
         <div class="top-actions">
           <select id="role-select" aria-label="Choose role">
@@ -108,8 +107,19 @@
             <option value="manager">Manager view</option>
             <option value="staff">Staff view</option>
           </select>
-          <button class="ghost" id="export-report">Download backup</button>
-          <button class="ghost" id="logout-demo">Logout</button>
+          <div class="action-overflow">
+            <button class="ghost icon-button" id="more-actions" type="button"
+                    aria-haspopup="true" aria-expanded="false" aria-label="More actions" title="More actions">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                   stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+              </svg>
+            </button>
+            <div class="action-menu" id="more-actions-menu" hidden role="menu">
+              <button class="menu-item" id="export-report" type="button" role="menuitem">Download backup</button>
+              <button class="menu-item danger-item" id="logout-demo" type="button" role="menuitem">Sign out</button>
+            </div>
+          </div>
           <button id="open-leave">New leave request</button>
         </div>
       </header>
@@ -1158,6 +1168,51 @@
 })();
 </script>
 <!-- force-staff-attendance-link-v15-end -->
+
+<!-- ui-shell-v320: overflow menu + contextual page title -->
+<script>
+(function () {
+  // Secondary actions now live behind a menu so each screen has one obvious primary button.
+  const trigger = document.querySelector("#more-actions");
+  const menu = document.querySelector("#more-actions-menu");
+
+  if (trigger && menu) {
+    const setOpen = (open) => {
+      menu.hidden = !open;
+      trigger.setAttribute("aria-expanded", String(open));
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setOpen(menu.hidden);
+    });
+
+    // Closing on outside click and Escape is what makes a menu feel finished rather than
+    // like a div that happens to appear.
+    document.addEventListener("click", (event) => {
+      if (!menu.hidden && !menu.contains(event.target) && event.target !== trigger) setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !menu.hidden) { setOpen(false); trigger.focus(); }
+    });
+    menu.addEventListener("click", () => setOpen(false));
+  }
+
+  // The title used to be a fixed marketing line. Mirroring the active nav item tells the
+  // person where they actually are.
+  const title = document.querySelector(".topbar-lead h1");
+  function syncTitle() {
+    if (!title) return;
+    const active = document.querySelector("nav a.active span");
+    const label = active && active.textContent.trim();
+    if (label && title.textContent !== label) title.textContent = label;
+  }
+  syncTitle();
+  document.addEventListener("click", () => setTimeout(syncTitle, 60));
+  window.addEventListener("hashchange", () => setTimeout(syncTitle, 60));
+  setInterval(syncTitle, 1200);
+})();
+</script>
 </body>
 </html>
 

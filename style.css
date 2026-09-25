@@ -5,7 +5,7 @@
   --ink: #16232e;
   --muted: #64717f;
   --line: #e2e9ee;
-  --brand: #0d6b72;
+  --brand: #0e5f65;
   --brand-dark: #084b50;
   --green: #1c9a64;
   --amber: #d98a12;
@@ -38,7 +38,7 @@ body {
   z-index: 20;
   display: none;
   place-items: center;
-  background: linear-gradient(135deg, #102932, #0d6b72);
+  background: linear-gradient(135deg, #0f1c23, #0e5f65);
   padding: 1rem;
   overflow: auto;
 }
@@ -190,7 +190,7 @@ button:disabled.action-success {
 }
 
 .sidebar {
-  background: #102932;
+  background: #0f1c23;
   color: #fff;
   padding: 1.25rem;
   display: flex;
@@ -2270,7 +2270,7 @@ button.danger {
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  background: #102932;
+  background: #0f1c23;
   color: #fff;
   border-radius: 8px;
   padding: 0.8rem 1rem;
@@ -3364,471 +3364,903 @@ body:not(.staffsync-admin-shift-v210) #staffsync-shift-creator-v214 {
   margin-bottom: 1rem;
 }
 
+
 /* =====================================================================================
-   PREMIUM POLISH LAYER
-   Appended last on purpose: most of the app's rules are single-class selectors, so these
-   equal-specificity overrides win by source order. Pure restyling -- no layout structure,
-   selectors, or behavior changes. Safe to delete wholesale to revert the look.
+   STAFFSYNC DESIGN SYSTEM
+   -------------------------------------------------------------------------------------
+   Direction: a calm operations console. Surfaces are defined by hairline borders and a
+   quiet tonal step away from the canvas -- NOT by shadows. Elevation is reserved for
+   things that genuinely float above the page (dialogs, menus, the mobile nav). That one
+   decision is what separates this from generic dashboard styling, where every card casts
+   the same shadow and nothing reads as more important than anything else.
+
+   Brand teal is used sparingly so exactly one action per screen can dominate.
    ===================================================================================== */
 
+:root {
+  /* Canvas and surfaces ------------------------------------------------------------- */
+  --canvas: #f4f6f7;          /* page background, a touch cool and warm-neutral */
+  --surface: #ffffff;         /* panels, tables, dialogs */
+  --surface-sunken: #f7f9fa;  /* table headers, inset wells, read-only fields */
+  --surface-raised: #ffffff;  /* menus + dialogs (with elevation) */
+
+  /* Ink -------------------------------------------------------------------------- */
+  --ink: #101b22;             /* primary text, near-black with a cool cast */
+  --ink-2: #3d4d57;           /* secondary text */
+  --muted: #64737c;           /* tertiary / captions */
+  --faint: #88959d;           /* placeholder, disabled */
+
+  /* Lines -------------------------------------------------------------------------- */
+  --line: #e4e9ec;            /* default hairline */
+  --line-strong: #d3dbe0;     /* emphasised divider, input borders */
+
+  /* Brand + semantics (desaturated so they never shout) ------------------------------ */
+  --brand: #0e5f65;
+  --brand-hover: #0b4f54;
+  --brand-tint: #e8f2f2;
+  --brand-ink: #0a474c;
+
+  --green: #17795a;
+  --green-tint: #e6f4ee;
+  --amber: #966210;
+  --amber-tint: #fdf1de;
+  --red: #b23b3b;
+  --red-tint: #fdeceb;
+  --blue: #2c5fa8;
+  --blue-tint: #eaf1fb;
+
+  /* Sidebar (its own dark scale) ---------------------------------------------------- */
+  --nav-bg: #0f1c23;
+  --nav-ink: #cfdbe1;
+  --nav-ink-dim: #8397a2;
+  --nav-active-bg: rgba(255, 255, 255, 0.08);
+  --nav-accent: #5fbfb3;
+
+  /* Radii + elevation --------------------------------------------------------------- */
+  --r-sm: 8px;                /* pills, small controls */
+  --r-md: 10px;               /* buttons, inputs */
+  --r-lg: 14px;               /* panels, dialogs */
+
+  /* Only two shadows exist, both for genuinely floating layers. */
+  --elev-menu: 0 6px 16px rgba(16, 27, 34, 0.10), 0 1px 3px rgba(16, 27, 34, 0.06);
+  --elev-modal: 0 24px 60px rgba(16, 27, 34, 0.22), 0 2px 8px rgba(16, 27, 34, 0.10);
+
+  --focus: 0 0 0 2px var(--surface), 0 0 0 4px rgba(14, 95, 101, 0.45);
+
+  /* Type ---------------------------------------------------------------------------- */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* 8px rhythm ---------------------------------------------------------------------- */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+
+  --shadow: none;             /* legacy token, neutralised on purpose */
+  --shadow-lift: var(--elev-menu);
+  --radius: var(--r-lg);
+  --radius-sm: var(--r-md);
+  --panel: var(--surface);
+  --bg: var(--canvas);
+  --brand-dark: var(--brand-hover);
+  --focus-ring: var(--focus);
+}
+
+/* ---- Base ------------------------------------------------------------------------- */
+
 body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  background:
-    radial-gradient(1200px 500px at 85% -10%, rgba(13, 107, 114, 0.07), transparent 60%),
-    var(--bg);
+  font-feature-settings: "cv05" 1, "ss01" 1;
 }
 
-::selection {
-  background: rgba(13, 107, 114, 0.18);
+/* Numbers line up in columns everywhere -- times, hours, counts, money. */
+table, .metric strong, .self-stats b, .staff-chip b, .summary b,
+td.num, th.num, .num, time, .tabular { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
-h1 {
-  letter-spacing: -0.02em;
-  font-weight: 800;
+h1 { font-size: 1.5rem;  line-height: 1.2;  font-weight: 800; margin-bottom: 0; }
+h2 { font-size: 1.0625rem; line-height: 1.3; font-weight: 700; }
+h3 { font-size: 0.9375rem; line-height: 1.35; font-weight: 700; }
+
+p { color: var(--ink-2); }
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
 }
 
-h2 {
-  letter-spacing: -0.01em;
-  font-weight: 800;
+small { color: var(--muted); }
+
+::selection { background: rgba(14, 95, 101, 0.16); }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-md);
 }
 
-/* --- Panels & cards --- */
+/* ---- Shell ------------------------------------------------------------------------ */
 
-.metric,
-.panel {
-  border-radius: var(--radius);
-  border-color: rgba(20, 45, 58, 0.07);
-}
-
-.metric {
-  padding: 1.1rem 1.15rem;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.metric:hover {
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-1px);
-}
-
-.metric strong {
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-#leave .panel-header {
-  border-radius: var(--radius) var(--radius) 0 0;
-}
-
-/* --- Sidebar --- */
+.app-shell { grid-template-columns: 252px minmax(0, 1fr); }
 
 .sidebar {
-  background: linear-gradient(180deg, #0e2730 0%, #102f36 55%, #113a3d 100%);
+  background: var(--nav-bg);
+  padding: var(--s5) var(--s3) var(--s4);
+  gap: var(--s5);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+.brand {
+  gap: var(--s3);
+  padding: 0 var(--s2) var(--s4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.brand strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.brand small, .hotel-card small { color: var(--nav-ink-dim); font-size: 0.75rem; }
 
 .brand-mark {
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #8ed7c9, #5fb3ad);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 4px 10px rgba(0, 0, 0, 0.25);
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(160deg, #6fc9bd, #2f8f8c);
+  color: #06232a;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
+
+nav { gap: 2px; }
 
 nav a {
-  border-radius: var(--radius-sm);
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   position: relative;
-  transition: background 0.15s ease, color 0.15s ease;
+  padding: 9px 10px;
+  border-radius: var(--r-md);
+  color: var(--nav-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
+nav a svg { width: 17px; height: 17px; flex: none; opacity: 0.75; }
+
+nav a:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+nav a:hover svg { opacity: 1; }
+
 nav a.active {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--nav-active-bg);
   color: #fff;
-  font-weight: 800;
-  box-shadow: inset 3px 0 0 #7fc9bd;
+  font-weight: 650;
+}
+
+nav a.active svg { opacity: 1; color: var(--nav-accent); }
+
+/* Left accent marks the active page without adding a second background colour. */
+nav a.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 8px; bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--nav-accent);
 }
 
 .hotel-card {
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(4px);
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--r-md);
+  padding: var(--s3) var(--s4);
 }
 
-/* --- Buttons --- */
-
-button {
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #11828a, var(--brand));
-  box-shadow: 0 1px 2px rgba(8, 75, 80, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+.hotel-card span {
+  font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--nav-ink-dim); font-weight: 700;
 }
 
-button:hover {
-  background: linear-gradient(180deg, #0d7078, var(--brand-dark));
-  filter: none;
+.hotel-card strong {
+  display: block; color: #fff; font-family: var(--font-display);
+  font-size: 0.9375rem; margin-top: 2px;
 }
 
-button:active {
-  transform: translateY(1px);
-  box-shadow: 0 0 1px rgba(8, 75, 80, 0.3);
-}
+/* ---- Page frame ------------------------------------------------------------------- */
 
-button.ghost {
-  background: #eaf2f4;
-  color: var(--brand-dark);
-  box-shadow: inset 0 0 0 1px rgba(13, 107, 114, 0.16);
-}
+main { padding: var(--s5) var(--s6) var(--s7); }
 
-button.ghost:hover {
-  background: #dfebee;
-}
-
-button.reject,
-button.danger {
-  box-shadow: 0 1px 2px rgba(140, 40, 40, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-button:focus-visible,
-a:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-/* --- Inputs --- */
-
-select,
-input,
-textarea {
-  border-radius: var(--radius-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-select:focus,
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: var(--brand);
-  box-shadow: var(--focus-ring);
-}
-
-/* --- Tables --- */
-
-th {
-  letter-spacing: 0.07em;
-  font-weight: 800;
-  color: #7a8794;
-  background: #f7fafb;
+.topbar {
+  align-items: center;
+  gap: var(--s4);
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s5);
   border-bottom: 1px solid var(--line);
 }
 
-th:first-child {
-  border-top-left-radius: var(--radius-sm);
+.build-badge {
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
-th:last-child {
-  border-top-right-radius: var(--radius-sm);
+.top-actions { align-items: center; gap: var(--s2); }
+
+/* ---- Surfaces --------------------------------------------------------------------- */
+
+.panel, .metric {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: none;
 }
 
-tbody tr {
-  transition: background 0.12s ease;
+.panel { padding: var(--s5); }
+
+.panel-header {
+  gap: var(--s4);
+  margin-bottom: var(--s4);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
 }
 
-tbody tr:hover {
-  background: #f6fafb;
+.panel-header h2 { margin: 0; }
+.panel-header .eyebrow { margin-bottom: 0.15rem; }
+
+/* The leave page header keeps a tint, but as a quiet wash rather than a coloured band. */
+#leave .panel-header {
+  margin: calc(var(--s5) * -1) calc(var(--s5) * -1) var(--s4);
+  padding: var(--s5) var(--s5) var(--s3);
+  background: linear-gradient(180deg, var(--brand-tint), transparent);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+
+.metric { padding: var(--s4) var(--s5); }
+
+.metric span, .metric small { color: var(--muted); font-size: 0.8125rem; font-weight: 500; }
+
+.metric strong {
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0.15rem 0 0;
+  color: var(--ink);
+}
+
+.metric-grid, .content-grid, .notes-grid, .log-grid, .role-grid { gap: var(--s4); }
+
+/* ---- Buttons ---------------------------------------------------------------------- */
+
+button {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  padding: 9px 16px;
+  border-radius: var(--r-md);
+  background: var(--brand);
+  color: #fff;
+  border: 1px solid var(--brand);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.08s ease;
+}
+
+button:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+button:active { transform: translateY(0.5px); }
+
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Secondary: hairline, no fill. Sits back so the primary reads first. */
+button.ghost, .ghost.button-link {
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1px solid var(--line-strong);
+}
+
+button.ghost:hover, .ghost.button-link:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+button.reject, button.danger {
+  background: var(--red); border-color: var(--red);
+}
+button.reject:hover, button.danger:hover { background: #9c3030; border-color: #9c3030; }
+
+button.small-button, .small-button {
+  padding: 5px 10px;
+  font-size: 0.8125rem;
+  border-radius: var(--r-sm);
+}
+
+button.action-success, button:disabled.action-success {
+  background: var(--green); border-color: var(--green); color: #fff; opacity: 1;
+}
+
+/* ---- Forms ------------------------------------------------------------------------ */
+
+label { font-size: 0.8125rem; font-weight: 600; color: var(--ink-2); }
+
+select, input, textarea {
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 9px 11px;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+select:hover, input:hover, textarea:hover { border-color: var(--muted); }
+
+select:focus, input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(14, 95, 101, 0.13);
+}
+
+input::placeholder, textarea::placeholder { color: var(--faint); }
+
+.form-note, .form small { color: var(--muted); font-size: 0.8125rem; }
+
+/* ---- Tables ----------------------------------------------------------------------- */
+
+.table-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.panel .table-wrap { border-radius: var(--r-md); }
+
+table { font-size: 0.875rem; }
+
+th {
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
 }
 
 td {
-  border-bottom-color: #ecf1f5;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  vertical-align: middle;
 }
 
-/* --- Pills & avatars --- */
+td:first-child, th:first-child { padding-left: 18px; }
+td:last-child, th:last-child { padding-right: 18px; }
+
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr { transition: background 0.1s ease; }
+tbody tr:hover { background: var(--surface-sunken); }
+
+.staff-name { font-weight: 650; color: var(--ink); gap: 10px; }
+.staff-name small { font-weight: 500; }
+
+/* ---- Pills ------------------------------------------------------------------------ */
 
 .pill {
-  padding: 0.32rem 0.68rem;
-  box-shadow: inset 0 0 0 1px rgba(20, 45, 58, 0.05);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
+
+.pill.green  { background: var(--green-tint); color: var(--green); border-color: transparent; }
+.pill.amber  { background: var(--amber-tint); color: var(--amber); border-color: transparent; }
+.pill.red    { background: var(--red-tint);   color: var(--red);   border-color: transparent; }
+.pill.blue   { background: var(--blue-tint);  color: var(--blue);  border-color: transparent; }
+.pill.cancelled { background: #eef1f3; color: #5f6c75; border-color: transparent; }
 
 .avatar {
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #e7f6f3, #d5ece9);
-  box-shadow: inset 0 0 0 1px rgba(13, 107, 114, 0.1);
+  border-radius: 9px;
+  background: var(--brand-tint);
+  color: var(--brand-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  box-shadow: none;
+  border: 1px solid rgba(14, 95, 101, 0.10);
 }
 
-/* --- Mini items / list cards --- */
+.avatar.large { border-radius: 12px; }
+
+/* ---- List rows -------------------------------------------------------------------- */
 
 .mini-item {
-  border-radius: var(--radius-sm);
-  border-color: #e8eef2;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  background: var(--surface);
+  transition: border-color 0.14s ease, background 0.14s ease;
 }
 
-.mini-item:hover {
-  border-color: #d7e2e8;
-  box-shadow: 0 2px 8px rgba(18, 36, 46, 0.05);
+.mini-item:hover { border-color: var(--line-strong); background: var(--surface-sunken); }
+.mini-item strong { color: var(--ink); font-weight: 650; font-size: 0.875rem; }
+.mini-item small { color: var(--muted); font-size: 0.8125rem; }
+
+.mini-empty {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: var(--s4);
+  text-align: center;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
 }
 
-.staff-message-box,
-.tracking-strip,
-.self-stats span {
-  border-radius: var(--radius-sm);
+.staff-message-box {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: var(--s4);
 }
 
-/* --- Scrollbars (subtle, WebKit + Firefox) --- */
-
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #c3d0d8 transparent;
+.staff-message-box > strong {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  color: var(--ink);
 }
 
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* ---- Scrollbars ------------------------------------------------------------------- */
 
-*::-webkit-scrollbar-thumb {
-  background: #c3d0d8;
-  border-radius: 999px;
-}
+* { scrollbar-width: thin; scrollbar-color: #c6d0d6 transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: #c6d0d6; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #adbac2; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: #a9bac5;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* --- Login overlay --- */
-
-.login-card {
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 32px 80px rgba(0, 0, 0, 0.32);
-}
+/* ---- Login ------------------------------------------------------------------------ */
 
 .login-overlay {
   background:
-    radial-gradient(900px 400px at 20% 0%, rgba(127, 201, 189, 0.14), transparent 55%),
-    linear-gradient(135deg, #0d222b, #0d6b72);
+    radial-gradient(900px 480px at 15% -10%, rgba(95, 191, 179, 0.16), transparent 60%),
+    linear-gradient(160deg, #0b1a20 0%, #0e3a3d 55%, #0e5f65 100%);
 }
 
-/* --- Staff hero refinements (matches the new tokens) --- */
+.login-card {
+  border-radius: 18px;
+  box-shadow: var(--elev-modal);
+  padding: var(--s6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ---- Staff home ------------------------------------------------------------------- */
 
 .staff-hero {
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lift);
+  border-radius: var(--r-lg);
+  padding: var(--s5);
+  background: linear-gradient(155deg, #123039 0%, #0e5f65 100%);
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.staff-chip,
+.staff-hero.on-shift { background: linear-gradient(155deg, #0e3b33 0%, #17795a 100%); }
+
+.staff-hero-name strong { font-family: var(--font-display); font-size: 1.125rem; font-weight: 700; }
+.staff-hero-shift b { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; }
+
+.staff-hero-times {
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--r-md);
+}
+
+.staff-hero-times b { font-family: var(--font-display); font-size: 1.375rem; font-weight: 700; }
+
+.staff-chip {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: var(--s3) var(--s2);
+}
+
+.staff-chip b { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+.staff-chip small { color: var(--muted); font-size: 0.75rem; }
+.staff-chip.chip-attention { border-color: rgba(150, 98, 16, 0.35); background: var(--amber-tint); }
+.staff-chip.chip-attention b { color: var(--amber); }
+
 .staff-action-button {
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 0.9375rem;
+  padding: 12px;
 }
 
-.staff-action-button {
-  transition: filter 0.15s ease, transform 0.1s ease;
-}
-
-.staff-action-button:active {
-  transform: translateY(1px);
-}
+.staff-action-button:hover { background: var(--surface-sunken); }
 
 .staff-action-button.primary-action {
-  background: linear-gradient(180deg, #11828a, var(--brand));
-  box-shadow: 0 1px 2px rgba(8, 75, 80, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: var(--brand); border-color: var(--brand); color: #fff;
 }
+.staff-action-button.primary-action:hover { background: var(--brand-hover); }
 
-/* --- Polish round 2: the visible changes ------------------------------------------- */
-
-/* The stylesheet always asked for Inter but nothing loaded it, so the whole app was
-   rendering in the browser's default font -- the single biggest reason the first polish
-   pass didn't visibly change much. The font links now exist in the HTML; these rules put
-   the loaded fonts to work. */
-
-body {
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-h1, h2, h3,
-.panel-header strong,
-.metric strong,
-.staff-hero-shift b,
-.staff-hero-times b,
-.brand strong {
-  font-family: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
-}
-
-/* The page title was enormous (up to 3.4rem) which read as a prototype, not a product.
-   A calmer editorial size instantly makes every page look more designed. */
-h1 {
-  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
-  line-height: 1.15;
-  font-weight: 800;
-}
-
-/* More generous breathing room overall. */
-main {
-  padding: 2rem 2.25rem 2.5rem;
-}
-
-.metric-grid,
-.content-grid,
-.notes-grid,
-.log-grid,
-.role-grid {
-  gap: 1.25rem;
-}
-
-.panel {
-  padding: 1.35rem;
-  border-radius: 16px;
-}
-
-.metric {
-  border-radius: 16px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Brand accent bar across the top of each metric card. */
-.metric::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--brand), #7fc9bd);
-  opacity: 0.85;
-}
-
-.metric strong {
-  font-size: 2.15rem;
-}
-
-.eyebrow {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-}
-
-/* Panel headers get a clearer visual anchor. */
-.panel-header h2 {
-  font-size: 1.12rem;
-}
-
-/* Sidebar: tighter, more product-like. */
-.sidebar {
-  padding: 1.4rem 1.1rem;
-}
-
-nav a {
-  padding: 0.7rem 0.85rem;
-  font-size: 0.92rem;
-}
-
-.brand strong {
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
-}
-
-/* Tables: lighter chrome, clearer hierarchy. */
-table {
-  font-size: 0.92rem;
-}
-
-th {
-  font-size: 0.7rem;
-  padding-top: 0.65rem;
-  padding-bottom: 0.65rem;
-}
-
-td {
-  padding-top: 0.85rem;
-  padding-bottom: 0.85rem;
-}
-
-/* Buttons slightly slimmer = less "bootstrap demo". */
-button {
-  padding: 0.7rem 1rem;
+.staff-section-summary {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
   font-weight: 700;
-  font-size: 0.92rem;
+  color: var(--ink);
+  padding: var(--s2) 0;
 }
 
-.pill {
-  font-size: 0.74rem;
-}
+.staff-section-summary::-webkit-details-marker { color: var(--faint); }
 
-/* Phones: keep the new spacing from eating the small screen. */
-@media (max-width: 760px) {
-  main {
-    padding: 1.1rem 0.9rem 2rem;
-  }
+/* ---- Stars ------------------------------------------------------------------------ */
 
-  h1 {
-    font-size: 1.35rem;
-  }
+.star-chip-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  .panel {
-    padding: 1rem;
-    border-radius: 14px;
-  }
-}
+.star-chip.gold { border-color: rgba(150, 98, 16, 0.3); background: var(--amber-tint); }
+.star-chip.gold b { color: var(--amber); }
+.star-chip.red  { border-color: rgba(178, 59, 59, 0.28); background: var(--red-tint); }
+.star-chip.red b { color: var(--red); }
 
-/* --- Gold / red stars --- */
-
-.star-chip-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.star-chip.gold {
-  border-color: #f0c76b;
-  background: linear-gradient(180deg, #fffaf0, #fff4dd);
-}
-
-.star-chip.gold b { color: #a97400; }
-
-.star-chip.red {
-  border-color: #f0a9a9;
-  background: linear-gradient(180deg, #fff6f6, #ffeaea);
-}
-
-.star-chip.red b { color: #b62d2d; }
-
-.star-award-form {
-  display: grid;
-  gap: 0.7rem;
-  margin: 0.6rem 0 0.9rem;
-}
-
-.star-award-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
+.star-award-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
 
 .star-button {
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 0.8rem;
-  font-weight: 800;
-  cursor: pointer;
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-weight: 650;
   color: #fff;
+  border: 1px solid transparent;
 }
 
-.star-button.gold {
-  background: linear-gradient(180deg, #e0a52f, #c98a12);
-  box-shadow: 0 1px 2px rgba(160, 110, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+.star-button.gold { background: #b07714; border-color: #b07714; }
+.star-button.gold:hover { background: #96640f; border-color: #96640f; }
+.star-button.red { background: var(--red); border-color: var(--red); }
+.star-button.red:hover { background: #9c3030; border-color: #9c3030; }
+
+.star-recent-list { display: grid; gap: 6px; }
+.star-item .pill { font-size: 0.8125rem; line-height: 1; }
+
+/* ---- Motion + accessibility -------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-.star-button.gold:hover { background: linear-gradient(180deg, #d09a25, #b87d0c); }
+/* ---- Responsive -------------------------------------------------------------------- */
 
-.star-button.red {
-  background: linear-gradient(180deg, #d94f4f, #c23a3a);
-  box-shadow: 0 1px 2px rgba(150, 40, 40, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+@media (max-width: 1100px) {
+  main { padding: var(--s5) var(--s5) var(--s7); }
+  .app-shell { grid-template-columns: 216px minmax(0, 1fr); }
 }
 
-.star-button.red:hover { background: linear-gradient(180deg, #cc4444, #b33131); }
+@media (max-width: 860px) {
+  main { padding: var(--s4) var(--s4) var(--s8); }
 
-.star-recent-list {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s3);
+  }
+
+  h1 { font-size: 1.25rem; }
+
+  .top-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .top-actions select, .top-actions button { flex: 1 1 auto; min-height: 42px; }
+
+  .panel { padding: var(--s4); border-radius: var(--r-md); }
+  .panel-header { flex-wrap: wrap; }
+
+  /* Comfortable tap targets without making the page feel like a form. */
+  select, input, textarea, button { min-height: 42px; font-size: 16px; }
+  button.small-button, .small-button { min-height: 34px; font-size: 0.8125rem; }
+
+  th, td { padding: 10px 12px; }
+  td:first-child, th:first-child { padding-left: 14px; }
+  td:last-child, th:last-child { padding-right: 14px; }
+}
+
+@media (max-width: 520px) {
+  .metric strong { font-size: 1.625rem; }
+  .staff-hero { padding: var(--s4); }
+  .staff-hero-times b { font-size: 1.25rem; }
+}
+
+/* ---- Topbar composition ------------------------------------------------------------ */
+
+.topbar-lead { min-width: 0; }
+.topbar-lead h1 { margin: 0; }
+
+/* Secondary actions are folded into a menu so the page has exactly one obvious primary
+   button. Previously four same-weight buttons competed for attention. */
+.icon-button {
+  width: 38px; height: 38px;
+  padding: 0;
+  display: grid; place-items: center;
+}
+.icon-button svg { width: 18px; height: 18px; }
+
+.action-overflow { position: relative; }
+
+.action-menu {
+  position: absolute;
+  right: 0; top: calc(100% + 6px);
+  min-width: 200px;
+  z-index: 30;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-menu);
+  padding: 5px;
   display: grid;
-  gap: 0.4rem;
+  gap: 2px;
 }
 
-.star-item .pill {
-  font-size: 0.9rem;
-  line-height: 1;
+.action-menu[hidden] { display: none; }
+
+.menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--ink-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-weight: 550;
+}
+
+.menu-item:hover { background: var(--surface-sunken); color: var(--ink); }
+.menu-item.danger-item { color: var(--red); }
+.menu-item.danger-item:hover { background: var(--red-tint); color: var(--red); }
+
+@media (max-width: 860px) {
+  /* On a phone the primary action should span the row and lead. */
+  .top-actions { display: grid; grid-template-columns: 1fr auto; gap: var(--s2); }
+  .top-actions select { grid-column: 1; }
+  .action-overflow { grid-column: 2; }
+  .top-actions > button:last-child { grid-column: 1 / -1; }
+  .icon-button { width: 42px; }
+}
+
+/* ---- Mobile navigation -------------------------------------------------------------
+   The legacy layout dropped nav into a 3-column grid, which cramps badly now that items
+   carry icons. A single horizontally-scrollable row of chips keeps every label readable,
+   gives full-size tap targets, and makes the active page obvious. */
+
+@media (max-width: 980px) {
+  .app-shell { grid-template-columns: 1fr; }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    height: auto;
+    padding: var(--s3) var(--s4) var(--s2);
+    gap: var(--s3);
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .brand { padding: 0 0 var(--s3); }
+  .brand-mark { width: 30px; height: 30px; font-size: 0.85rem; }
+  .brand strong { font-size: 0.9375rem; }
+
+  nav {
+    display: flex;
+    gap: var(--s2);
+    overflow-x: auto;
+    padding-bottom: var(--s2);
+    margin: 0 calc(var(--s4) * -1);
+    padding-inline: var(--s4);
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  nav::-webkit-scrollbar { display: none; }
+
+  nav a {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 9px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    min-height: 40px;
+  }
+
+  /* The vertical accent bar has no meaning in a horizontal strip. */
+  nav a.active::before { display: none; }
+
+  nav a.active {
+    background: var(--nav-accent);
+    border-color: var(--nav-accent);
+    color: #06232a;
+  }
+
+  nav a.active svg { color: #06232a; opacity: 1; }
+
+  /* The "Today" card is reference information, not navigation -- it does not earn space
+     above the fold on a phone. */
+  .hotel-card { display: none; }
+}
+
+/* ---- Toast ------------------------------------------------------------------------- */
+
+#toast, .toast {
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-modal);
+  font-size: 0.875rem;
+  font-weight: 550;
+  padding: 11px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  max-width: min(380px, calc(100vw - 2rem));
+}
+
+/* ---- States: loading, empty, success ------------------------------------------------ */
+
+.is-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ss-spin 0.6s linear infinite;
+}
+
+.ghost.is-loading::after { border-color: rgba(16,27,34,.2); border-top-color: var(--ink-2); }
+
+@keyframes ss-spin { to { transform: rotate(360deg); } }
+
+/* Skeleton rows for tables while data loads. */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, #eef2f4 37%, var(--surface-sunken) 63%);
+  background-size: 400% 100%;
+  animation: ss-shimmer 1.3s ease infinite;
+  border-radius: 6px;
+  color: transparent;
+}
+
+@keyframes ss-shimmer { 0% { background-position: 100% 50% } 100% { background-position: 0 50% } }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-loading::after { animation: none; }
+  .skeleton { animation: none; }
+}
+
+/* ---- Sign in ------------------------------------------------------------------------
+   The first screen anyone sees, so it carries the brand rather than looking like a form
+   on a coloured page. Card sits on a dark, quiet gradient; the form itself is calm. */
+
+.login-card {
+  max-width: 420px;
+  width: min(420px, 100%);
+  padding: var(--s6) var(--s6) var(--s5);
+}
+
+.login-brand {
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 var(--s4);
+  margin-bottom: var(--s4);
+}
+
+.login-brand strong { color: var(--ink); }
+.login-brand small { color: var(--muted); }
+
+.login-card .eyebrow { margin-bottom: 0.1rem; }
+
+.login-card h1 {
+  font-size: 1.375rem;
+  margin: 0 0 var(--s4);
+}
+
+.simple-login { display: grid; gap: var(--s3); }
+.login-fields { display: grid; gap: var(--s3); }
+.login-fields label { display: grid; gap: 6px; }
+
+.simple-login > label { display: grid; gap: 6px; }
+
+#login-submit {
+  width: 100%;
+  margin-top: var(--s2);
+  padding: 11px 16px;
+  font-size: 0.9375rem;
+}
+
+.install-button { width: 100%; margin-top: var(--s2); }
+
+.staff-login-status, #cloud-status {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  padding: 9px 11px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.staff-login-status.red, #cloud-status.red {
+  background: var(--red-tint); color: var(--red); border-color: rgba(178, 59, 59, 0.18);
+}
+.staff-login-status.green, #cloud-status.green {
+  background: var(--green-tint); color: var(--green); border-color: rgba(23, 121, 90, 0.18);
+}
+.staff-login-status.amber, #cloud-status.amber {
+  background: var(--amber-tint); color: var(--amber); border-color: rgba(150, 98, 16, 0.2);
+}
+.staff-login-status.blue, #cloud-status.blue {
+  background: var(--blue-tint); color: var(--blue); border-color: rgba(44, 95, 168, 0.18);
+}
+
+.login-note {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  margin-top: var(--s2);
+}
+
+body[data-auth="out"] .app-shell { filter: blur(6px) saturate(0.8); }
+
+@media (max-width: 520px) {
+  .login-card { padding: var(--s5) var(--s4) var(--s4); border-radius: var(--r-lg); }
+  .login-card h1 { font-size: 1.25rem; }
+}
+
+/* Uppercase micro-labels read smaller than their nominal size because of the tracking.
+   11.5px keeps them crisp on desktop; on phones they step up again for comfort. */
+.eyebrow, th, .hotel-card span { font-size: 0.72rem; }
+
+@media (max-width: 860px) {
+  .eyebrow, th { font-size: 0.75rem; letter-spacing: 0.06em; }
 }
