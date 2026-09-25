@@ -4264,3 +4264,13 @@ body[data-auth="out"] .app-shell { filter: blur(6px) saturate(0.8); }
 @media (max-width: 860px) {
   .eyebrow, th { font-size: 0.75rem; letter-spacing: 0.06em; }
 }
+
+/* ---- hidden must always win ---------------------------------------------------------
+   HTML's `hidden` attribute is implemented by the user-agent stylesheet as display:none,
+   which ANY author rule setting display beats. The redesign introduced .login-fields
+   { display: grid } and similar, which silently un-hid elements the app had deliberately
+   hidden -- the sign-in screen showed the admin email/password fields and the "New
+   password" field even when they did not apply. Caught on the live site.
+
+   This makes the attribute authoritative again, everywhere. */
+[hidden] { display: none !important; }
