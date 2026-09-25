@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=320">
+  <link rel="stylesheet" href="style.css?v=321">
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="env.js"></script>
   <style>
@@ -43,6 +43,11 @@
 
     .controls { display:flex; gap:var(--s3); align-items:end; flex-wrap:wrap; }
     label { display:grid; gap:6px; }
+
+    /* Only one filled button per control row -- "Show day" is the action, PNG is a follow-up. */
+    .btn-quiet { background:var(--surface); color:var(--ink-2); border:1px solid var(--line-strong);
+                 font-weight:600; transition:background .14s ease, color .14s ease; }
+    .btn-quiet:hover { background:var(--surface-sunken); color:var(--ink); }
 
     .note { color:var(--muted); font-size:0.8125rem; margin:var(--s3) 0 0; }
 
@@ -93,6 +98,9 @@
       .top h1 { font-size:1.25rem; }
       .card { padding:var(--s4); border-radius:var(--r-md); }
       .controls label, .controls button { width:100%; }
+      .summary { grid-template-columns:1fr 1fr; gap:var(--s2); }
+      .summary div { padding:var(--s3); }
+      .summary b { font-size:1.25rem; }
       .tabs { display:grid; grid-template-columns:1fr 1fr; width:100%; }
       .grid2 { grid-template-columns:1fr; }
       .edit-actions button { flex:1; }
@@ -122,7 +130,7 @@
           <input id="daily-date" type="date">
         </label>
         <button class="primary" id="daily-load" type="button">Show day</button>
-        <button id="daily-png" type="button">Download PNG</button>
+        <button id="daily-png" class="btn-quiet" type="button">Download PNG</button>
       </div>
       <div class="summary" id="daily-summary"></div>
       <div id="daily-msg" class="msg hidden"></div>
@@ -148,7 +156,7 @@
           <input id="monthly-month" type="month">
         </label>
         <button class="primary" id="monthly-load" type="button">Show month</button>
-        <button id="monthly-png" type="button">Download PNG</button>
+        <button id="monthly-png" class="btn-quiet" type="button">Download PNG</button>
       </div>
       <div class="summary" id="monthly-summary"></div>
       <div id="monthly-msg" class="msg hidden"></div>
