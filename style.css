@@ -4274,3 +4274,96 @@ body[data-auth="out"] .app-shell { filter: blur(6px) saturate(0.8); }
 
    This makes the attribute authoritative again, everywhere. */
 [hidden] { display: none !important; }
+
+/* ---- Role picker on the sign-in screen ----------------------------------------------
+   Replaces the "Login as" dropdown. A dropdown hides the choice until you open it and
+   costs three interactions on a phone; three tiles show all the options at once and cost
+   one tap. Built from the app's own tokens rather than imitating a video-streaming
+   profile chooser -- same idea, this product's language. */
+
+.role-pick-label {
+  margin: 0 0 var(--s3);
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.role-pick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+  margin-bottom: var(--s5);
+}
+
+.role-tile {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: var(--s4) var(--s2) var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--ink-2);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 0;
+  transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.role-tile:hover { border-color: var(--brand); color: var(--ink); transform: translateY(-1px); }
+
+.role-tile:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The selected tile is marked by the brand ring plus a tinted face, not by colour alone --
+   a person who cannot separate the two greens still sees the ring and the checkmark. */
+.role-tile.is-selected {
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+  background: var(--brand-tint);
+  color: var(--ink);
+}
+
+.role-tile-art {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  color: #fff;
+  position: relative;
+}
+
+.role-tile-art svg { width: 26px; height: 26px; }
+
+/* Each role keeps one fixed colour so it becomes recognisable at a glance over time. */
+.role-art-staff   { background: linear-gradient(160deg, #1d7f86, #0e5f65); }
+.role-art-manager { background: linear-gradient(160deg, #3b74bd, #2c5fa8); }
+.role-art-admin   { background: linear-gradient(160deg, #1f8f6c, #17795a); }
+
+/* Checkmark badge on the chosen tile. */
+.role-tile.is-selected .role-tile-art::after {
+  content: "";
+  position: absolute;
+  right: -5px; bottom: -5px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2px solid var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 13 4 4 10-10'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.role-tile-name { font-size: 0.875rem; letter-spacing: -0.005em; }
+
+@media (max-width: 380px) {
+  .role-pick { gap: var(--s2); }
+  .role-tile { padding: var(--s3) 4px 10px; }
+  .role-tile-art { width: 44px; height: 44px; }
+  .role-tile-art svg { width: 22px; height: 22px; }
+  .role-tile-name { font-size: 0.8125rem; }
+}

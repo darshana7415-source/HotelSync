@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=321">
+  <link rel="stylesheet" href="style.css?v=322">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -27,14 +27,36 @@
       <p class="eyebrow">Access</p>
       <h1>Sign in</h1>
       <div class="simple-login">
-        <label>
-          Login as
-          <select id="login-role">
-            <option value="staff">Staff</option>
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-          </select>
-        </label>
+        <!-- Role is picked by tapping a tile rather than opening a dropdown: on a phone this
+             is one tap instead of three, and it makes the chosen role visible at a glance.
+             The original <select> stays in the DOM (hidden) because app.js reads its value
+             and listens for its change event -- the tiles simply drive it. -->
+        <p class="role-pick-label" id="role-pick-label">Who is signing in?</p>
+        <div class="role-pick" role="radiogroup" aria-labelledby="role-pick-label">
+          <button class="role-tile is-selected" type="button" data-role-tile="staff" role="radio" aria-checked="true">
+            <span class="role-tile-art role-art-staff" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="role-tile-name">Staff</span>
+          </button>
+          <button class="role-tile" type="button" data-role-tile="manager" role="radio" aria-checked="false">
+            <span class="role-tile-art role-art-manager" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <span class="role-tile-name">Manager</span>
+          </button>
+          <button class="role-tile" type="button" data-role-tile="admin" role="radio" aria-checked="false">
+            <span class="role-tile-art role-art-admin" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            </span>
+            <span class="role-tile-name">Admin</span>
+          </button>
+        </div>
+        <select id="login-role" hidden aria-hidden="true" tabindex="-1">
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+          <option value="manager">Manager</option>
+        </select>
         <div class="login-fields" id="staff-credentials">
           <label>
             Employee code
@@ -1211,6 +1233,68 @@
   document.addEventListener("click", () => setTimeout(syncTitle, 60));
   window.addEventListener("hashchange", () => setTimeout(syncTitle, 60));
   setInterval(syncTitle, 1200);
+})();
+</script>
+
+<!-- role-tiles-v321: tap-a-tile role picker in front of the (now hidden) role <select> -->
+<script>
+(function () {
+  const select = document.querySelector("#login-role");
+  const tiles = Array.from(document.querySelectorAll("[data-role-tile]"));
+  if (!select || !tiles.length) return;
+
+  function paint() {
+    const current = select.value || "staff";
+    tiles.forEach((tile) => {
+      const on = tile.dataset.roleTile === current;
+      tile.classList.toggle("is-selected", on);
+      tile.setAttribute("aria-checked", String(on));
+      // Only the selected tile is a tab stop, which is how a radio group is meant to behave.
+      tile.tabIndex = on ? 0 : -1;
+    });
+  }
+
+  function choose(role) {
+    if (select.value === role) return;
+    select.value = role;
+    // app.js listens for `change` to swap which credential fields are shown. Setting
+    // .value in script does not fire it, so dispatch it ourselves.
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    paint();
+  }
+
+  tiles.forEach((tile, index) => {
+    tile.addEventListener("click", () => choose(tile.dataset.roleTile));
+    tile.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+                 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      const next = tiles[(index + step + tiles.length) % tiles.length];
+      choose(next.dataset.roleTile);
+      next.focus();
+    });
+  });
+
+  // app.js also resets the role to "staff" in a few places (logout, failed login) by
+  // assigning .value directly. Intercepting the property on this one element keeps the
+  // tiles honest without having to find and patch every one of those call sites.
+  try {
+    const proto = Object.getPrototypeOf(select);
+    const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+    if (descriptor && descriptor.set) {
+      Object.defineProperty(select, "value", {
+        configurable: true,
+        get() { return descriptor.get.call(this); },
+        set(v) { descriptor.set.call(this, v); paint(); }
+      });
+    }
+  } catch (error) {
+    // Not fatal -- the tiles still work for clicks, they just would not follow a
+    // programmatic reset. Better than breaking sign-in over a polyfill detail.
+  }
+
+  paint();
 })();
 </script>
 </body>
