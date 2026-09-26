@@ -59,11 +59,25 @@
     return ["admin", "manager"].includes(currentRole());
   }
 
+  // THE bug behind every blank Daily Tasks panel.
+  //
+  // This used to test `#login-screen.hidden`. app.js never sets that attribute -- it
+  // shows and hides the login overlay entirely through `body[data-auth="in"|"out"]` and
+  // a CSS rule. So `.hidden` was always false, and for an admin (who signs in through
+  // Supabase Auth and therefore has no staff session token either) this returned false
+  // even while they were clearly logged in and looking at their own dashboard.
+  //
+  // The panel then refused to load anything, and because early versions had no
+  // signed-out message it simply rendered empty -- which read as "the feature was never
+  // built" rather than "the feature thinks you are logged out".
+  //
+  // body.dataset.auth is the app's own source of truth, so use that first.
   function signedIn() {
-    return Boolean(
-      sessionStorage.getItem("staffsync.sessionToken") ||
-      document.querySelector("#login-screen")?.hidden
-    );
+    if (document.body.dataset.auth === "in") return true;
+    if (sessionStorage.getItem("staffsync.sessionToken")) return true;
+    const screen = document.querySelector("#login-screen");
+    if (!screen) return false;
+    return screen.hidden || window.getComputedStyle(screen).display === "none";
   }
 
   // Never build HTML from database values -- a task named "Clean <img onerror=...>" would
