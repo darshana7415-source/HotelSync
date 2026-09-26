@@ -351,6 +351,198 @@
     }
   }
 
+  // ---- Editing an assigned task (managers) ---------------------------------------------
+  //
+  // Expands inside the row, like the message thread, so the change is made against the
+  // task you are looking at rather than in a dialog that hides it.
+
+  async function toggleEditor(row, assignment) {
+    const open = row.querySelector(".dt-editor");
+    if (open) { open.remove(); return; }
+    row.querySelector(".dt-thread")?.remove();
+
+    const box = text("div", "dt-editor");
+    row.appendChild(box);
+
+    const grid = text("div", "dt-editor-grid");
+
+    const titleLabel = text("label", null, "Task");
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = assignment.title || "";
+    titleLabel.appendChild(titleInput);
+    grid.appendChild(titleLabel);
+
+    const dayLabel = text("label", null, "Day");
+    const daySelect = document.createElement("select");
+    for (const [value, name] of [[colomboToday(), "Today"], [colomboTomorrow(), "Tomorrow"]]) {
+      const option = text("option", null, name);
+      option.value = value;
+      daySelect.appendChild(option);
+    }
+    daySelect.value = assignment.date;
+    dayLabel.appendChild(daySelect);
+    grid.appendChild(dayLabel);
+
+    const timeLabel = text("label", null, "By");
+    const timeInput = document.createElement("input");
+    timeInput.type = "time";
+    timeInput.value = assignment.dueTime || "";
+    timeLabel.appendChild(timeInput);
+    grid.appendChild(timeLabel);
+
+    const personLabel = text("label", null, "Assigned to");
+    const personSelect = document.createElement("select");
+    const keep = text("option", null, `${assignment.staffName || "Unchanged"} (no change)`);
+    keep.value = "";
+    personSelect.appendChild(keep);
+    personLabel.appendChild(personSelect);
+    grid.appendChild(personLabel);
+
+    box.appendChild(grid);
+
+    const warning = text("p", "dt-editor-note", "");
+    box.appendChild(warning);
+
+    const actions = text("div", "dt-editor-actions");
+    const save = text("button", "small-button", "Save changes");
+    save.type = "button";
+    const cancel = text("button", "small-button ghost", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", () => box.remove());
+    actions.appendChild(save);
+    actions.appendChild(cancel);
+    box.appendChild(actions);
+
+    // The people list is the same status-grouped one used for assigning, so a manager
+    // cannot quietly hand a job to somebody who is on leave without seeing that.
+    try {
+      const people = await window.staffSyncTasks.eligibleStaff(assignment.date, assignment.dueTime || "09:00");
+      const labels = {
+        onDutyBefore: "On duty", onDutyAfter: "On duty (later)", notArrived: "Rostered",
+        notRostered: "No roster", rosteredOff: "Rostered off", shortLeave: "Short leave",
+        halfDay: "Half day", finished: "Shift finished", onLeave: "On leave"
+      };
+      for (const [key, label] of Object.entries(labels)) {
+        const list = (people.groups && people.groups[key]) || [];
+        if (!list.length) continue;
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = label;
+        for (const person of list) {
+          const option = text("option", null, person.name);
+          option.value = person.id;
+          optgroup.appendChild(option);
+        }
+        personSelect.appendChild(optgroup);
+      }
+    } catch {
+      // Not fatal: the rest of the edit still works, the person just cannot be changed.
+    }
+
+    personSelect.addEventListener("change", () => {
+      warning.textContent = personSelect.value
+        ? "Moving this task to someone else resets it to Pending and clears the start and finish times."
+        : "";
+    });
+
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await window.staffSyncTasks.updateAssignment(assignment.id, {
+          title: titleInput.value,
+          date: daySelect.value,
+          dueTime: timeInput.value || null,
+          ...(personSelect.value ? { staffProfileId: personSelect.value } : {})
+        });
+        dateInput.value = daySelect.value;
+        await load(daySelect.value);
+        flash("ok", "Task updated.");
+      } catch (error) {
+        save.disabled = false;
+        flash("error", error.message || "Could not save that.");
+      }
+    });
+  }
+
+  // ---- Task messages ------------------------------------------------------------------
+
+  async function toggleThread(row, assignment, trigger) {
+    const open = row.querySelector(".dt-thread");
+    if (open) {
+      open.remove();
+      trigger.classList.remove("is-open");
+      return;
+    }
+
+    trigger.classList.add("is-open");
+    const thread = text("div", "dt-thread");
+    thread.appendChild(text("p", "dt-empty", "Loading\u2026"));
+    row.appendChild(thread);
+
+    async function draw() {
+      thread.textContent = "";
+      let payload;
+      try {
+        payload = await window.staffSyncTasks.listMessages(assignment.id);
+      } catch (error) {
+        thread.appendChild(text("p", "dt-empty", error.message || "Could not load messages."));
+        return;
+      }
+
+      const log = text("div", "dt-thread-log");
+      if (!payload.messages.length) {
+        log.appendChild(text("p", "dt-empty", "No messages yet. Ask a question or report a problem."));
+      } else {
+        for (const note of payload.messages) {
+          const bubble = text("div", `dt-msg is-${note.sender_side}`);
+          bubble.appendChild(text("p", "dt-msg-body", note.body));
+          bubble.appendChild(text("p", "dt-msg-meta",
+            `${note.sender_name || (note.sender_side === "manager" ? "Manager" : "Staff")} \u00b7 ${formatClock(note.created_at)}`));
+          log.appendChild(bubble);
+        }
+      }
+      thread.appendChild(log);
+      log.scrollTop = log.scrollHeight;
+
+      const form = text("div", "dt-thread-form");
+      const input = document.createElement("textarea");
+      input.rows = 2;
+      input.placeholder = isManager() ? "Reply to this person\u2026" : "Message your manager about this task\u2026";
+      form.appendChild(input);
+
+      const send = text("button", "small-button", "Send");
+      send.type = "button";
+      async function submit() {
+        const body = input.value.trim();
+        if (!body) return;
+        send.disabled = true;
+        try {
+          await window.staffSyncTasks.postMessage(assignment.id, body);
+          input.value = "";
+          await draw();
+          // Refresh the row's count badge without collapsing the thread the person is
+          // reading -- reloading the whole list here would close it under them.
+          assignment.messageCount = (assignment.messageCount || 0) + 1;
+          trigger.firstChild.textContent = `Messages (${assignment.messageCount})`;
+          trigger.classList.remove("has-unread");
+        } catch (error) {
+          flash("error", error.message || "Could not send that.");
+        } finally {
+          send.disabled = false;
+        }
+      }
+      send.addEventListener("click", submit);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); submit(); }
+      });
+      form.appendChild(send);
+      thread.appendChild(form);
+      input.focus();
+    }
+
+    draw();
+  }
+
   async function load(dateKey) {
     if (busy) return;
 
