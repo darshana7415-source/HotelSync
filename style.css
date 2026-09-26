@@ -4839,3 +4839,41 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
   .dt-msg { max-width: 92%; }
   .dt-thread-form { flex-direction: column; align-items: stretch; }
 }
+
+/* ---- Editing an assigned task -------------------------------------------------------- */
+
+.dt-editor {
+  flex: 1 0 100%;
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px dashed var(--line-strong);
+}
+
+.dt-editor-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.6fr;
+  gap: var(--s3);
+  align-items: end;
+}
+
+.dt-editor label { display: grid; gap: 5px; font-size: 0.75rem; font-weight: 650; color: var(--ink-2); }
+.dt-editor input, .dt-editor select { min-height: 38px; font-size: 0.875rem; }
+
+.dt-editor-note {
+  margin: var(--s3) 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--amber);
+  min-height: 1em;
+}
+
+.dt-editor-actions { display: flex; gap: var(--s2); margin-top: var(--s3); }
+
+/* Removing is permanent, so it does not look like the other buttons. */
+.dt-danger { color: var(--red); }
+.dt-danger:hover { background: var(--red-tint); }
+
+@media (max-width: 620px) {
+  .dt-editor-grid { grid-template-columns: 1fr; }
+  .dt-editor-actions button { flex: 1; }
+}

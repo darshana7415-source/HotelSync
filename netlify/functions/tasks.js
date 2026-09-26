@@ -579,6 +579,56 @@ exports.handler = async function handler(event) {
         return json(200, { ok: true });
       }
 
+      case "updateAssignment": {
+        if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
+        if (!payload.id) return json(400, { ok: false, message: "Which task?" });
+
+        const existing = await selectOne("task_assignments", { eq: { id: payload.id } });
+        if (!existing) return json(404, { ok: false, message: "That task no longer exists." });
+
+        const patch = {};
+        if (payload.title !== undefined) {
+          const title = String(payload.title || "").trim();
+          if (!title) return json(400, { ok: false, message: "A task needs a name." });
+          patch.title = title;
+        }
+        if (payload.area !== undefined) patch.area = payload.area ? String(payload.area).trim() : null;
+        if (payload.dueTime !== undefined) patch.due_time = payload.dueTime || null;
+
+        if (payload.date !== undefined && isValidDateKey(payload.date)) patch.task_date = payload.date;
+
+        // Handing the job to somebody else: the name is looked up server-side so the
+        // record cannot be relabelled from the page.
+        if (payload.staffProfileId !== undefined && payload.staffProfileId !== existing.staff_profile_id) {
+          const profile = await selectOne("staff_profiles", {
+            select: "full_name", eq: { id: payload.staffProfileId }
+          });
+          if (!profile) return json(400, { ok: false, message: "That person was not found." });
+          patch.staff_profile_id = payload.staffProfileId;
+          patch.staff_name = profile.full_name;
+          // Reassigning restarts the job: the new person has not started or finished it,
+          // and keeping the old person's timings against their name would be a lie.
+          patch.status = "pending";
+          patch.started_at = null;
+          patch.completed_at = null;
+          patch.completed_by_manager = false;
+        }
+
+        if (!Object.keys(patch).length) return json(200, { ok: true, data: existing });
+
+        try {
+          const rows = await updateRows("task_assignments", { eq: { id: payload.id }, patch });
+          return json(200, { ok: true, data: (rows && rows[0]) || null });
+        } catch (error) {
+          // The one-per-person-per-day rule surfaces here as a duplicate-key error, which
+          // means nothing to a manager. Say what actually happened.
+          if (String(error.message || "").includes("task_assignments_no_duplicates")) {
+            return json(409, { ok: false, message: "That person already has this task on that day." });
+          }
+          throw error;
+        }
+      }
+
       case "deleteAssignment": {
         if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
         if (!payload.id) return json(400, { ok: false, message: "Which task?" });

@@ -192,6 +192,12 @@
 
     if (isManager()) {
       const menu = text("div", "dt-row-admin");
+
+      const edit = text("button", "small-button ghost", "Edit");
+      edit.type = "button";
+      edit.addEventListener("click", () => toggleEditor(row, assignment));
+      menu.appendChild(edit);
+
       if (assignment.status === "done") {
         const reopen = text("button", "small-button ghost", "Reopen");
         reopen.type = "button";
@@ -202,17 +208,22 @@
           } catch (error) { flash("error", error.message); }
         });
         menu.appendChild(reopen);
-      } else {
-        const remove = text("button", "small-button ghost", "Remove");
-        remove.type = "button";
-        remove.addEventListener("click", async () => {
-          try {
-            await window.staffSyncTasks.deleteAssignment(assignment.id);
-            load();
-          } catch (error) { flash("error", error.message); }
-        });
-        menu.appendChild(remove);
       }
+
+      // Removing is available on completed tasks too -- a job assigned to the wrong
+      // person and ticked off by them still needs to be undoable.
+      const remove = text("button", "small-button ghost dt-danger", "Remove");
+      remove.type = "button";
+      remove.addEventListener("click", async () => {
+        if (!window.confirm(`Remove "${assignment.title}" from ${assignment.staffName || "this person"}? This cannot be undone.`)) return;
+        try {
+          await window.staffSyncTasks.deleteAssignment(assignment.id);
+          load();
+          flash("ok", "Task removed.");
+        } catch (error) { flash("error", error.message); }
+      });
+      menu.appendChild(remove);
+
       side.appendChild(menu);
     }
 
@@ -284,6 +295,119 @@
       for (const assignment of items) group.appendChild(renderAssignment(assignment, date, today));
       list.appendChild(group);
     }
+  }
+
+  // ---- Editing an assigned task (managers) ---------------------------------------------
+  //
+  // Expands inside the row, like the message thread, so the change is made against the
+  // task you are looking at rather than in a dialog that hides it.
+
+  async function toggleEditor(row, assignment) {
+    const open = row.querySelector(".dt-editor");
+    if (open) { open.remove(); return; }
+    row.querySelector(".dt-thread")?.remove();
+
+    const box = text("div", "dt-editor");
+    row.appendChild(box);
+
+    const grid = text("div", "dt-editor-grid");
+
+    const titleLabel = text("label", null, "Task");
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = assignment.title || "";
+    titleLabel.appendChild(titleInput);
+    grid.appendChild(titleLabel);
+
+    const dayLabel = text("label", null, "Day");
+    const daySelect = document.createElement("select");
+    for (const [value, name] of [[colomboToday(), "Today"], [colomboTomorrow(), "Tomorrow"]]) {
+      const option = text("option", null, name);
+      option.value = value;
+      daySelect.appendChild(option);
+    }
+    daySelect.value = assignment.date;
+    dayLabel.appendChild(daySelect);
+    grid.appendChild(dayLabel);
+
+    const timeLabel = text("label", null, "By");
+    const timeInput = document.createElement("input");
+    timeInput.type = "time";
+    timeInput.value = assignment.dueTime || "";
+    timeLabel.appendChild(timeInput);
+    grid.appendChild(timeLabel);
+
+    const personLabel = text("label", null, "Assigned to");
+    const personSelect = document.createElement("select");
+    const keep = text("option", null, `${assignment.staffName || "Unchanged"} (no change)`);
+    keep.value = "";
+    personSelect.appendChild(keep);
+    personLabel.appendChild(personSelect);
+    grid.appendChild(personLabel);
+
+    box.appendChild(grid);
+
+    const warning = text("p", "dt-editor-note", "");
+    box.appendChild(warning);
+
+    const actions = text("div", "dt-editor-actions");
+    const save = text("button", "small-button", "Save changes");
+    save.type = "button";
+    const cancel = text("button", "small-button ghost", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", () => box.remove());
+    actions.appendChild(save);
+    actions.appendChild(cancel);
+    box.appendChild(actions);
+
+    // The people list is the same status-grouped one used for assigning, so a manager
+    // cannot quietly hand a job to somebody who is on leave without seeing that.
+    try {
+      const people = await window.staffSyncTasks.eligibleStaff(assignment.date, assignment.dueTime || "09:00");
+      const labels = {
+        onDutyBefore: "On duty", onDutyAfter: "On duty (later)", notArrived: "Rostered",
+        notRostered: "No roster", rosteredOff: "Rostered off", shortLeave: "Short leave",
+        halfDay: "Half day", finished: "Shift finished", onLeave: "On leave"
+      };
+      for (const [key, label] of Object.entries(labels)) {
+        const list = (people.groups && people.groups[key]) || [];
+        if (!list.length) continue;
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = label;
+        for (const person of list) {
+          const option = text("option", null, person.name);
+          option.value = person.id;
+          optgroup.appendChild(option);
+        }
+        personSelect.appendChild(optgroup);
+      }
+    } catch {
+      // Not fatal: the rest of the edit still works, the person just cannot be changed.
+    }
+
+    personSelect.addEventListener("change", () => {
+      warning.textContent = personSelect.value
+        ? "Moving this task to someone else resets it to Pending and clears the start and finish times."
+        : "";
+    });
+
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        await window.staffSyncTasks.updateAssignment(assignment.id, {
+          title: titleInput.value,
+          date: daySelect.value,
+          dueTime: timeInput.value || null,
+          ...(personSelect.value ? { staffProfileId: personSelect.value } : {})
+        });
+        dateInput.value = daySelect.value;
+        await load(daySelect.value);
+        flash("ok", "Task updated.");
+      } catch (error) {
+        save.disabled = false;
+        flash("error", error.message || "Could not save that.");
+      }
+    });
   }
 
   // ---- Task messages ------------------------------------------------------------------

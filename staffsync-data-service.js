@@ -1195,6 +1195,9 @@ window.staffSyncTasks = {
   reopenAssignment(id) {
     return callTaskFunction({ action: "reopenAssignment", id });
   },
+  updateAssignment(id, changes) {
+    return callTaskFunction({ action: "updateAssignment", id, ...changes });
+  },
   deleteAssignment(id) {
     return callTaskFunction({ action: "deleteAssignment", id });
   },
