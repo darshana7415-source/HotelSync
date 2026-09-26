@@ -4691,3 +4691,57 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
 .tone-half    > summary .dt-group-name,
 .tone-leave   > summary .dt-group-name { color: var(--ink-2); }
 .tone-finished > summary .dt-group-name { color: var(--muted); }
+
+/* ---- Two new picker tones ---------------------------------------------------------- */
+.tone-unknown { border-left-color: var(--faint); }
+.tone-unknown .dt-group-dot { background: var(--faint); }
+/* "The roster says they are off" is a softer fact than "they have approved leave", so it
+   gets its own tone rather than being lumped in with real leave. */
+.tone-off { border-left-color: #b8791b; }
+.tone-off .dt-group-dot { background: #b8791b; }
+
+/* ---- In-progress state ------------------------------------------------------------- */
+.dt-task.is-working { border-left: 3px solid var(--blue); }
+.dt-working { background: var(--blue-tint); color: var(--blue); }
+.dt-task-with { margin: 2px 0 0; font-size: 0.8125rem; color: var(--ink-2); font-weight: 600; }
+.dt-start { background: var(--surface); color: var(--brand); border: 1px solid var(--brand); }
+.dt-start:hover { background: var(--brand-tint); }
+
+/* ---- Task library ------------------------------------------------------------------ */
+
+.dt-library { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.dt-library-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.dt-library-head h3 { margin: 0; font-size: 1rem; }
+
+.dt-library-list { margin: var(--s3) 0 var(--s5); }
+
+.dt-library-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: var(--s2);
+  background: var(--surface);
+}
+
+.dt-library-info { flex: 1 1 auto; min-width: 0; display: grid; }
+.dt-library-title { font-size: 0.875rem; font-weight: 650; color: var(--ink); }
+.dt-library-meta { font-size: 0.8125rem; color: var(--muted); }
+.dt-library-row-actions { display: flex; gap: var(--s2); flex: none; }
+
+.dt-library-form {
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+.dt-library-form h4 { margin: 0 0 var(--s3); font-size: 0.875rem; }
+.dt-library-form .dt-assign-row + .dt-assign-row { margin-top: var(--s3); }
+.dt-library-actions { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s4); }
+
+@media (max-width: 620px) {
+  .dt-library-row { flex-direction: column; align-items: stretch; }
+  .dt-library-row-actions button { flex: 1; }
+}

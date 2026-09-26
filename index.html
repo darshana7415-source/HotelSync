@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=328">
+  <link rel="stylesheet" href="style.css?v=329">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -449,6 +449,41 @@
           <div id="dt-assign-people" class="dt-assign-people"></div>
 
           <button class="dt-assign-submit" id="dt-assign-submit" type="button">Assign task</button>
+        </div>
+
+        <!-- The library of standing jobs. Editing here changes what is offered when
+             assigning; it never rewrites tasks already handed out, because those are a
+             record of what people were actually told to do. -->
+        <div class="dt-library" id="dt-library" hidden>
+          <div class="dt-library-head">
+            <h3>Task list</h3>
+            <button class="small-button ghost" id="dt-library-toggle" type="button">Show</button>
+          </div>
+          <div id="dt-library-body" hidden>
+            <p class="dt-assign-hint">These are the jobs you can pick from when assigning.
+              Changing one here does not change tasks already assigned.</p>
+            <div id="dt-library-list" class="dt-library-list"></div>
+
+            <div class="dt-library-form">
+              <h4 id="dt-library-form-title">Add a task</h4>
+              <div class="dt-assign-row">
+                <label>Name<input type="text" id="dt-lib-title" placeholder="Clean the pool"></label>
+                <label>Area<input type="text" id="dt-lib-area" placeholder="Pool"></label>
+                <label>Usually by<input type="time" id="dt-lib-end" value="09:00"></label>
+              </div>
+              <div class="dt-assign-row">
+                <label>Department
+                  <select id="dt-lib-department"></select>
+                </label>
+                <label>Takes about (min)<input type="number" id="dt-lib-minutes" min="1" max="600" placeholder="30"></label>
+                <label>From<input type="time" id="dt-lib-start" value="06:00"></label>
+              </div>
+              <div class="dt-library-actions">
+                <button class="dt-assign-submit" id="dt-lib-save" type="button">Save task</button>
+                <button class="small-button ghost" id="dt-lib-cancel" type="button" hidden>Cancel edit</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1172,9 +1207,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=326"></script>
+  <script src="staffsync-data-service.js?v=329"></script>
   <script src="app.js?v=324"></script>
-  <script src="daily-tasks.js?v=328"></script>
+  <script src="daily-tasks.js?v=329"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>

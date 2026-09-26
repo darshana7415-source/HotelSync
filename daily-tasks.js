@@ -137,7 +137,15 @@
     side.appendChild(text("span", `dt-chip dt-${state}`, STATE_LABEL[state]));
 
     if (assignment.status !== "done" && (assignment.mine || isManager())) {
-      const button = text("button", "dt-tick", assignment.mine ? "Complete" : "Mark complete");
+      // Start and Finish are two presses on purpose: the gap between them is the only
+      // honest measure of how long the job actually took.
+      if (!assignment.startedAt) {
+        const startButton = text("button", "dt-tick dt-start", "Start");
+        startButton.type = "button";
+        startButton.addEventListener("click", () => startAssignment(assignment, startButton));
+        side.appendChild(startButton);
+      }
+      const button = text("button", "dt-tick", assignment.startedAt ? "Finish" : "Mark done");
       button.type = "button";
       button.addEventListener("click", () => completeAssignment(assignment, button));
       side.appendChild(button);
@@ -223,7 +231,17 @@
       list.appendChild(text("p", "dt-empty", "Sign in to see today's tasks."));
       progress.hidden = true;
       assignWrap.hidden = true;
+      libraryWrap.hidden = true;
       return;
+    }
+
+    // Show the manager tools on role alone. Tying them to a successful fetch meant one
+    // failed request hid the only way to assign anything, with no hint it existed.
+    if (isManager()) {
+      assignWrap.hidden = false;
+      libraryWrap.hidden = false;
+      buildAssignForm();
+      buildLibrary();
     }
 
     busy = true;
@@ -236,6 +254,7 @@
       dateInput.value = payload.date;
       render(payload);
       assignWrap.hidden = !payload.canAssign;
+      libraryWrap.hidden = !payload.canAssign;
       assignButton.hidden = !payload.canAssign;
       if (payload.canAssign) buildAssignForm();
     } catch (error) {
@@ -244,6 +263,19 @@
     } finally {
       busy = false;
       list.removeAttribute("aria-busy");
+    }
+  }
+
+  async function startAssignment(assignment, button) {
+    button.disabled = true;
+    button.textContent = "\u2026";
+    try {
+      await window.staffSyncTasks.startAssignment(assignment.id);
+      await load();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Start";
+      flash("error", error.message || "Could not start that.");
     }
   }
 
@@ -426,6 +458,165 @@
     } finally {
       button.disabled = false;
       button.textContent = "Assign task";
+    }
+  }
+
+  // ---- Task library (admin and manager) ----------------------------------------------
+  //
+  // Editing a library entry changes what is offered when assigning. It deliberately does
+  // NOT rewrite tasks already handed out: those are the record of what someone was
+  // actually told to do, and rewriting history is how a log stops being evidence.
+
+  const libraryWrap = el("#dt-library");
+  let libraryBuilt = false;
+  let editingId = null;
+
+  async function buildLibrary() {
+    if (libraryBuilt) return;
+    libraryBuilt = true;
+
+    el("#dt-library-toggle").addEventListener("click", () => {
+      const body = el("#dt-library-body");
+      body.hidden = !body.hidden;
+      el("#dt-library-toggle").textContent = body.hidden ? "Show" : "Hide";
+      if (!body.hidden) renderLibrary();
+    });
+
+    el("#dt-lib-save").addEventListener("click", saveLibraryTask);
+    el("#dt-lib-cancel").addEventListener("click", () => clearLibraryForm());
+
+    // Departments come from the task list itself, so this works without depending on any
+    // other part of the app being loaded first.
+    const select = el("#dt-lib-department");
+    select.textContent = "";
+    const none = text("option", null, "Any department");
+    none.value = "";
+    select.appendChild(none);
+    try {
+      const payload = await window.staffSyncTasks.listDefinitions();
+      const seen = new Map();
+      for (const definition of payload.definitions) {
+        if (definition.department_id && definition.departments) {
+          seen.set(definition.department_id, definition.departments.name);
+        }
+      }
+      for (const [id, name] of seen) {
+        const option = text("option", null, name);
+        option.value = id;
+        select.appendChild(option);
+      }
+    } catch {
+      // A task with no department still works, so this is not worth failing over.
+    }
+  }
+
+  async function renderLibrary() {
+    const holder = el("#dt-library-list");
+    holder.textContent = "";
+    holder.appendChild(text("p", "dt-empty", "Loading\u2026"));
+    try {
+      const payload = await window.staffSyncTasks.listDefinitions();
+      libraryCache = payload.definitions;
+      holder.textContent = "";
+
+      const active = libraryCache.filter((d) => d.active);
+      if (!active.length) {
+        holder.appendChild(text("p", "dt-empty", "No tasks yet. Add one below."));
+        return;
+      }
+
+      for (const definition of active) {
+        const row = text("div", "dt-library-row");
+        const info = text("div", "dt-library-info");
+        info.appendChild(text("span", "dt-library-title", definition.title));
+        info.appendChild(text("span", "dt-library-meta", [
+          definition.area,
+          definition.departments ? definition.departments.name : null,
+          String(definition.window_start).slice(0, 5) + "\u2013" + String(definition.window_end).slice(0, 5),
+          definition.expected_minutes ? "~" + definition.expected_minutes + " min" : null
+        ].filter(Boolean).join(" \u00b7 ")));
+        row.appendChild(info);
+
+        const actions = text("div", "dt-library-row-actions");
+        const edit = text("button", "small-button ghost", "Edit");
+        edit.type = "button";
+        edit.addEventListener("click", () => fillLibraryForm(definition));
+        actions.appendChild(edit);
+
+        const remove = text("button", "small-button ghost", "Remove");
+        remove.type = "button";
+        remove.addEventListener("click", async () => {
+          try {
+            await window.staffSyncTasks.deleteDefinition(definition.id);
+            await renderLibrary();
+            assignBuilt = false;
+            await buildAssignForm();
+            flash("ok", definition.title + " removed from the list.");
+          } catch (error) { flash("error", error.message); }
+        });
+        actions.appendChild(remove);
+        row.appendChild(actions);
+        holder.appendChild(row);
+      }
+    } catch (error) {
+      holder.textContent = "";
+      holder.appendChild(text("p", "dt-empty", error.message || "Could not load the task list."));
+    }
+  }
+
+  function fillLibraryForm(definition) {
+    editingId = definition.id;
+    el("#dt-library-form-title").textContent = "Edit task";
+    el("#dt-lib-title").value = definition.title || "";
+    el("#dt-lib-area").value = definition.area || "";
+    el("#dt-lib-start").value = String(definition.window_start || "06:00").slice(0, 5);
+    el("#dt-lib-end").value = String(definition.window_end || "09:00").slice(0, 5);
+    el("#dt-lib-minutes").value = definition.expected_minutes || "";
+    el("#dt-lib-department").value = definition.department_id || "";
+    el("#dt-lib-cancel").hidden = false;
+    el("#dt-lib-save").textContent = "Save changes";
+    el("#dt-lib-title").focus();
+  }
+
+  function clearLibraryForm() {
+    editingId = null;
+    el("#dt-library-form-title").textContent = "Add a task";
+    el("#dt-lib-title").value = "";
+    el("#dt-lib-area").value = "";
+    el("#dt-lib-start").value = "06:00";
+    el("#dt-lib-end").value = "09:00";
+    el("#dt-lib-minutes").value = "";
+    el("#dt-lib-department").value = "";
+    el("#dt-lib-cancel").hidden = true;
+    el("#dt-lib-save").textContent = "Save task";
+  }
+
+  async function saveLibraryTask() {
+    const button = el("#dt-lib-save");
+    const title = el("#dt-lib-title").value.trim();
+    if (!title) return flash("error", "Give the task a name.");
+
+    button.disabled = true;
+    try {
+      await window.staffSyncTasks.saveDefinition({
+        id: editingId || undefined,
+        title,
+        area: el("#dt-lib-area").value.trim(),
+        departmentId: el("#dt-lib-department").value || null,
+        windowStart: el("#dt-lib-start").value || "06:00",
+        windowEnd: el("#dt-lib-end").value || "18:00",
+        expectedMinutes: el("#dt-lib-minutes").value || null
+      });
+      clearLibraryForm();
+      await renderLibrary();
+      // The assign dropdown is built once, so rebuild it or a new task is not pickable.
+      assignBuilt = false;
+      await buildAssignForm();
+      flash("ok", title + " saved.");
+    } catch (error) {
+      flash("error", error.message || "Could not save that.");
+    } finally {
+      button.disabled = false;
     }
   }
 

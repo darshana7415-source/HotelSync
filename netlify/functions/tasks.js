@@ -392,11 +392,21 @@ exports.handler = async function handler(event) {
         const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
         const rows = await restRequest("task_assignments", {
           query: {
-            select: "id,task_id,title,area,task_date,due_time,staff_profile_id,staff_name,status,note,assigned_by_name,assigned_at,completed_at,completed_by_manager",
+            select: "id,task_id,title,area,task_date,due_time,staff_profile_id,staff_name,status,note,assigned_by_name,assigned_at,started_at,completed_at,completed_by_manager",
             task_date: `eq.${dateKey}`,
             order: "due_time.asc,title.asc"
           }
         });
+
+        // Whoever else was given the same job at the same time. A cleaner needs to know
+        // whether they are doing the pool alone or with two other people.
+        const partnersFor = (row) => rows
+          .filter((other) =>
+            other.id !== row.id &&
+            other.title === row.title &&
+            String(other.due_time || "") === String(row.due_time || ""))
+          .map((other) => other.staff_name)
+          .filter(Boolean);
 
         // Staff see only what was given to them. A cleaner does not need a list of
         // everyone else's jobs, and showing it invites "that was not mine".
@@ -421,11 +431,33 @@ exports.handler = async function handler(event) {
             status: row.status,
             note: row.note,
             assignedBy: row.assigned_by_name,
+            partners: partnersFor(row),
+            startedAt: row.started_at,
             completedAt: row.completed_at,
             completedByManager: row.completed_by_manager,
             mine: row.staff_profile_id === claims.staffProfileId
           }))
         });
+      }
+
+      case "startAssignment": {
+        if (!payload.id) return json(400, { ok: false, message: "Which task?" });
+
+        const existing = await selectOne("task_assignments", { eq: { id: payload.id } });
+        if (!existing) return json(404, { ok: false, message: "That task no longer exists." });
+
+        const mine = existing.staff_profile_id && existing.staff_profile_id === claims.staffProfileId;
+        if (!mine && !isManager(claims)) {
+          return json(403, { ok: false, message: "That task was given to someone else." });
+        }
+        // Pressing Start twice must not reset the clock and lose the real elapsed time.
+        if (existing.started_at) return json(200, { ok: true, data: existing });
+
+        const rows = await updateRows("task_assignments", {
+          eq: { id: payload.id },
+          patch: { status: "in_progress", started_at: new Date().toISOString() }
+        });
+        return json(200, { ok: true, data: (rows && rows[0]) || null });
       }
 
       case "completeAssignment": {
@@ -434,6 +466,8 @@ exports.handler = async function handler(event) {
         const existing = await selectOne("task_assignments", { eq: { id: payload.id } });
         if (!existing) return json(404, { ok: false, message: "That task no longer exists." });
         if (existing.status === "done") return json(200, { ok: true, alreadyDone: true });
+        // Completing without having pressed Start is allowed -- people forget, and
+        // refusing the completion would lose the more important fact.
 
         // The point of the pending state is that the person who was given the job is the
         // one who closes it. A manager can still close it, but the record says so.
@@ -459,7 +493,7 @@ exports.handler = async function handler(event) {
         if (!payload.id) return json(400, { ok: false, message: "Which task?" });
         await updateRows("task_assignments", {
           eq: { id: payload.id },
-          patch: { status: "pending", completed_at: null, completed_by_manager: false }
+          patch: { status: "pending", started_at: null, completed_at: null, completed_by_manager: false }
         });
         return json(200, { ok: true });
       }
@@ -625,7 +659,8 @@ exports.handler = async function handler(event) {
 
         const groups = {
           onDutyBefore: [], onDutyAfter: [], finished: [],
-          notArrived: [], shortLeave: [], halfDay: [], onLeave: []
+          notArrived: [], notRostered: [], shortLeave: [], halfDay: [],
+          rosteredOff: [], onLeave: []
         };
 
         for (const profile of profiles) {
@@ -669,17 +704,31 @@ exports.handler = async function handler(event) {
             continue;
           }
 
-          // No scan and no leave. Tomorrow has no attendance at all, and at 05:30 today
-          // nobody has scanned yet -- the roster is what is left to go on.
-          if (planned && String(planned.day_status || "").toLowerCase() === "leave") {
+          // No scan and no approved leave. Tomorrow has no attendance at all, and at 05:30
+          // today nobody has scanned yet, so the roster is what is left to go on.
+          const rosterSaysOff = planned && (
+            String(planned.day_status || "").toLowerCase() === "leave" ||
+            String(planned.shift_name || "").toLowerCase() === "leave"
+          );
+
+          if (rosterSaysOff) {
+            // Kept apart from real approved leave. "The roster has them down as off" and
+            // "they have an approved leave request" are different facts, and only the
+            // second one is a hard no.
             entry.detail = "Rostered off";
-            groups.onLeave.push(entry);
+            groups.rosteredOff.push(entry);
           } else if (planned) {
             entry.inAt = planned.in_time ? String(planned.in_time).slice(0, 5) : null;
             entry.detail = planned.shift_name
               ? `${planned.shift_name}${entry.inAt ? ` from ${entry.inAt}` : ""}`
               : (entry.inAt ? `rostered ${entry.inAt}` : "rostered");
             groups.notArrived.push(entry);
+          } else {
+            // The case that was silently dropping people: no scan, no leave, no roster.
+            // For tomorrow that is almost everyone, because the roster is usually entered
+            // late -- so they have to be assignable, not invisible.
+            entry.detail = "No roster saved yet";
+            groups.notRostered.push(entry);
           }
         }
 
