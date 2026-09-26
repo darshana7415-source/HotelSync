@@ -96,6 +96,9 @@
   // Keeping it visually distinct is what turns the list into something worth checking.
   function stateOf(assignment, dateKey, todayKey) {
     if (assignment.status === "done") return "done";
+    // Someone who has pressed Start is working on it right now. Calling that "overdue"
+    // because the clock passed the due time is both wrong and demoralising.
+    if (assignment.status === "in_progress") return "working";
     if (dateKey < todayKey) return "overdue";
     if (dateKey > todayKey) return "pending";
     const due = timeToMinutes(assignment.dueTime);
@@ -103,7 +106,15 @@
     return "pending";
   }
 
-  const STATE_LABEL = { done: "Completed", pending: "Pending", overdue: "Overdue" };
+  const STATE_LABEL = { done: "Completed", working: "In progress", pending: "Pending", overdue: "Overdue" };
+
+  function elapsed(fromIso, toIso) {
+    if (!fromIso) return null;
+    const minutes = Math.round((new Date(toIso || Date.now()) - new Date(fromIso)) / 60000);
+    if (minutes < 1) return "just started";
+    if (minutes < 60) return minutes + " min";
+    return Math.floor(minutes / 60) + "h " + String(minutes % 60).padStart(2, "0") + "m";
+  }
 
   // ---- Task list ---------------------------------------------------------------------
 
@@ -123,11 +134,26 @@
     meta.textContent = bits.join(" · ");
     main.appendChild(meta);
 
-    if (assignment.status === "done") {
+    // Doing a job alone and doing it with three other people are different jobs. Saying
+    // which also stops two people each waiting for the other to start.
+    const partners = assignment.partners || [];
+    main.appendChild(text("p", "dt-task-with",
+      partners.length ? "With " + partners.join(", ") : "On your own"));
+
+    if (assignment.startedAt || assignment.status === "done") {
       const by = text("p", "dt-task-by");
-      by.textContent = assignment.completedByManager
-        ? `Completed ${formatClock(assignment.completedAt)} · recorded by a manager`
-        : `Completed ${formatClock(assignment.completedAt)}`;
+      const parts = [];
+      if (assignment.startedAt) parts.push("Started " + formatClock(assignment.startedAt));
+      if (assignment.status === "done") {
+        parts.push("finished " + formatClock(assignment.completedAt));
+        const took = elapsed(assignment.startedAt, assignment.completedAt);
+        if (took) parts.push("took " + took);
+        if (assignment.completedByManager) parts.push("recorded by a manager");
+      } else {
+        const running = elapsed(assignment.startedAt, null);
+        if (running) parts.push("running " + running);
+      }
+      by.textContent = parts.join(" · ");
       main.appendChild(by);
     }
 
