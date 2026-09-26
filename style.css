@@ -4877,3 +4877,35 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
   .dt-editor-grid { grid-template-columns: 1fr; }
   .dt-editor-actions button { flex: 1; }
 }
+
+/* ---- Day sections in the task list ---------------------------------------------------
+   The list covers today and tomorrow together. Showing one day at a time meant a task
+   scheduled for tomorrow was invisible on the page you land on, which reads as though
+   the assignment never saved. */
+
+.dt-day + .dt-day { margin-top: var(--s6); }
+
+.dt-day-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0 0 var(--s3);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.dt-day-date { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
+
+.dt-day-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+}

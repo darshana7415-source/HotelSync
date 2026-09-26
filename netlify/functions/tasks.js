@@ -390,11 +390,18 @@ exports.handler = async function handler(event) {
       // ---- Assignments: a task given to a named person for a specific day ----------
       case "listAssignments": {
         const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
+        // Tasks can be scheduled for today or tomorrow, so the list shows both. Showing
+        // one day at a time meant a task assigned for tomorrow was invisible on the page
+        // you land on, which reads as "the assignment did not save".
+        const nextDay = new Date(`${dateKey}T00:00:00Z`);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        const nextKey = nextDay.toISOString().slice(0, 10);
+
         const rows = await restRequest("task_assignments", {
           query: {
             select: "id,task_id,title,area,task_date,due_time,staff_profile_id,staff_name,status,note,assigned_by_name,assigned_at,started_at,completed_at,completed_by_manager",
-            task_date: `eq.${dateKey}`,
-            order: "due_time.asc,title.asc"
+            and: `(task_date.gte.${dateKey},task_date.lte.${nextKey})`,
+            order: "task_date.asc,due_time.asc,title.asc"
           }
         });
 
@@ -425,6 +432,7 @@ exports.handler = async function handler(event) {
           .filter((other) =>
             other.id !== row.id &&
             other.title === row.title &&
+            other.task_date === row.task_date &&
             String(other.due_time || "") === String(row.due_time || ""))
           .map((other) => other.staff_name)
           .filter(Boolean);
@@ -438,6 +446,7 @@ exports.handler = async function handler(event) {
         return json(200, {
           ok: true,
           date: dateKey,
+          nextDate: nextKey,
           today: todayKey,
           nowMinutes,
           canAssign: isManager(claims),
