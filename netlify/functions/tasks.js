@@ -398,6 +398,27 @@ exports.handler = async function handler(event) {
           }
         });
 
+        // Message counts come back with the list rather than one request per task -- a
+        // manager with thirty assignments should not fire thirty requests to find out
+        // which ones have a question waiting.
+        const messages = rows.length
+          ? await restRequest("task_messages", {
+              query: {
+                select: "assignment_id,sender_side,created_at",
+                assignment_id: `in.(${rows.map((r) => r.id).join(",")})`,
+                order: "created_at.asc"
+              }
+            })
+          : [];
+
+        const messageInfo = new Map();
+        for (const note of messages) {
+          const info = messageInfo.get(note.assignment_id) || { count: 0, lastSide: null };
+          info.count += 1;
+          info.lastSide = note.sender_side;
+          messageInfo.set(note.assignment_id, info);
+        }
+
         // Whoever else was given the same job at the same time. A cleaner needs to know
         // whether they are doing the pool alone or with two other people.
         const partnersFor = (row) => rows
@@ -432,12 +453,72 @@ exports.handler = async function handler(event) {
             note: row.note,
             assignedBy: row.assigned_by_name,
             partners: partnersFor(row),
+            messageCount: (messageInfo.get(row.id) || {}).count || 0,
+            lastMessageSide: (messageInfo.get(row.id) || {}).lastSide || null,
             startedAt: row.started_at,
             completedAt: row.completed_at,
             completedByManager: row.completed_by_manager,
             mine: row.staff_profile_id === claims.staffProfileId
           }))
         });
+      }
+
+      // ---- Messages on a task ------------------------------------------------------
+      case "listMessages": {
+        if (!payload.assignmentId) return json(400, { ok: false, message: "Which task?" });
+
+        const assignment = await selectOne("task_assignments", { eq: { id: payload.assignmentId } });
+        if (!assignment) return json(404, { ok: false, message: "That task no longer exists." });
+
+        // Staff can only open the thread on a task that is theirs. Otherwise the message
+        // list becomes a way to read everyone else's conversations.
+        const mine = assignment.staff_profile_id && assignment.staff_profile_id === claims.staffProfileId;
+        if (!mine && !isManager(claims)) {
+          return json(403, { ok: false, message: "That task was given to someone else." });
+        }
+
+        const rows = await restRequest("task_messages", {
+          query: {
+            select: "id,sender_name,sender_side,body,created_at",
+            assignment_id: `eq.${payload.assignmentId}`,
+            order: "created_at.asc"
+          }
+        });
+        return json(200, { ok: true, messages: rows, title: assignment.title, staffName: assignment.staff_name });
+      }
+
+      case "postMessage": {
+        if (!payload.assignmentId) return json(400, { ok: false, message: "Which task?" });
+        const body = String(payload.body || "").trim();
+        if (!body) return json(400, { ok: false, message: "Type a message first." });
+
+        const assignment = await selectOne("task_assignments", { eq: { id: payload.assignmentId } });
+        if (!assignment) return json(404, { ok: false, message: "That task no longer exists." });
+
+        const mine = assignment.staff_profile_id && assignment.staff_profile_id === claims.staffProfileId;
+        if (!mine && !isManager(claims)) {
+          return json(403, { ok: false, message: "That task was given to someone else." });
+        }
+
+        // The name on a message comes from the signed session, never from the page, so
+        // nobody can post as somebody else.
+        let senderName = null;
+        if (claims.staffProfileId) {
+          const profile = await selectOne("staff_profiles", {
+            select: "full_name", eq: { id: claims.staffProfileId }
+          });
+          senderName = profile ? profile.full_name : null;
+        }
+        if (!senderName && isManager(claims)) senderName = claims.role === "admin" ? "Admin" : "Manager";
+
+        const row = await insertRow("task_messages", {
+          assignment_id: payload.assignmentId,
+          sender_profile_id: claims.staffProfileId || null,
+          sender_name: senderName,
+          sender_side: isManager(claims) && !mine ? "manager" : "staff",
+          body: body.slice(0, 1000)
+        });
+        return json(200, { ok: true, data: row });
       }
 
       case "startAssignment": {

@@ -151,6 +151,19 @@
       side.appendChild(button);
     }
 
+    // One thread per task. A question about the pool pump belongs against the pool job,
+    // not in a group chat where it is lost by the afternoon.
+    const talk = text("button", "dt-talk", null);
+    talk.type = "button";
+    talk.appendChild(text("span", null, assignment.messageCount ? `Messages (${assignment.messageCount})` : "Message"));
+    // A dot when the last word came from the other side -- something is waiting on you.
+    const waitingOnMe = assignment.messageCount && (
+      isManager() ? assignment.lastMessageSide === "staff" : assignment.lastMessageSide === "manager"
+    );
+    if (waitingOnMe) talk.classList.add("has-unread");
+    talk.addEventListener("click", () => toggleThread(row, assignment, talk));
+    side.appendChild(talk);
+
     if (isManager()) {
       const menu = text("div", "dt-row-admin");
       if (assignment.status === "done") {
@@ -220,7 +233,110 @@
       return String(a.dueTime || "").localeCompare(String(b.dueTime || ""));
     });
 
-    for (const assignment of sorted) list.appendChild(renderAssignment(assignment, date, today));
+    if (!isManager()) {
+      for (const assignment of sorted) list.appendChild(renderAssignment(assignment, date, today));
+      return;
+    }
+
+    // A manager looking at thirty rows needs them under the person responsible, otherwise
+    // "who still has not done anything today" takes a minute of reading to answer.
+    const byPerson = new Map();
+    for (const assignment of sorted) {
+      const key = assignment.staffName || "Unassigned";
+      if (!byPerson.has(key)) byPerson.set(key, []);
+      byPerson.get(key).push(assignment);
+    }
+
+    for (const [name, items] of byPerson) {
+      const group = text("div", "dt-person-group");
+      const outstanding = items.filter((a) => a.status !== "done").length;
+      const header = text("p", "dt-group-title");
+      header.appendChild(text("span", null, name));
+      header.appendChild(text("span", outstanding ? "dt-person-tally is-open" : "dt-person-tally",
+        outstanding ? `${outstanding} outstanding` : "all done"));
+      group.appendChild(header);
+      for (const assignment of items) group.appendChild(renderAssignment(assignment, date, today));
+      list.appendChild(group);
+    }
+  }
+
+  // ---- Task messages ------------------------------------------------------------------
+
+  async function toggleThread(row, assignment, trigger) {
+    const open = row.querySelector(".dt-thread");
+    if (open) {
+      open.remove();
+      trigger.classList.remove("is-open");
+      return;
+    }
+
+    trigger.classList.add("is-open");
+    const thread = text("div", "dt-thread");
+    thread.appendChild(text("p", "dt-empty", "Loading\u2026"));
+    row.appendChild(thread);
+
+    async function draw() {
+      thread.textContent = "";
+      let payload;
+      try {
+        payload = await window.staffSyncTasks.listMessages(assignment.id);
+      } catch (error) {
+        thread.appendChild(text("p", "dt-empty", error.message || "Could not load messages."));
+        return;
+      }
+
+      const log = text("div", "dt-thread-log");
+      if (!payload.messages.length) {
+        log.appendChild(text("p", "dt-empty", "No messages yet. Ask a question or report a problem."));
+      } else {
+        for (const note of payload.messages) {
+          const bubble = text("div", `dt-msg is-${note.sender_side}`);
+          bubble.appendChild(text("p", "dt-msg-body", note.body));
+          bubble.appendChild(text("p", "dt-msg-meta",
+            `${note.sender_name || (note.sender_side === "manager" ? "Manager" : "Staff")} \u00b7 ${formatClock(note.created_at)}`));
+          log.appendChild(bubble);
+        }
+      }
+      thread.appendChild(log);
+      log.scrollTop = log.scrollHeight;
+
+      const form = text("div", "dt-thread-form");
+      const input = document.createElement("textarea");
+      input.rows = 2;
+      input.placeholder = isManager() ? "Reply to this person\u2026" : "Message your manager about this task\u2026";
+      form.appendChild(input);
+
+      const send = text("button", "small-button", "Send");
+      send.type = "button";
+      async function submit() {
+        const body = input.value.trim();
+        if (!body) return;
+        send.disabled = true;
+        try {
+          await window.staffSyncTasks.postMessage(assignment.id, body);
+          input.value = "";
+          await draw();
+          // Refresh the row's count badge without collapsing the thread the person is
+          // reading -- reloading the whole list here would close it under them.
+          assignment.messageCount = (assignment.messageCount || 0) + 1;
+          trigger.firstChild.textContent = `Messages (${assignment.messageCount})`;
+          trigger.classList.remove("has-unread");
+        } catch (error) {
+          flash("error", error.message || "Could not send that.");
+        } finally {
+          send.disabled = false;
+        }
+      }
+      send.addEventListener("click", submit);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); submit(); }
+      });
+      form.appendChild(send);
+      thread.appendChild(form);
+      input.focus();
+    }
+
+    draw();
   }
 
   async function load(dateKey) {

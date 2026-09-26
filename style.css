@@ -4745,3 +4745,97 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
   .dt-library-row { flex-direction: column; align-items: stretch; }
   .dt-library-row-actions button { flex: 1; }
 }
+
+/* ---- Task messages ------------------------------------------------------------------
+   The thread expands inside the task row rather than opening a modal: the question and
+   the job it is about should never be on separate screens. */
+
+.dt-task { flex-wrap: wrap; }
+
+.dt-talk {
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-height: 34px;
+  position: relative;
+}
+.dt-talk:hover { background: var(--surface-sunken); color: var(--ink); border-color: var(--brand); }
+.dt-talk.is-open { background: var(--brand-tint); border-color: var(--brand); color: var(--brand); }
+
+/* A dot means the last message came from the other side, so something is waiting on you.
+   Paired with the count in the label, never colour alone. */
+.dt-talk.has-unread::after {
+  content: "";
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid var(--surface);
+}
+
+.dt-thread {
+  flex: 1 0 100%;
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px dashed var(--line-strong);
+}
+
+.dt-thread-log { max-height: 240px; overflow-y: auto; display: grid; gap: var(--s2); }
+
+.dt-msg {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+}
+
+/* Staff left, managers right, so a thread can be skimmed without reading the names. */
+.dt-msg.is-staff { justify-self: start; }
+.dt-msg.is-manager {
+  justify-self: end;
+  background: var(--brand-tint);
+  border-color: rgba(14, 95, 101, .16);
+}
+
+.dt-msg-body { margin: 0; font-size: 0.875rem; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.dt-msg-meta { margin: 3px 0 0; font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+
+.dt-thread-form { display: flex; gap: var(--s2); align-items: flex-end; margin-top: var(--s3); }
+.dt-thread-form textarea {
+  flex: 1 1 auto;
+  resize: vertical;
+  min-height: 42px;
+  font-size: 0.875rem;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+}
+
+/* ---- Manager view grouped by person -------------------------------------------------- */
+
+.dt-person-group + .dt-person-group { margin-top: var(--s5); }
+.dt-person-group > .dt-group-title { display: flex; align-items: center; gap: var(--s3); }
+.dt-person-group > .dt-group-title > span:first-child { text-transform: none; letter-spacing: 0; font-size: 0.875rem; color: var(--ink); }
+
+.dt-person-tally {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green-tint);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.dt-person-tally.is-open { color: var(--amber); background: var(--amber-tint); }
+
+@media (max-width: 620px) {
+  .dt-msg { max-width: 92%; }
+  .dt-thread-form { flex-direction: column; align-items: stretch; }
+}

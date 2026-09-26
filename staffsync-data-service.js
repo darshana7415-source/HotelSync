@@ -1180,6 +1180,12 @@ window.staffSyncTasks = {
   listAssignments(date) {
     return callTaskFunction({ action: "listAssignments", date });
   },
+  listMessages(assignmentId) {
+    return callTaskFunction({ action: "listMessages", assignmentId });
+  },
+  postMessage(assignmentId, body) {
+    return callTaskFunction({ action: "postMessage", assignmentId, body });
+  },
   startAssignment(id) {
     return callTaskFunction({ action: "startAssignment", id });
   },
