@@ -1132,3 +1132,47 @@ const staffSyncDb = {
 };
 
 window.staffSyncDb = staffSyncDb;
+
+// --- Daily task checklist -------------------------------------------------------------
+// Every call goes through /.netlify/functions/tasks rather than straight to Supabase. The
+// anon key ships to every phone, so a completion written client-side could be forged by
+// anyone who opened dev tools -- and a cleaning record nobody trusts is worse than no
+// record, because it looks like evidence. The function stamps the name from the signed
+// session instead.
+//
+// Staff carry the employee-code session token; admins carry their Supabase Auth access
+// token. The function accepts both, so all this has to do is send whichever one exists.
+async function callTaskFunction(payload) {
+  let bearer = staffSyncSessionToken();
+  if (!bearer) bearer = await staffSyncAdminAccessToken();
+  if (!bearer) {
+    const error = new Error("Your session has expired. Please sign in again.");
+    error.sessionExpired = true;
+    throw error;
+  }
+  return callStaffSyncFunction("tasks", payload, { token: bearer });
+}
+
+window.staffSyncTasks = {
+  listDay(date) {
+    return callTaskFunction({ action: "listDay", date });
+  },
+  complete(taskId, { date, note, staffProfileId } = {}) {
+    return callTaskFunction({ action: "complete", taskId, date, note, staffProfileId });
+  },
+  undo(taskId, date) {
+    return callTaskFunction({ action: "undo", taskId, date });
+  },
+  board({ days = 14, to } = {}) {
+    return callTaskFunction({ action: "board", days, to });
+  },
+  listDefinitions() {
+    return callTaskFunction({ action: "listDefinitions" });
+  },
+  saveDefinition(definition) {
+    return callTaskFunction({ action: "saveDefinition", ...definition });
+  },
+  deleteDefinition(id) {
+    return callTaskFunction({ action: "deleteDefinition", id });
+  }
+};

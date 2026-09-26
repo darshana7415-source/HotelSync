@@ -4367,3 +4367,158 @@ body[data-auth="out"] .app-shell { filter: blur(6px) saturate(0.8); }
   .role-tile-art svg { width: 22px; height: 22px; }
   .role-tile-name { font-size: 0.8125rem; }
 }
+
+/* ---- Daily task checklist -----------------------------------------------------------
+   Designed to be readable at arm's length on a phone in sunlight, because that is where
+   it will actually be used -- by someone standing next to the pool, not at a desk. */
+
+.dt-header-actions { display: flex; gap: var(--s2); align-items: center; }
+.dt-header-actions input[type="date"] { min-height: 38px; }
+
+.dt-progress { margin: var(--s4) 0 var(--s3); }
+
+.dt-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.dt-progress-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--green);
+  transition: width .3s ease;
+}
+
+/* Amber once something has actually been missed, so the bar itself carries the warning. */
+.dt-progress-bar span.has-misses { background: var(--amber); }
+
+.dt-progress-text {
+  margin: var(--s2) 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dt-message {
+  margin: var(--s3) 0;
+  padding: 10px 13px;
+  border-radius: var(--r-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--brand-tint);
+  color: var(--brand-ink, var(--brand));
+  border: 1px solid rgba(14, 95, 101, .14);
+}
+.dt-message.is-error { background: var(--red-tint); color: var(--red); border-color: rgba(178, 59, 59, .18); }
+.dt-message.is-ok { background: var(--green-tint); color: var(--green); border-color: rgba(23, 121, 90, .18); }
+
+.dt-group { margin-top: var(--s4); }
+
+.dt-group-title {
+  margin: 0 0 var(--s2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.dt-task {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  margin-bottom: var(--s2);
+}
+
+/* A left edge in the status colour reads faster than a badge when you are scanning a list
+   of thirteen rows for the one that is wrong. */
+.dt-task.is-missed { border-left: 3px solid var(--red); background: var(--red-tint); }
+.dt-task.is-late   { border-left: 3px solid var(--amber); }
+.dt-task.is-done   { border-left: 3px solid var(--green); }
+.dt-task.is-open   { border-left: 3px solid var(--line-strong); }
+
+.dt-task-main { flex: 1 1 auto; min-width: 0; }
+
+.dt-task-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.dt-task.is-done .dt-task-title { color: var(--ink-2); }
+
+.dt-task-meta, .dt-task-by {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.dt-task-by { color: var(--green); font-weight: 600; }
+.dt-task.is-late .dt-task-by { color: var(--amber); }
+
+.dt-task-side { display: flex; align-items: center; gap: var(--s3); flex: none; }
+
+.dt-chip {
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.dt-done   { background: var(--green-tint); color: var(--green); }
+.dt-late   { background: var(--amber-tint); color: var(--amber); }
+.dt-missed { background: var(--red-tint);   color: var(--red); }
+.dt-open   { background: #eef1f3;           color: #5f6c75; }
+
+.dt-tick { padding: 9px 16px; font-size: 0.875rem; min-height: 40px; }
+
+.dt-empty {
+  margin: var(--s4) 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.dt-review {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.dt-review-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.dt-review-head h3 { margin: 0; font-size: 0.9375rem; }
+.dt-review-lead { margin: var(--s4) 0 var(--s2); font-size: 0.8125rem; font-weight: 650; color: var(--ink-2); }
+
+.dt-review-table { width: 100%; border-collapse: collapse; }
+.dt-review-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.dt-review-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 0.875rem; }
+.dt-num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.dt-bad { color: var(--red); }
+
+@media (max-width: 620px) {
+  /* On a phone the row stacks: title first, action full width underneath, so the tap
+     target is the width of the screen rather than a 90px button at the edge. */
+  .dt-task { flex-direction: column; align-items: stretch; gap: var(--s3); }
+  .dt-task-side { justify-content: space-between; }
+  .dt-tick { flex: 1 1 auto; }
+  .dt-header-actions { width: 100%; }
+  .dt-header-actions input[type="date"] { flex: 1 1 auto; }
+}

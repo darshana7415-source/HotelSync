@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=322">
+  <link rel="stylesheet" href="style.css?v=323">
 </head>
 <body data-auth="out" data-role="manager">
   <section class="login-overlay" id="login-screen" aria-label="Demo login">
@@ -108,6 +108,7 @@
         <a href="#leave" data-page-link="leave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="M9 14l2 2 4-4"/></svg><span>Leave</span></a>
         <a href="#supplies" data-page-link="supplies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="m3.3 7.3 8.7 5 8.7-5"/><path d="M12 22V12"/></svg><span>Supplies</span></a>
         <a href="#location" data-page-link="location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span>Location</span></a>
+        <a href="#daily-tasks" data-page-link="daily-tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Daily Tasks</span></a>
         <a href="attendance-upload.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 17v-4M12 17v-6M16 17v-2"/></svg><span>Attendance Reports</span></a>
       </nav>
       <div class="hotel-card">
@@ -395,6 +396,38 @@
           <strong id="outside-count">0</strong>
           <small>Approved or pending</small>
         </article>
+      </section>
+
+      <!-- Daily task checklist. Attendance proves someone was on the property; this proves
+           the pool, the beach and the glassware actually got done, and by whom. -->
+      <section class="panel" id="daily-tasks" aria-label="Daily tasks">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Daily work</p>
+            <h2 id="dt-heading">Today's tasks</h2>
+          </div>
+          <div class="dt-header-actions">
+            <input type="date" id="dt-date" aria-label="Task date">
+            <button class="ghost small-button" id="dt-refresh" type="button">Refresh</button>
+          </div>
+        </div>
+
+        <div class="dt-progress" id="dt-progress" hidden>
+          <div class="dt-progress-bar"><span id="dt-progress-fill"></span></div>
+          <p class="dt-progress-text" id="dt-progress-text"></p>
+        </div>
+
+        <div id="dt-message" class="dt-message" hidden></div>
+        <div id="dt-list" class="dt-list"></div>
+
+        <!-- Managers only: what is going wrong repeatedly, rather than just today. -->
+        <div class="dt-review" id="dt-review" hidden>
+          <div class="dt-review-head">
+            <h3>Last 14 days</h3>
+            <button class="ghost small-button" id="dt-review-load" type="button">Show review</button>
+          </div>
+          <div id="dt-review-body"></div>
+        </div>
       </section>
 
       <section class="content-grid">
@@ -1117,8 +1150,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="staffsync-data-service.js?v=199"></script>
+  <script src="staffsync-data-service.js?v=322"></script>
   <script src="app.js?v=308"></script>
+  <script src="daily-tasks.js?v=322"></script>
 
 <!-- force-staff-attendance-link-v15-start -->
 <script>

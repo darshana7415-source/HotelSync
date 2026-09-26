@@ -1,10 +1,11 @@
-const CACHE_NAME = "staffsync-beach-bliss-v322";
+const CACHE_NAME = "staffsync-beach-bliss-v323";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./staffsync-data-service.js",
+  "./daily-tasks.js",
   "./supabase-client.js",
   "./env.js",
   "./manifest.webmanifest",
