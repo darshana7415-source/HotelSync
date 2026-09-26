@@ -327,47 +327,65 @@
   // day, split at the task's time so it is obvious who was already on duty and who arrived
   // later. For tomorrow (and for early-morning assigning before anyone has scanned in)
   // there is no attendance yet, so the roster stands in.
+  // Each status is its own collapsible group with its own colour. Someone handing out the
+  // pool clean needs to see at a glance that three of the people they were about to pick
+  // are on leave or already went home -- a flat alphabetical list hides exactly that.
+  const PEOPLE_GROUPS = [
+    { key: "onDutyBefore", tone: "duty",     label: (c) => `On duty \u00b7 in before ${c}`, open: true },
+    { key: "onDutyAfter",  tone: "duty-late",label: (c) => `On duty \u00b7 reported after ${c}`, open: true },
+    { key: "notArrived",   tone: "waiting",  label: () => "Rostered \u00b7 not scanned in yet", open: true },
+    { key: "shortLeave",   tone: "short",    label: () => "Short leave", open: false },
+    { key: "halfDay",      tone: "half",     label: () => "Half day", open: false },
+    { key: "finished",     tone: "finished", label: () => "Shift finished", open: false },
+    { key: "onLeave",      tone: "leave",    label: () => "On leave", open: false }
+  ];
+
   async function refreshPeople() {
     const holder = el("#dt-assign-people");
     holder.textContent = "";
-    holder.appendChild(text("p", "dt-empty", "Loading staff…"));
+    holder.appendChild(text("p", "dt-empty", "Loading staff\u2026"));
 
     try {
       const payload = await window.staffSyncTasks.eligibleStaff(
         el("#dt-assign-date").value,
-        el("#dt-assign-time").value || "06:00"
+        el("#dt-assign-time").value || "09:00"
       );
       holder.textContent = "";
 
-      const groups = [
-        [`On duty before ${payload.cutoff}`, payload.before],
-        [`Reported after ${payload.cutoff}`, payload.after],
-        ["Rostered, not scanned in yet", payload.rostered]
-      ];
-
       let any = false;
-      for (const [label, people] of groups) {
+      for (const group of PEOPLE_GROUPS) {
+        const people = (payload.groups && payload.groups[group.key]) || [];
         if (!people.length) continue;
         any = true;
-        const group = text("div", "dt-people-group");
-        group.appendChild(text("p", "dt-group-title", `${label} (${people.length})`));
+
+        const box = document.createElement("details");
+        box.className = `dt-people-group tone-${group.tone}`;
+        // Available people are open; leave and finished shifts are collapsed, because
+        // they are there to inform the choice, not to be the choice.
+        box.open = group.open;
+
+        const summary = document.createElement("summary");
+        summary.appendChild(text("span", "dt-group-dot"));
+        summary.appendChild(text("span", "dt-group-name", group.label(payload.cutoff)));
+        summary.appendChild(text("span", "dt-group-count", people.length));
+        box.appendChild(summary);
+
         const grid = text("div", "dt-people-grid");
         for (const person of people) {
           const option = text("label", "dt-person");
-          const box = document.createElement("input");
-          box.type = "checkbox";
-          box.value = person.id;
-          option.appendChild(box);
+          const check = document.createElement("input");
+          check.type = "checkbox";
+          check.value = person.id;
+          option.appendChild(check);
           const info = text("span", "dt-person-info");
           info.appendChild(text("span", "dt-person-name", person.name));
           info.appendChild(text("span", "dt-person-meta",
-            [person.department, person.inAt ? (person.planned ? `rostered ${person.inAt}` : `in ${person.inAt}`) : null]
-              .filter(Boolean).join(" · ")));
+            [person.department, person.detail].filter(Boolean).join(" \u00b7 ")));
           option.appendChild(info);
           grid.appendChild(option);
         }
-        group.appendChild(grid);
-        holder.appendChild(group);
+        box.appendChild(grid);
+        holder.appendChild(box);
       }
 
       if (!any) {

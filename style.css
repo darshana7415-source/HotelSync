@@ -4613,3 +4613,81 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
    actually look. It is a filled button because on this page it is the primary action. */
 #dt-assign-open { background: var(--brand); color: #fff; }
 #dt-assign-open:hover { background: var(--brand-hover); }
+
+/* ---- Assign picker: status groups ---------------------------------------------------
+   Seven collapsible groups, each with its own colour, so the manager sees who is actually
+   available before picking rather than after. Colour is never the only signal -- every
+   group is also named, and each person carries their scan times or leave label. */
+
+.dt-people-group {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  margin-bottom: var(--s2);
+  overflow: hidden;
+}
+
+.dt-people-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--ink-2);
+  list-style: none;
+  user-select: none;
+}
+
+.dt-people-group > summary::-webkit-details-marker { display: none; }
+.dt-people-group > summary:hover { background: var(--surface-sunken); }
+
+.dt-group-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--line-strong); }
+.dt-group-name { flex: 1 1 auto; }
+
+.dt-group-count {
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* A small rotating caret is the difference between "this opens" and "this is just a row". */
+.dt-people-group > summary::after {
+  content: "";
+  width: 7px; height: 7px;
+  border-right: 2px solid var(--faint);
+  border-bottom: 2px solid var(--faint);
+  transform: rotate(-45deg);
+  transition: transform .16s ease;
+  flex: none;
+}
+.dt-people-group[open] > summary::after { transform: rotate(45deg); }
+
+.dt-people-group > .dt-people-grid { padding: 0 13px 13px; }
+
+.tone-duty      { border-left-color: var(--green); }
+.tone-duty      .dt-group-dot { background: var(--green); }
+.tone-duty-late { border-left-color: var(--blue); }
+.tone-duty-late .dt-group-dot { background: var(--blue); }
+.tone-waiting   { border-left-color: var(--amber); }
+.tone-waiting   .dt-group-dot { background: var(--amber); }
+.tone-short     { border-left-color: #8a5cd0; }
+.tone-short     .dt-group-dot { background: #8a5cd0; }
+.tone-half      { border-left-color: #b8791b; }
+.tone-half      .dt-group-dot { background: #b8791b; }
+.tone-finished  { border-left-color: var(--line-strong); background: var(--surface-sunken); }
+.tone-finished  .dt-group-dot { background: var(--faint); }
+.tone-leave     { border-left-color: var(--red); }
+.tone-leave     .dt-group-dot { background: var(--red); }
+
+/* Collapsed-by-default groups are the ones you probably should not be assigning to. */
+.tone-short   > summary .dt-group-name,
+.tone-half    > summary .dt-group-name,
+.tone-leave   > summary .dt-group-name { color: var(--ink-2); }
+.tone-finished > summary .dt-group-name { color: var(--muted); }

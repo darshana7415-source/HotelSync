@@ -534,46 +534,99 @@ exports.handler = async function handler(event) {
         return json(200, { ok: true, created: (saved || []).length, requested: rows.length });
       }
 
-      // Who can actually be given a job on this date. Assigning the pool to someone who
-      // was not at the hotel is how a checklist stops meaning anything.
+      // Who can be given a job on this date, grouped by what they are actually doing.
+      //
+      // Half day and short leave are not columns -- the leave form writes them into the
+      // reason as "[Half day]" / "[Short leave - 2.5 hours]" with a "[Morning]" or
+      // "[Evening]" marker. Parsing that is not elegant, but it is where the information
+      // lives, and inventing new columns would leave three years of history behind.
       case "eligibleStaff": {
         if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
 
         const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
-        const cutoff = timeToMinutes(payload.dueTime || "06:00");
+        const cutoff = timeToMinutes(payload.dueTime || "09:00");
         const dayStart = new Date(`${dateKey}T00:00:00Z`).getTime() - COLOMBO_OFFSET_MS;
         const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 
-        const [profiles, attendance, roster] = await Promise.all([
+        const [profiles, attendance, roster, leave] = await Promise.all([
           restRequest("staff_profiles", {
             query: { select: "id,full_name,employee_code,departments(name)", order: "employee_code.asc" }
           }),
           restRequest("attendance_records", {
             query: {
-              select: "staff_profile_id,clock_in_at",
+              select: "staff_profile_id,clock_in_at,clock_out_at",
               and: `(clock_in_at.gte.${new Date(dayStart).toISOString()},clock_in_at.lt.${new Date(dayEnd).toISOString()})`,
               order: "clock_in_at.asc"
             }
           }),
           restRequest("daily_rosters", {
-            query: { select: "staff_profile_id,in_time,day_status", roster_date: `eq.${dateKey}` }
+            query: { select: "staff_profile_id,in_time,out_time,shift_name,day_status", roster_date: `eq.${dateKey}` }
+          }),
+          restRequest("leave_requests", {
+            query: {
+              select: "staff_profile_id,start_date,end_date,reason,status,leave_types(name)",
+              status: "eq.approved",
+              and: `(start_date.lte.${dateKey},end_date.gte.${dateKey})`
+            }
           })
         ]);
 
-        const firstScan = new Map();
+        function localClock(iso) {
+          if (!iso) return null;
+          const local = new Date(new Date(iso).getTime() + COLOMBO_OFFSET_MS);
+          return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+        }
+
+        function localMinutes(iso) {
+          if (!iso) return null;
+          const local = new Date(new Date(iso).getTime() + COLOMBO_OFFSET_MS);
+          return local.getUTCHours() * 60 + local.getUTCMinutes();
+        }
+
+        // First scan in, last scan out -- somebody who scanned twice should not look like
+        // two different people.
+        const scans = new Map();
         for (const row of attendance) {
           if (!row.staff_profile_id) continue;
-          if (!firstScan.has(row.staff_profile_id)) firstScan.set(row.staff_profile_id, row.clock_in_at);
+          const existing = scans.get(row.staff_profile_id);
+          if (!existing) {
+            scans.set(row.staff_profile_id, { in: row.clock_in_at, out: row.clock_out_at });
+          } else if (row.clock_out_at) {
+            existing.out = row.clock_out_at;
+          }
         }
 
         const rosterByStaff = new Map();
-        for (const row of roster) {
-          if (row.staff_profile_id) rosterByStaff.set(row.staff_profile_id, row);
+        for (const row of roster) if (row.staff_profile_id) rosterByStaff.set(row.staff_profile_id, row);
+
+        const leaveByStaff = new Map();
+        for (const row of leave) {
+          if (!row.staff_profile_id) continue;
+          const reason = String(row.reason || "");
+          const halfDay = /\[half day\]/i.test(reason);
+          const shortLeaveMatch = reason.match(/\[short leave[^\]]*\]/i);
+          const half = /\[morning\]/i.test(reason) ? "Morning"
+                     : /\[evening\]/i.test(reason) ? "Evening" : null;
+
+          const kind = shortLeaveMatch ? "short" : halfDay ? "half" : "full";
+          const existing = leaveByStaff.get(row.staff_profile_id);
+          // A full day off outranks a half day if somehow both exist.
+          const rank = { full: 3, half: 2, short: 1 };
+          if (!existing || rank[kind] > rank[existing.kind]) {
+            leaveByStaff.set(row.staff_profile_id, {
+              kind,
+              half,
+              label: kind === "short"
+                ? shortLeaveMatch[0].replace(/[[\]]/g, "")
+                : kind === "half" ? "Half day" : (row.leave_types ? row.leave_types.name : "Leave")
+            });
+          }
         }
 
-        const before = [];
-        const after = [];
-        const rostered = [];
+        const groups = {
+          onDutyBefore: [], onDutyAfter: [], finished: [],
+          notArrived: [], shortLeave: [], halfDay: [], onLeave: []
+        };
 
         for (const profile of profiles) {
           const entry = {
@@ -581,37 +634,61 @@ exports.handler = async function handler(event) {
             name: profile.full_name,
             code: profile.employee_code,
             department: profile.departments ? profile.departments.name : null,
-            inAt: null
+            inAt: null, outAt: null, detail: null
           };
 
-          const scan = firstScan.get(profile.id);
+          const scan = scans.get(profile.id);
+          const away = leaveByStaff.get(profile.id);
+          const planned = rosterByStaff.get(profile.id);
+
           if (scan) {
-            const local = new Date(new Date(scan).getTime() + COLOMBO_OFFSET_MS);
-            const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
-            entry.inAt = `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
-            if (cutoff === null || minutes <= cutoff) before.push(entry);
-            else after.push(entry);
+            entry.inAt = localClock(scan.in);
+            entry.outAt = localClock(scan.out);
+            // Someone on short leave or half day who still scanned in is shown in their
+            // leave group, because that is the fact a manager needs before handing them
+            // a job -- but their real scan times come along so the call is informed.
+            if (away && away.kind !== "full") {
+              entry.detail = `${away.label}${away.half ? ` (${away.half})` : ""}`;
+              groups[away.kind === "short" ? "shortLeave" : "halfDay"].push(entry);
+            } else if (scan.out) {
+              entry.detail = `${entry.inAt} \u2013 ${entry.outAt}`;
+              groups.finished.push(entry);
+            } else {
+              entry.detail = `in ${entry.inAt}`;
+              const minutes = localMinutes(scan.in);
+              if (cutoff === null || minutes <= cutoff) groups.onDutyBefore.push(entry);
+              else groups.onDutyAfter.push(entry);
+            }
             continue;
           }
 
-          // Tomorrow has no attendance yet, and someone rostered for today may not have
-          // scanned in when the manager is assigning at 05:30. The roster covers both.
-          const planned = rosterByStaff.get(profile.id);
-          if (planned && String(planned.day_status || "").toLowerCase() !== "leave") {
+          if (away) {
+            entry.detail = `${away.label}${away.half ? ` (${away.half})` : ""}`;
+            if (away.kind === "full") groups.onLeave.push(entry);
+            else groups[away.kind === "short" ? "shortLeave" : "halfDay"].push(entry);
+            continue;
+          }
+
+          // No scan and no leave. Tomorrow has no attendance at all, and at 05:30 today
+          // nobody has scanned yet -- the roster is what is left to go on.
+          if (planned && String(planned.day_status || "").toLowerCase() === "leave") {
+            entry.detail = "Rostered off";
+            groups.onLeave.push(entry);
+          } else if (planned) {
             entry.inAt = planned.in_time ? String(planned.in_time).slice(0, 5) : null;
-            entry.planned = true;
-            rostered.push(entry);
+            entry.detail = planned.shift_name
+              ? `${planned.shift_name}${entry.inAt ? ` from ${entry.inAt}` : ""}`
+              : (entry.inAt ? `rostered ${entry.inAt}` : "rostered");
+            groups.notArrived.push(entry);
           }
         }
 
         return json(200, {
           ok: true,
           date: dateKey,
-          cutoff: payload.dueTime || "06:00",
-          before,
-          after,
-          rostered,
-          hasAttendance: firstScan.size > 0
+          cutoff: payload.dueTime || "09:00",
+          groups,
+          hasAttendance: scans.size > 0
         });
       }
 
