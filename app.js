@@ -269,6 +269,9 @@ const pageSections = {
   leave: ["leave", "leave-organizer"],
   supplies: ["supplies-panel"],
   location: ["location"],
+  // The daily cleaning checklist is its own page. Without an entry here applyPageFromHash
+  // does not recognise #daily-tasks and silently falls back to the dashboard.
+  "daily-tasks": ["daily-tasks"],
   reports: ["reports"], attendance: ["attendance"]
 };
 const pageAliases = {
@@ -449,7 +452,9 @@ function applyPageFromHash() {
   if (currentRole === "store_keeper" && page !== "supplies") {
     page = "supplies";
     if (window.location.hash !== "#supplies") window.location.hash = "supplies";
-  } else if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave"].includes(page)) {
+  // Staff are the main users of the checklist -- leaving daily-tasks out of this list
+  // would bounce them straight back to the dashboard.
+  } else if (currentRole === "staff" && !["dashboard", "shifts", "schedule", "leave", "daily-tasks"].includes(page)) {
     page = "dashboard";
     if (window.location.hash !== "#dashboard") window.location.hash = "dashboard";
   }
