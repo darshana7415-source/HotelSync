@@ -387,6 +387,234 @@ exports.handler = async function handler(event) {
         return json(200, { ok: true });
       }
 
+      // ---- Assignments: a task given to a named person for a specific day ----------
+      case "listAssignments": {
+        const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
+        const rows = await restRequest("task_assignments", {
+          query: {
+            select: "id,task_id,title,area,task_date,due_time,staff_profile_id,staff_name,status,note,assigned_by_name,assigned_at,completed_at,completed_by_manager",
+            task_date: `eq.${dateKey}`,
+            order: "due_time.asc,title.asc"
+          }
+        });
+
+        // Staff see only what was given to them. A cleaner does not need a list of
+        // everyone else's jobs, and showing it invites "that was not mine".
+        const visible = isManager(claims)
+          ? rows
+          : rows.filter((row) => row.staff_profile_id === claims.staffProfileId);
+
+        return json(200, {
+          ok: true,
+          date: dateKey,
+          today: todayKey,
+          nowMinutes,
+          canAssign: isManager(claims),
+          assignments: visible.map((row) => ({
+            id: row.id,
+            title: row.title,
+            area: row.area,
+            date: row.task_date,
+            dueTime: row.due_time ? String(row.due_time).slice(0, 5) : null,
+            staffProfileId: row.staff_profile_id,
+            staffName: row.staff_name,
+            status: row.status,
+            note: row.note,
+            assignedBy: row.assigned_by_name,
+            completedAt: row.completed_at,
+            completedByManager: row.completed_by_manager,
+            mine: row.staff_profile_id === claims.staffProfileId
+          }))
+        });
+      }
+
+      case "completeAssignment": {
+        if (!payload.id) return json(400, { ok: false, message: "Which task?" });
+
+        const existing = await selectOne("task_assignments", { eq: { id: payload.id } });
+        if (!existing) return json(404, { ok: false, message: "That task no longer exists." });
+        if (existing.status === "done") return json(200, { ok: true, alreadyDone: true });
+
+        // The point of the pending state is that the person who was given the job is the
+        // one who closes it. A manager can still close it, but the record says so.
+        const mine = existing.staff_profile_id && existing.staff_profile_id === claims.staffProfileId;
+        if (!mine && !isManager(claims)) {
+          return json(403, { ok: false, message: "That task was given to someone else." });
+        }
+
+        const rows = await updateRows("task_assignments", {
+          eq: { id: payload.id },
+          patch: {
+            status: "done",
+            completed_at: new Date().toISOString(),
+            completed_by_manager: !mine,
+            note: payload.note ? String(payload.note).slice(0, 400) : existing.note
+          }
+        });
+        return json(200, { ok: true, data: (rows && rows[0]) || null });
+      }
+
+      case "reopenAssignment": {
+        if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
+        if (!payload.id) return json(400, { ok: false, message: "Which task?" });
+        await updateRows("task_assignments", {
+          eq: { id: payload.id },
+          patch: { status: "pending", completed_at: null, completed_by_manager: false }
+        });
+        return json(200, { ok: true });
+      }
+
+      case "deleteAssignment": {
+        if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
+        if (!payload.id) return json(400, { ok: false, message: "Which task?" });
+        await deleteRows("task_assignments", { eq: { id: payload.id } });
+        return json(200, { ok: true });
+      }
+
+      case "assign": {
+        if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
+
+        const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
+        // Today and tomorrow only. Assigning a week ahead produces a backlog nobody reads,
+        // and the staff list is built from who actually turned up, which is unknowable
+        // further out than tomorrow's roster.
+        const tomorrow = new Date(`${todayKey}T00:00:00Z`);
+        tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+        const tomorrowKey = tomorrow.toISOString().slice(0, 10);
+        if (dateKey !== todayKey && dateKey !== tomorrowKey) {
+          return json(400, { ok: false, message: "Tasks can only be scheduled for today or tomorrow." });
+        }
+
+        const staffIds = Array.isArray(payload.staffProfileIds) ? payload.staffProfileIds.filter(Boolean) : [];
+        if (!staffIds.length) return json(400, { ok: false, message: "Choose at least one person." });
+
+        let title = String(payload.title || "").trim();
+        let area = payload.area ? String(payload.area).trim() : null;
+        let dueTime = payload.dueTime || null;
+
+        // Picking from the library fills in the name, area and time so a manager only has
+        // to choose the people.
+        if (payload.taskId) {
+          const definition = await selectOne("task_definitions", { eq: { id: payload.taskId } });
+          if (definition) {
+            title = title || definition.title;
+            area = area || definition.area;
+            dueTime = dueTime || (definition.window_end ? String(definition.window_end).slice(0, 5) : null);
+          }
+        }
+        if (!title) return json(400, { ok: false, message: "A task needs a name." });
+
+        const profiles = await restRequest("staff_profiles", {
+          query: { select: "id,full_name", id: `in.(${staffIds.join(",")})` }
+        });
+        const nameById = new Map(profiles.map((row) => [row.id, row.full_name]));
+
+        const rows = staffIds.map((id) => ({
+          hotel_id: claims.hotelId,
+          task_id: payload.taskId || null,
+          title,
+          area,
+          task_date: dateKey,
+          due_time: dueTime,
+          staff_profile_id: id,
+          staff_name: nameById.get(id) || null,
+          status: "pending",
+          assigned_by_name: payload.assignedByName || (isManager(claims) ? claims.role : null)
+        }));
+
+        // Re-assigning the same job to the same person on the same day is a no-op rather
+        // than an error -- a manager tapping Assign twice should not see a failure.
+        const saved = await restRequest("task_assignments", {
+          method: "POST",
+          query: { select: "*", on_conflict: "task_date,staff_profile_id,title" },
+          body: rows,
+          prefer: "resolution=ignore-duplicates,return=representation"
+        });
+
+        return json(200, { ok: true, created: (saved || []).length, requested: rows.length });
+      }
+
+      // Who can actually be given a job on this date. Assigning the pool to someone who
+      // was not at the hotel is how a checklist stops meaning anything.
+      case "eligibleStaff": {
+        if (!isManager(claims)) return json(403, { ok: false, message: "Managers only." });
+
+        const dateKey = isValidDateKey(payload.date) ? payload.date : todayKey;
+        const cutoff = timeToMinutes(payload.dueTime || "06:00");
+        const dayStart = new Date(`${dateKey}T00:00:00Z`).getTime() - COLOMBO_OFFSET_MS;
+        const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+
+        const [profiles, attendance, roster] = await Promise.all([
+          restRequest("staff_profiles", {
+            query: { select: "id,full_name,employee_code,departments(name)", order: "employee_code.asc" }
+          }),
+          restRequest("attendance_records", {
+            query: {
+              select: "staff_profile_id,clock_in_at",
+              and: `(clock_in_at.gte.${new Date(dayStart).toISOString()},clock_in_at.lt.${new Date(dayEnd).toISOString()})`,
+              order: "clock_in_at.asc"
+            }
+          }),
+          restRequest("daily_rosters", {
+            query: { select: "staff_profile_id,in_time,day_status", roster_date: `eq.${dateKey}` }
+          })
+        ]);
+
+        const firstScan = new Map();
+        for (const row of attendance) {
+          if (!row.staff_profile_id) continue;
+          if (!firstScan.has(row.staff_profile_id)) firstScan.set(row.staff_profile_id, row.clock_in_at);
+        }
+
+        const rosterByStaff = new Map();
+        for (const row of roster) {
+          if (row.staff_profile_id) rosterByStaff.set(row.staff_profile_id, row);
+        }
+
+        const before = [];
+        const after = [];
+        const rostered = [];
+
+        for (const profile of profiles) {
+          const entry = {
+            id: profile.id,
+            name: profile.full_name,
+            code: profile.employee_code,
+            department: profile.departments ? profile.departments.name : null,
+            inAt: null
+          };
+
+          const scan = firstScan.get(profile.id);
+          if (scan) {
+            const local = new Date(new Date(scan).getTime() + COLOMBO_OFFSET_MS);
+            const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
+            entry.inAt = `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+            if (cutoff === null || minutes <= cutoff) before.push(entry);
+            else after.push(entry);
+            continue;
+          }
+
+          // Tomorrow has no attendance yet, and someone rostered for today may not have
+          // scanned in when the manager is assigning at 05:30. The roster covers both.
+          const planned = rosterByStaff.get(profile.id);
+          if (planned && String(planned.day_status || "").toLowerCase() !== "leave") {
+            entry.inAt = planned.in_time ? String(planned.in_time).slice(0, 5) : null;
+            entry.planned = true;
+            rostered.push(entry);
+          }
+        }
+
+        return json(200, {
+          ok: true,
+          date: dateKey,
+          cutoff: payload.dueTime || "06:00",
+          before,
+          after,
+          rostered,
+          hasAttendance: firstScan.size > 0
+        });
+      }
+
       default:
         return json(400, { ok: false, message: `Unknown action: ${payload.action}` });
     }

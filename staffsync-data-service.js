@@ -1174,5 +1174,25 @@ window.staffSyncTasks = {
   },
   deleteDefinition(id) {
     return callTaskFunction({ action: "deleteDefinition", id });
+  },
+
+  // Assignments: a task handed to a named person for today or tomorrow.
+  listAssignments(date) {
+    return callTaskFunction({ action: "listAssignments", date });
+  },
+  completeAssignment(id, note) {
+    return callTaskFunction({ action: "completeAssignment", id, note });
+  },
+  reopenAssignment(id) {
+    return callTaskFunction({ action: "reopenAssignment", id });
+  },
+  deleteAssignment(id) {
+    return callTaskFunction({ action: "deleteAssignment", id });
+  },
+  assign(details) {
+    return callTaskFunction({ action: "assign", ...details });
+  },
+  eligibleStaff(date, dueTime) {
+    return callTaskFunction({ action: "eligibleStaff", date, dueTime });
   }
 };

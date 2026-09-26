@@ -4522,3 +4522,89 @@ body[data-auth="out"] .app-shell { filter: blur(6px) saturate(0.8); }
   .dt-header-actions { width: 100%; }
   .dt-header-actions input[type="date"] { flex: 1 1 auto; }
 }
+
+/* ---- Daily tasks: assignment states -------------------------------------------------
+   A task stays Pending from the moment it is assigned until the person it was given to
+   presses Complete. Overdue is not a separate state -- it is Pending that has run out of
+   time -- so it shares the pending shape and only changes colour. */
+
+.dt-task.is-pending { border-left: 3px solid var(--line-strong); }
+.dt-task.is-overdue { border-left: 3px solid var(--red); background: var(--red-tint); }
+
+.dt-pending { background: #eef1f3;         color: #5f6c75; }
+.dt-overdue { background: var(--red-tint); color: var(--red); }
+
+.dt-row-admin { display: flex; gap: var(--s2); }
+
+/* The "New leave request" button belongs to the dashboard, not here. One page, one job. */
+body[data-page="daily-tasks"] #open-leave { display: none; }
+
+/* ---- Assign panel ------------------------------------------------------------------- */
+
+.dt-assign {
+  margin-top: var(--s5);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+
+.dt-assign h3 { margin: 0 0 var(--s4); font-size: 1rem; }
+
+.dt-assign-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--s3);
+  align-items: end;
+}
+
+.dt-assign label { display: grid; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: var(--ink-2); }
+#dt-assign-title-wrap { margin-top: var(--s3); }
+
+.dt-assign-hint {
+  margin: var(--s4) 0 var(--s2);
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.dt-assign-people {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s3);
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface-sunken);
+}
+
+.dt-people-group + .dt-people-group { margin-top: var(--s4); }
+
+.dt-people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--s2);
+}
+
+.dt-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.dt-person:hover { border-color: var(--brand); }
+.dt-person input { width: 17px; height: 17px; min-height: 0; flex: none; accent-color: var(--brand); }
+.dt-person-info { display: grid; min-width: 0; }
+.dt-person-name { font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+.dt-person-meta { font-size: 0.75rem; color: var(--muted); }
+
+.dt-assign-submit { margin-top: var(--s4); padding: 11px 20px; }
+
+@media (max-width: 620px) {
+  .dt-assign-row { grid-template-columns: 1fr; }
+  .dt-assign-submit { width: 100%; }
+  .dt-people-grid { grid-template-columns: 1fr; }
+}
