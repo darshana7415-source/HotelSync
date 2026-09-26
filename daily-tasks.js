@@ -169,9 +169,21 @@
   }
 
   async function load(dateKey) {
-    if (busy || !signedIn()) return;
+    if (busy) return;
+
+    // A blank panel is indistinguishable from a broken one. Always say something.
+    if (!signedIn()) {
+      list.textContent = "";
+      list.appendChild(text("p", "dt-empty", "Sign in to see today's tasks."));
+      progress.hidden = true;
+      return;
+    }
+
     busy = true;
     show("", "");
+    if (!list.childElementCount) {
+      list.appendChild(text("p", "dt-empty", "Loading today's tasks\u2026"));
+    }
     list.setAttribute("aria-busy", "true");
     try {
       const payload = await window.staffSyncTasks.listDay(dateKey || dateInput.value || colomboToday());
@@ -179,6 +191,7 @@
       render(payload);
       review.hidden = !isManager();
     } catch (error) {
+      list.textContent = "";
       show("error", error.message || "Could not load today's tasks.");
     } finally {
       busy = false;
@@ -271,23 +284,48 @@
   el("#dt-refresh").addEventListener("click", () => load());
   el("#dt-review-load").addEventListener("click", loadReview);
 
-  // The panel lives inside the app shell, which only becomes usable after sign-in. Rather
-  // than reaching into app.js's login flow, wait until a session exists.
-  let attempts = 0;
-  const waitForSession = setInterval(() => {
-    attempts += 1;
-    if (signedIn()) {
-      clearInterval(waitForSession);
-      load();
-    } else if (attempts > 120) {
-      clearInterval(waitForSession);
+  // Loading on a first-run timer was wrong: it gave up after two minutes, so anyone who
+  // took their time signing in landed on an empty panel. Load whenever the panel is
+  // actually being looked at instead, and once more the moment a session appears.
+  let loadedForSession = false;
+
+  function onDailyTasksPage() {
+    return (window.location.hash || "").replace("#", "") === "daily-tasks";
+  }
+
+  function maybeLoad(force) {
+    if (!signedIn()) {
+      loadedForSession = false;
+      return;
     }
-  }, 1000);
+    if (force || !loadedForSession) {
+      loadedForSession = true;
+      load();
+    }
+  }
+
+  window.addEventListener("hashchange", () => {
+    if (onDailyTasksPage()) setTimeout(() => maybeLoad(true), 60);
+  });
+
+  // The nav link does not always change the hash (clicking the page you are already on),
+  // so listen for the click as well.
+  document.addEventListener("click", (event) => {
+    if (event.target && event.target.closest && event.target.closest('a[href="#daily-tasks"]')) {
+      setTimeout(() => maybeLoad(true), 120);
+    }
+  });
+
+  // Keeps running for the life of the page rather than expiring: sign-in can happen at any
+  // point, and the panel must fill in when it does.
+  setInterval(() => maybeLoad(false), 2000);
 
   // A phone left open on the dashboard all morning should not show a stale list.
   setInterval(() => {
     if (signedIn() && dateInput.value === colomboToday() && !busy) load();
   }, 120000);
+
+  maybeLoad(false);
 
   window.staffSyncDailyTasks = { reload: load };
 })();
