@@ -1,3 +1,13 @@
+# Netlify matches these against the REQUEST path, not the file served. Almost everyone
+# opens the app at "/", which never matched the "/index.html" rule below -- so the page
+# itself was being cached by browsers while the versioned scripts loaded fresh. That
+# mismatch shows up as a page whose HTML is missing elements the new script expects.
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/daily-tasks.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
 

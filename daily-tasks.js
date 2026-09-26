@@ -18,6 +18,16 @@
   const panel = document.querySelector("#daily-tasks");
   if (!panel) return;
 
+  // A stale cached index.html paired with a fresh script is a real situation, and it used
+  // to fail silently. Say so instead of showing an empty panel.
+  if (!panel.querySelector("#dt-list")) {
+    panel.appendChild(Object.assign(document.createElement("p"), {
+      className: "dt-empty",
+      textContent: "This page is out of date. Please refresh (Ctrl+Shift+R)."
+    }));
+    return;
+  }
+
   const el = (selector) => panel.querySelector(selector);
   const dateInput = el("#dt-date");
   const list = el("#dt-list");
@@ -65,7 +75,17 @@
     return node;
   }
 
+  // index.html has no version string on it, so a browser can hold a stale copy of the
+  // page while fetching this script fresh. When that happens an element this script
+  // expects is simply not there -- and an unguarded `node.hidden = false` threw, killing
+  // load() before it rendered anything. The symptom was a blank task list with no error,
+  // which is the worst possible failure: it looks like the feature does not exist.
+  function reveal(node, visible) {
+    if (node) node.hidden = !visible;
+  }
+
   function show(kind, value) {
+    if (!message) return;
     message.hidden = !value;
     message.textContent = value || "";
     message.className = "dt-message" + (kind ? ` is-${kind}` : "");
@@ -495,19 +515,25 @@
     if (!signedIn()) {
       list.textContent = "";
       list.appendChild(text("p", "dt-empty", "Sign in to see today's tasks."));
-      progress.hidden = true;
-      assignWrap.hidden = true;
-      libraryWrap.hidden = true;
+      reveal(progress, false);
+      reveal(assignWrap, false);
+      reveal(libraryWrap, false);
       return;
     }
 
     // Show the manager tools on role alone. Tying them to a successful fetch meant one
     // failed request hid the only way to assign anything, with no hint it existed.
+    // Wrapped because building these must never stop the task list from rendering --
+    // the list is the important half.
     if (isManager()) {
-      assignWrap.hidden = false;
-      libraryWrap.hidden = false;
-      buildAssignForm();
-      buildLibrary();
+      try {
+        reveal(assignWrap, true);
+        reveal(libraryWrap, true);
+        buildAssignForm();
+        buildLibrary();
+      } catch (error) {
+        console.warn("StaffSync: manager task tools failed to build", error);
+      }
     }
 
     busy = true;
@@ -519,9 +545,9 @@
       const payload = await window.staffSyncTasks.listAssignments(dateKey || dateInput.value || colomboToday());
       dateInput.value = payload.date;
       render(payload);
-      assignWrap.hidden = !payload.canAssign;
-      libraryWrap.hidden = !payload.canAssign;
-      assignButton.hidden = !payload.canAssign;
+      reveal(assignWrap, payload.canAssign);
+      reveal(libraryWrap, payload.canAssign);
+      reveal(assignButton, payload.canAssign);
       if (payload.canAssign) buildAssignForm();
     } catch (error) {
       list.textContent = "";
@@ -890,16 +916,17 @@
 
   dateInput.value = colomboToday();
   dateInput.addEventListener("change", () => load(dateInput.value));
-  el("#dt-refresh").addEventListener("click", () => load());
+  el("#dt-refresh")?.addEventListener("click", () => load());
 
   // A visible entry point beats "scroll to the bottom of the page and hope".
+  // Every lookup here is optional: none of these buttons are worth breaking the list for.
   const assignButton = el("#dt-assign-open");
-  assignButton.hidden = !isManager();
-  assignButton.addEventListener("click", () => {
-    assignWrap.hidden = false;
+  reveal(assignButton, isManager());
+  assignButton?.addEventListener("click", () => {
+    reveal(assignWrap, true);
     buildAssignForm();
-    assignWrap.scrollIntoView({ behavior: "smooth", block: "start" });
-    setTimeout(() => el("#dt-assign-task").focus(), 300);
+    assignWrap?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => el("#dt-assign-task")?.focus(), 300);
   });
 
   let loadedForSession = false;
