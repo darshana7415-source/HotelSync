@@ -4608,3 +4608,8 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
   .dt-assign-submit { width: 100%; }
   .dt-people-grid { grid-template-columns: 1fr; }
 }
+
+/* The assign entry point sits in the panel header, where someone looking for it will
+   actually look. It is a filled button because on this page it is the primary action. */
+#dt-assign-open { background: var(--brand); color: #fff; }
+#dt-assign-open:hover { background: var(--brand-hover); }

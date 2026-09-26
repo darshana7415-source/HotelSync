@@ -236,6 +236,7 @@
       dateInput.value = payload.date;
       render(payload);
       assignWrap.hidden = !payload.canAssign;
+      assignButton.hidden = !payload.canAssign;
       if (payload.canAssign) buildAssignForm();
     } catch (error) {
       list.textContent = "";
@@ -415,6 +416,16 @@
   dateInput.value = colomboToday();
   dateInput.addEventListener("change", () => load(dateInput.value));
   el("#dt-refresh").addEventListener("click", () => load());
+
+  // A visible entry point beats "scroll to the bottom of the page and hope".
+  const assignButton = el("#dt-assign-open");
+  assignButton.hidden = !isManager();
+  assignButton.addEventListener("click", () => {
+    assignWrap.hidden = false;
+    buildAssignForm();
+    assignWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => el("#dt-assign-task").focus(), 300);
+  });
 
   let loadedForSession = false;
 
