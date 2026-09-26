@@ -585,7 +585,7 @@ exports.handler = async function handler(event) {
         const [profiles, attendance, roster, leave] = await Promise.all([
           restRequest("staff_profiles", {
             query: {
-              select: "id,full_name,employee_code,departments(name)",
+              select: "id,full_name,employee_code,always_on_duty,departments(name)",
               // Staff who have left are kept in the table with their code rewritten to
               // "<code>-removed-<timestamp>" rather than being deleted, so their history
               // survives. 13 of the 42 profiles are ex-staff -- offering them as assignees
@@ -683,6 +683,16 @@ exports.handler = async function handler(event) {
           const scan = scans.get(profile.id);
           const away = leaveByStaff.get(profile.id);
           const planned = rosterByStaff.get(profile.id);
+
+          // Owners and senior managers do not scan a fingerprint and are never rostered,
+          // so every check below would miss them. They are always on duty, and always
+          // assignable, whatever the date.
+          if (profile.always_on_duty) {
+            entry.inAt = scan ? localClock(scan.in) : null;
+            entry.detail = entry.inAt ? `Always on duty \u00b7 in ${entry.inAt}` : "Always on duty";
+            groups.onDutyBefore.unshift(entry);
+            continue;
+          }
 
           if (scan) {
             entry.inAt = localClock(scan.in);
