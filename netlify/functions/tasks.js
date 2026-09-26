@@ -584,7 +584,15 @@ exports.handler = async function handler(event) {
 
         const [profiles, attendance, roster, leave] = await Promise.all([
           restRequest("staff_profiles", {
-            query: { select: "id,full_name,employee_code,departments(name)", order: "employee_code.asc" }
+            query: {
+              select: "id,full_name,employee_code,departments(name)",
+              // Staff who have left are kept in the table with their code rewritten to
+              // "<code>-removed-<timestamp>" rather than being deleted, so their history
+              // survives. 13 of the 42 profiles are ex-staff -- offering them as assignees
+              // both clutters the list and puts two people with the same name in it.
+              employee_code: "not.like.*-removed-*",
+              order: "employee_code.asc"
+            }
           }),
           restRequest("attendance_records", {
             query: {
