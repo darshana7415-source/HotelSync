@@ -1004,11 +1004,21 @@
   // Runs for the life of the page: sign-in can happen at any moment and the panel has to
   // fill in when it does. An earlier version gave up after two minutes and left the panel
   // permanently blank for anyone who took their time logging in.
-  setInterval(() => maybeLoad(false), 2000);
+  // Cheap: maybeLoad only fetches once per session unless forced. Still skipped while
+  // hidden so a backgrounded tab does no work at all.
+  setInterval(() => { if (document.visibilityState !== "hidden") maybeLoad(false); }, 5000);
 
+  // Only refreshes while someone is actually looking at the page. The Supabase project
+  // was restricted for exceeding its egress quota, and background polling across open
+  // tabs was the cause -- this must not add to it.
   setInterval(() => {
+    if (document.visibilityState === "hidden") return;
     if (signedIn() && dateInput.value === colomboToday() && !busy) load();
-  }, 120000);
+  }, 300000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden" && signedIn() && onDailyTasksPage()) load();
+  });
 
   maybeLoad(false);
 

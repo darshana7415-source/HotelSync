@@ -8211,14 +8211,42 @@ function stopLocationMonitoring() {
   }
 }
 
+// --- Egress control -------------------------------------------------------------------
+// The Supabase project was restricted for exceeding its egress quota, and the cause was
+// not the amount of data (the whole database is about 5 MB) but how often it was re-sent.
+// The dashboard refresh pulls every leave request with its joins -- 263 kB -- and it ran
+// every 20-25 seconds in every open tab, awake or not. That is 37 MB per hour per device,
+// roughly 370 MB per device per working day. A handful of phones left open in pockets
+// goes through the 5 GB monthly allowance in under a week.
+//
+// Two changes fix it without changing what anyone sees:
+//   1. nothing polls while the tab is in the background
+//   2. the intervals are slower, because none of this data changes second to second
+// A refresh fires immediately when the tab comes back, so returning to the app still
+// shows current information.
+function pageIsVisible() {
+  return document.visibilityState !== "hidden";
+}
+
+function syncCloudDashboardIfVisible() {
+  if (!pageIsVisible()) return;
+  syncCloudDashboard();
+}
+
 function startCloudAutoRefresh() {
   stopCloudAutoRefresh();
   if (!isCloudReady() || !currentRole) return;
 
   syncCloudDashboard();
   window.setTimeout(syncCloudDashboard, 1200);
-  cloudSyncTimer = window.setInterval(syncCloudDashboard, currentRole === "staff" ? 20000 : 25000);
+  cloudSyncTimer = window.setInterval(syncCloudDashboardIfVisible, currentRole === "staff" ? 60000 : 60000);
 }
+
+// Coming back to the app should feel live, so catch up at once rather than waiting out
+// the interval that was skipped while hidden.
+document.addEventListener("visibilitychange", () => {
+  if (pageIsVisible() && isCloudReady() && currentRole) syncCloudDashboard();
+});
 
 function startLeaveLiveRefresh() {
   if (!leaveLiveStarted) {
@@ -8229,7 +8257,11 @@ function startLeaveLiveRefresh() {
   if (!leaveLiveForceTimer) {
     // Realtime subscription (setupLeaveRealtime) pushes changes instantly;
     // this timer is just a backstop in case a realtime connection drops.
-    leaveLiveForceTimer = window.setInterval(() => refreshLiveLeaveOnly(true), 30000);
+    // Realtime pushes changes instantly; this is only a backstop for a dropped socket,
+    // so it does not need to run every 30 seconds -- and never while hidden.
+    leaveLiveForceTimer = window.setInterval(() => {
+      if (pageIsVisible()) refreshLiveLeaveOnly(true);
+    }, 180000);
   }
 }
 
@@ -8374,8 +8406,16 @@ async function syncCloudDashboard() {
     }
 
     try {
-      await loadCloudLeaveData();
-      shouldRender = true;
+      // The heaviest call in the app by far: every leave request with its joins, 263 kB.
+      // setupLeaveRealtime() already pushes leave changes the moment they happen, so
+      // re-pulling the whole table every cycle bought nothing and was the main reason the
+      // project blew its egress quota. Keep it as a periodic backstop only.
+      const sinceLastLeavePull = Date.now() - (window.__staffSyncLastLeavePull || 0);
+      if (sinceLastLeavePull > 300000) {
+        window.__staffSyncLastLeavePull = Date.now();
+        await loadCloudLeaveData();
+        shouldRender = true;
+      }
     } catch {
       // Keep existing leave data if one refresh misses.
     }
@@ -10558,7 +10598,10 @@ function renderShiftCalendar() {
     }
   });
 
-  setInterval(refreshShiftPage, 15000);
+  // Was every 15 seconds in every open tab. Rosters change a few times a day.
+  setInterval(() => {
+    if (document.visibilityState !== "hidden") refreshShiftPage();
+  }, 120000);
 })();
 // end-staffsync-shift-page-v244
 
