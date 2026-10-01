@@ -8454,8 +8454,11 @@ async function syncCloudDashboard() {
     try {
       // 12 kB per cycle for a log that changes a few times an hour. Once every two
       // minutes is still far more current than anyone reads it.
+      // Only while the dashboard (where the activity panel lives) is actually on screen.
+      const onDashboard = !String(window.location.hash || "").replace("#", "") ||
+        String(window.location.hash || "").includes("dashboard");
       const sinceLastActivityPull = Date.now() - (window.__staffSyncLastActivityPull || 0);
-      if (sinceLastActivityPull > 120000) {
+      if (onDashboard && sinceLastActivityPull > 300000) {
         window.__staffSyncLastActivityPull = Date.now();
         await loadCloudActivityData();
         shouldRender = true;

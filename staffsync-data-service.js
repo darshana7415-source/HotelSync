@@ -704,7 +704,10 @@ const staffSyncDb = {
     if (error) throw error;
   },
 
-  async getActivityLogs({ hotelId, targetUserId, limit = 50 }) {
+  // 50 rows with full message text and metadata is 12 kB, re-fetched on a timer -- after
+  // the leave fix this became the largest remaining source of egress. The panel shows a
+  // short recent list, so 20 rows is all anyone actually reads.
+  async getActivityLogs({ hotelId, targetUserId, limit = 20 }) {
     let query = window.staffSyncSupabase
       .from("activity_logs")
       .select("id, event_type, message, target_user_id, metadata_json, created_at")
