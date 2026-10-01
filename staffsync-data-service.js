@@ -248,6 +248,27 @@ const staffSyncDb = {
     return (data || []).filter((leaveType) => leaveType.name.toLowerCase() !== "annual leave");
   },
 
+  // The dashboard shows two numbers from leave: how many are pending, and how many people
+  // are off today. getLeaveRequests() returns every request with its joins -- 263 kB -- and
+  // polling that for two integers is what exhausted the project's egress quota. This asks
+  // for the five columns those numbers actually need, over just the relevant rows: about
+  // 300 bytes, roughly 900x smaller. The full list still loads when the Leave page opens.
+  async getLeaveSummary({ today }) {
+    const { data, error } = await window.staffSyncSupabase
+      .from("leave_requests")
+      .select("id, start_date, end_date, status, staff_profile_id")
+      .or(`status.eq.pending,and(start_date.lte.${today},end_date.gte.${today})`);
+
+    if (error) throw error;
+    const rows = data || [];
+    return {
+      pending: rows.filter((row) => row.status === "pending").length,
+      onLeaveToday: rows.filter((row) =>
+        ["approved", "pending"].includes(row.status) &&
+        row.start_date <= today && row.end_date >= today).length
+    };
+  },
+
   async getLeaveRequests() {
     const { data, error } = await window.staffSyncSupabase
       .from("leave_requests")

@@ -494,12 +494,24 @@ function renderMetrics() {
   const today = todayLocalKey();
   document.querySelector("#on-duty-count").textContent = staff.filter((person) => isOnShift(person)).length;
   document.querySelector("#late-count").textContent = staff.filter((person) => person.status === "On break").length;
-  document.querySelector("#pending-leave-count").textContent = leaveRequests.filter((request) => request.status === "Pending").length;
-  document.querySelector("#outside-count").textContent = leaveRequests.filter((request) =>
-    ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
-    today >= request.from &&
-    today <= request.to
-  ).length;
+  // These two numbers used to be derived from the full leave list, which meant the
+  // dashboard had to hold every leave request in memory just to count two things. When
+  // only the cheap summary has been fetched, use it; the full list still wins when it is
+  // loaded, because it is the more current of the two.
+  const summary = window.__staffSyncLeaveSummary;
+  const haveFullList = leaveRequests && leaveRequests.length;
+
+  document.querySelector("#pending-leave-count").textContent = haveFullList
+    ? leaveRequests.filter((request) => request.status === "Pending").length
+    : (summary ? summary.pending : 0);
+
+  document.querySelector("#outside-count").textContent = haveFullList
+    ? leaveRequests.filter((request) =>
+        ["Approved", "Pending", "Change the Request", "Adjustment requested"].includes(request.status) &&
+        today >= request.from &&
+        today <= request.to
+      ).length
+    : (summary ? summary.onLeaveToday : 0);
 }
 
 function renderStaffTable() {
@@ -8248,6 +8260,17 @@ document.addEventListener("visibilitychange", () => {
   if (pageIsVisible() && isCloudReady() && currentRole) syncCloudDashboard();
 });
 
+// Opening the Leave page is the one moment the full leave list is genuinely needed, so
+// fetch it there and then rather than making the person wait for the next sync tick.
+window.addEventListener("hashchange", () => {
+  if (!String(window.location.hash || "").includes("leave")) return;
+  if (!isCloudReady() || !currentRole) return;
+  window.__staffSyncLastLeavePull = Date.now();
+  loadCloudLeaveData().then(() => renderAll()).catch(() => {
+    // The periodic sync will retry; a failed page-open fetch should not throw here.
+  });
+});
+
 function startLeaveLiveRefresh() {
   if (!leaveLiveStarted) {
     leaveLiveStarted = true;
@@ -8406,14 +8429,22 @@ async function syncCloudDashboard() {
     }
 
     try {
-      // The heaviest call in the app by far: every leave request with its joins, 263 kB.
-      // setupLeaveRealtime() already pushes leave changes the moment they happen, so
-      // re-pulling the whole table every cycle bought nothing and was the main reason the
-      // project blew its egress quota. Keep it as a periodic backstop only.
-      const sinceLastLeavePull = Date.now() - (window.__staffSyncLastLeavePull || 0);
-      if (sinceLastLeavePull > 300000) {
-        window.__staffSyncLastLeavePull = Date.now();
-        await loadCloudLeaveData();
+      // The heaviest call in the app by far: every leave request with its joins, 263 kB,
+      // for two numbers on the dashboard. The full list is now fetched only when someone
+      // is actually on the Leave page; everywhere else takes the ~300 byte summary.
+      // setupLeaveRealtime() still pushes real changes instantly either way.
+      const onLeavePage = String(window.location.hash || "").includes("leave");
+
+      if (onLeavePage) {
+        const sinceLastLeavePull = Date.now() - (window.__staffSyncLastLeavePull || 0);
+        if (sinceLastLeavePull > 300000) {
+          window.__staffSyncLastLeavePull = Date.now();
+          await loadCloudLeaveData();
+          shouldRender = true;
+        }
+      } else {
+        window.__staffSyncLeaveSummary =
+          await window.staffSyncDb.getLeaveSummary({ today: todayLocalKey() });
         shouldRender = true;
       }
     } catch {
@@ -8421,8 +8452,14 @@ async function syncCloudDashboard() {
     }
 
     try {
-      await loadCloudActivityData();
-      shouldRender = true;
+      // 12 kB per cycle for a log that changes a few times an hour. Once every two
+      // minutes is still far more current than anyone reads it.
+      const sinceLastActivityPull = Date.now() - (window.__staffSyncLastActivityPull || 0);
+      if (sinceLastActivityPull > 120000) {
+        window.__staffSyncLastActivityPull = Date.now();
+        await loadCloudActivityData();
+        shouldRender = true;
+      }
     } catch {
       // Chat/activity should not block leave status.
     }
