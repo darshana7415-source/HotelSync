@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=341">
+  <link rel="stylesheet" href="style.css?v=342">
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="env.js"></script>
   <style>
@@ -514,9 +514,36 @@
 
     const matched = parsedRoster.filter((entry) => entry.person).length;
     const missed = parsedRoster.length - matched;
+
+    // Two pasted lines can land on the same person -- the same name typed twice, or two
+    // spellings that both fuzzy-match one profile. That used to reach the database as two
+    // rows with the same (staff_profile_id, roster_date) in one statement, which Postgres
+    // rejects with "ON CONFLICT DO UPDATE command cannot affect row a second time" -- a
+    // message that tells you nothing about which name caused it.
+    const seenPerson = new Map();
+    const clashes = [];
+    parsedRoster.forEach(function (entry) {
+      if (!entry.person) return;
+      const id = entry.person.staff_id;
+      if (seenPerson.has(id)) {
+        clashes.push({ name: entry.person.full_name, lines: [seenPerson.get(id), entry.rawName] });
+      } else {
+        seenPerson.set(id, entry.rawName);
+      }
+    });
+
     rosterApply.hidden = !matched;
-    showRoster(matched + " staff matched" + (missed ? ", " + missed + " not recognised and will be skipped" : "") +
-      ". Check the names, then press Apply roster.", Boolean(missed));
+
+    const parts = [matched + " staff matched"];
+    if (missed) parts.push(missed + " not recognised and will be skipped");
+    if (clashes.length) {
+      parts.push(clashes.map(function (clash) {
+        return '"' + clash.lines.join('" and "') + '" are both ' + clash.name +
+          " - only the last line will be used";
+      }).join("; "));
+    }
+    showRoster(parts.join(". ") + ". Check the names, then press Apply roster.",
+      Boolean(missed || clashes.length));
   });
 
   rosterApply.addEventListener("click", async function () {
@@ -535,10 +562,14 @@
     // half-saved (it stopped at Thanuj, so the last few people got nothing). daily_rosters
     // has a UNIQUE (staff_profile_id, roster_date) constraint, so one upsert per chunk does
     // the same job in a handful of calls and can't half-apply a chunk.
-    const rows = [];
+    // Keyed by person+date so a duplicated name cannot produce two rows for the same day
+    // in one upsert. Postgres refuses that outright ("cannot affect row a second time")
+    // and the whole week fails, which is a harsh penalty for typing a name twice. Last
+    // line wins, matching how a person would read a roster top to bottom.
+    const rowsByKey = new Map();
     usable.forEach(function (entry) {
       dates.forEach(function (date) {
-        rows.push({
+        rowsByKey.set(entry.person.staff_id + "|" + date, {
           hotel_id: hotelId,
           staff_profile_id: entry.person.staff_id,
           roster_date: date,
@@ -549,6 +580,7 @@
         });
       });
     });
+    const rows = Array.from(rowsByKey.values());
 
     try {
       const CHUNK = 200;
@@ -565,8 +597,14 @@
       showRoster("Roster applied: " + saved + " shift" + (saved === 1 ? "" : "s") +
         " saved for " + usable.length + " staff across " + dates.length + " day" + (dates.length === 1 ? "" : "s") + ".");
     } catch (error) {
-      showRoster((error.message || "Roster could not be applied.") +
-        " Nothing was half-saved - fix the problem and press Apply roster again.", true);
+      // The raw Postgres wording for a duplicate key in one statement is unreadable, and
+      // it names neither the person nor the day. Say what actually went wrong.
+      var reason = error.message || "Roster could not be applied.";
+      if (/affect row a second time/i.test(reason)) {
+        reason = "The same person is listed twice for the same day in the pasted roster. " +
+          "Press Check names and times -- it will show which lines clash.";
+      }
+      showRoster(reason + " Nothing was half-saved - fix the problem and press Apply roster again.", true);
     } finally {
       rosterApply.disabled = false;
       rosterApply.textContent = "Apply roster";
