@@ -4909,3 +4909,45 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
   border-radius: 999px;
   padding: 2px 10px;
 }
+
+/* ---- Temporary password notice -------------------------------------------------------
+   A generated temp password is readable exactly once, in the response that creates it.
+   It used to appear in a toast that vanished after a few seconds, so admins handed out
+   passwords that had never been saved. This stays until it is acknowledged. */
+
+.temp-password-notice {
+  position: fixed;
+  right: var(--s5);
+  bottom: var(--s5);
+  z-index: 80;
+  width: min(360px, calc(100vw - 2 * var(--s4)));
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--brand);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-modal);
+}
+
+.temp-password-notice strong { font-size: 0.9375rem; color: var(--ink); }
+.temp-password-notice p { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+
+.temp-password-notice code {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: var(--s3);
+  background: var(--brand-tint);
+  border-radius: var(--r-md);
+  color: var(--brand);
+  user-select: all;
+}
+
+.temp-password-warn { color: var(--red) !important; font-weight: 600; }
+
+@media (max-width: 620px) {
+  .temp-password-notice { right: var(--s4); left: var(--s4); bottom: var(--s4); width: auto; }
+}

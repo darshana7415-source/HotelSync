@@ -3671,18 +3671,34 @@ function bindEvents() {
         delete staffPasswords[oldPasswordKey];
       }
       const newPassword = currentRole === "manager" ? "" : document.querySelector("#edit-staff-password").value;
-      if (currentRole !== "manager" && document.querySelector("#clear-staff-password").checked) {
+      const wantsReset = currentRole !== "manager" && document.querySelector("#clear-staff-password").checked;
+
+      // Typing a password and ticking "reset on next login" are contradictory, and the
+      // checkbox used to win silently: the typed password was thrown away and a random
+      // temporary one generated in its place, shown only in a toast that vanished. The
+      // admin then told the person a password that had never been saved.
+      //
+      // An explicitly typed password is the clearer statement of intent, so it wins now,
+      // and the contradiction is called out rather than resolved behind the scenes.
+      if (currentRole !== "manager" && newPassword) {
+        saveStaffPassword(person, newPassword);
+        if (person.cloudId && isCloudReady()) {
+          await window.staffSyncDb.adminSetStaffPassword({ employeeCode: person.employeeCode, newPassword });
+        }
+        if (wantsReset) {
+          document.querySelector("#clear-staff-password").checked = false;
+          showToast(`Password set for ${person.name}. The "reset on next login" box was ignored because you typed a password.`);
+        }
+      } else if (wantsReset) {
         clearStaffPassword(person);
         if (person.cloudId && isCloudReady()) {
           const reset = await window.staffSyncDb.adminResetStaffPassword({ employeeCode: person.employeeCode });
           if (reset?.tempPassword) {
-            showToast(`New temporary password for ${person.name}: ${reset.tempPassword}`);
+            // A toast disappears after a few seconds and this is the only time this
+            // password is ever visible -- once it is gone nobody can recover it. Keep it
+            // on screen until the admin dismisses it.
+            showTempPasswordNotice(person.name, person.employeeCode, reset.tempPassword);
           }
-        }
-      } else if (currentRole !== "manager" && newPassword) {
-        saveStaffPassword(person, newPassword);
-        if (person.cloudId && isCloudReady()) {
-          await window.staffSyncDb.adminSetStaffPassword({ employeeCode: person.employeeCode, newPassword });
         }
       }
 
@@ -6800,6 +6816,43 @@ function resetLocalDataForRealTesting(version) {
   } catch {
     // If storage is unavailable, the cloud data still loads after sign-in.
   }
+}
+
+// The generated temporary password exists in readable form exactly once, in this
+// response. If the admin misses it, the only way back is another reset. So it gets a
+// notice that stays until dismissed, not a toast.
+function showTempPasswordNotice(name, employeeCode, tempPassword) {
+  document.querySelector("#temp-password-notice")?.remove();
+
+  const box = document.createElement("div");
+  box.id = "temp-password-notice";
+  box.className = "temp-password-notice";
+
+  const title = document.createElement("strong");
+  title.textContent = `Temporary password for ${name}`;
+  box.appendChild(title);
+
+  const detail = document.createElement("p");
+  detail.textContent = `Employee code ${employeeCode} signs in with this once, then chooses their own password.`;
+  box.appendChild(detail);
+
+  const code = document.createElement("code");
+  code.textContent = tempPassword;
+  box.appendChild(code);
+
+  const warn = document.createElement("p");
+  warn.className = "temp-password-warn";
+  warn.textContent = "Write it down now - it cannot be shown again.";
+  box.appendChild(warn);
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "small-button";
+  close.textContent = "I have written it down";
+  close.addEventListener("click", () => box.remove());
+  box.appendChild(close);
+
+  document.body.appendChild(box);
 }
 
 function resetStaffPasswordsForFirstLogin(version) {
