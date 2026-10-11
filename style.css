@@ -4951,3 +4951,64 @@ body[data-page="daily-tasks"] #open-leave { display: none; }
 @media (max-width: 620px) {
   .temp-password-notice { right: var(--s4); left: var(--s4); bottom: var(--s4); width: auto; }
 }
+
+/* ---- Stars by staff member (admin only) ---------------------------------------------
+   Collapsed per person: the counts answer "who needs a word", and opening a name shows
+   every reason behind those counts. Reasons are the point -- a red star nobody can
+   explain months later is not usable. */
+
+.star-tally-list { display: grid; gap: var(--s2); margin-top: var(--s2); }
+
+.star-tally {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.star-tally > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 10px 13px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+}
+.star-tally > summary::-webkit-details-marker { display: none; }
+.star-tally > summary:hover { background: var(--surface-sunken); }
+
+.star-tally-name { flex: 1 1 auto; font-weight: 650; color: var(--ink); }
+.star-tally-counts { display: flex; gap: var(--s2); flex: none; }
+
+.star-count {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.star-count.gold { background: var(--amber-tint); color: var(--amber); }
+.star-count.red  { background: var(--red-tint);   color: var(--red); }
+
+.star-tally-reasons { padding: 0 13px 12px; display: grid; gap: var(--s2); }
+
+.star-reason-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--line-strong);
+}
+.star-reason-row.gold { border-left-color: var(--amber); }
+.star-reason-row.red  { border-left-color: var(--red); }
+
+.star-reason-mark { flex: none; font-size: 0.9rem; line-height: 1.4; }
+.star-reason-row.gold .star-reason-mark { color: var(--amber); }
+.star-reason-row.red .star-reason-mark  { color: var(--red); }
+
+.star-reason-row span:last-child { display: grid; gap: 2px; min-width: 0; }
+.star-reason-row strong { font-size: 0.875rem; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.star-reason-row small { font-size: 0.75rem; color: var(--muted); }

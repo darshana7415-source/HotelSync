@@ -1837,10 +1837,9 @@ function renderRoleDemo() {
         <span class="staff-chip ${myPendingLeaveCount ? "chip-attention" : ""}"><b>${myPendingLeaveCount}</b><small>waiting answer</small></span>
       </div>
 
-      <div class="staff-chip-row star-chip-row">
-        <span class="staff-chip star-chip gold"><b>${myStars.gold}</b><small>gold star${myStars.gold === 1 ? "" : "s"}</small></span>
-        <span class="staff-chip star-chip red"><b>${myStars.red}</b><small>red star${myStars.red === 1 ? "" : "s"}</small></span>
-      </div>
+      <!-- Stars are management information and are no longer shown to staff. The RLS
+           policy on staff_stars also refuses to return them to a staff session, so this
+           is not the only thing keeping them private. -->
       ${lowBalance ? `<div class="policy-summary warning-summary"><strong>Low leave balance:</strong> Please check with admin before planning more leave.</div>` : ""}
 
       <div class="staff-quick-actions">
@@ -1923,22 +1922,6 @@ function renderRoleDemo() {
           `).join("") : `<div class="mini-empty">No chat messages yet.</div>`}
         `}
       </div>
-      ${myStars.list.length ? `
-        <div class="staff-message-box">
-          <details class="staff-section" data-staff-section="my-stars" ${isStaffSectionOpen("my-stars", false) ? "open" : ""}>
-            <summary class="staff-section-summary">My stars</summary>
-            ${myStars.list.map((star) => `
-              <div class="mini-item star-item">
-                <span>
-                  <strong>${star.star_type === "gold" ? "Gold star" : "Red star"}</strong>
-                  <small>${starDateLabel(star.awarded_at)}${star.reason ? ` - ${escapeText(star.reason)}` : ""}</small>
-                </span>
-                <span class="pill ${star.star_type === "gold" ? "amber" : "red"}">${star.star_type === "gold" ? "★" : "●"}</span>
-              </div>
-            `).join("")}
-          </details>
-        </div>
-      ` : ""}
       <div class="staff-message-box">
         <details class="staff-section" data-staff-section="dept-shifts" ${isStaffSectionOpen("dept-shifts", false) ? "open" : ""}>
           <summary class="staff-section-summary">${activeStaff.department} department shifts today</summary>
@@ -2079,8 +2062,8 @@ function renderAdminDashboardCard() {
               </select>
             </label>
             <label>
-              Reason (optional)
-              <input name="reason" type="text" placeholder="What was done well, or what went wrong" maxlength="200" value="${escapeAttribute(starFormDraft.reason || "")}">
+              Reason (required)
+              <input name="reason" type="text" required minlength="3" placeholder="What was done well, or what went wrong" maxlength="200" value="${escapeAttribute(starFormDraft.reason || "")}">
             </label>
           </div>
           <div class="star-award-actions">
@@ -2089,6 +2072,33 @@ function renderAdminDashboardCard() {
           </div>
         </form>
         ${staffStars.length ? `
+          <details class="staff-section" data-staff-section="stars-by-person" ${isStaffSectionOpen("stars-by-person", false) ? "open" : ""}>
+            <summary class="staff-section-summary">Stars by staff member <span class="pill">${starTallyByPerson().length}</span></summary>
+            <div class="star-tally-list">
+              ${starTallyByPerson().map((row) => `
+                <details class="star-tally">
+                  <summary>
+                    <span class="star-tally-name">${escapeText(row.name)}</span>
+                    <span class="star-tally-counts">
+                      <span class="star-count gold" title="Gold stars">★ ${row.gold}</span>
+                      <span class="star-count red" title="Red stars">● ${row.red}</span>
+                    </span>
+                  </summary>
+                  <div class="star-tally-reasons">
+                    ${row.list.map((star) => `
+                      <div class="star-reason-row ${star.star_type}">
+                        <span class="star-reason-mark">${star.star_type === "gold" ? "★" : "●"}</span>
+                        <span>
+                          <strong>${escapeText(star.reason || "(no reason recorded)")}</strong>
+                          <small>${starDateLabel(star.awarded_at)}${star.awarded_by_name ? ` - by ${escapeText(star.awarded_by_name)}` : ""}</small>
+                        </span>
+                      </div>
+                    `).join("")}
+                  </div>
+                </details>
+              `).join("")}
+            </div>
+          </details>
           <details class="staff-section" data-staff-section="recent-stars" ${isStaffSectionOpen("recent-stars", false) ? "open" : ""}>
             <summary class="staff-section-summary">Recent stars <span class="pill">${staffStars.length}</span></summary>
             <div class="star-recent-list">
@@ -4704,6 +4714,15 @@ async function handleStarAwardSubmit(event) {
 
   if (!staffProfileId) {
     showToast("Choose a staff member first.");
+    return;
+  }
+
+  // Enforced here as well as by the required attribute and the database check: a star
+  // with no reason is worthless three months later, when nobody remembers why it was
+  // given and it cannot be justified if the person disputes it.
+  if (reason.length < 3) {
+    showToast("Give a reason for this star - it is kept on the record.");
+    form.reason?.focus();
     return;
   }
 
@@ -8154,6 +8173,41 @@ async function loadStaffStars() {
   const hotelId = (window.STAFFSYNC_ENV || {}).HOTEL_ID;
   if (!isCloudReady() || !hotelId) return;
   staffStars = await window.staffSyncDb.getStaffStars({ hotelId });
+}
+
+// Gold and red totals per person, newest star first inside each. Only people who have
+// at least one star appear -- a list of thirty names mostly reading "0 and 0" buries the
+// handful that actually need attention.
+function starTallyByPerson() {
+  const byStaff = new Map();
+
+  staffStars.forEach((star) => {
+    const key = String(star.staff_profile_id || "");
+    if (!key) return;
+    if (!byStaff.has(key)) {
+      const person = staff.find((item) => sameId(item.cloudId, star.staff_profile_id));
+      byStaff.set(key, {
+        id: key,
+        name: person
+          ? `${person.employeeCode ? person.employeeCode + " - " : ""}${person.name}`
+          : "Former staff member",
+        gold: 0,
+        red: 0,
+        list: []
+      });
+    }
+    const row = byStaff.get(key);
+    if (star.star_type === "red") row.red += 1; else row.gold += 1;
+    row.list.push(star);
+  });
+
+  byStaff.forEach((row) => {
+    row.list.sort((a, b) => new Date(b.awarded_at) - new Date(a.awarded_at));
+  });
+
+  // Most red stars first: that is the list a manager is looking for.
+  return Array.from(byStaff.values())
+    .sort((a, b) => b.red - a.red || b.gold - a.gold || a.name.localeCompare(b.name));
 }
 
 function starsForStaff(person) {
